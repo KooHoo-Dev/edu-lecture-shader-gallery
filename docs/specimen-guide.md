@@ -312,6 +312,7 @@ UGUI Image 에 쓰는 표본용이다. 미리보기와 촬영은 스프라이트
 | `prompt.goal` | 프롬프트 첫 문장. 넣고 나면 무엇이 되는지 |
 | `prompt.adaptIdeas` | 2~6개. 수강생이 실제로 원할 만한 변형. 첫 번째가 프롬프트 예시로 들어간다 |
 | `captures` | 기본값 외에 더 찍을 상태. 표본당 3장 이내 (용량). 값이 다른 모습을 보여 주는 것만 |
+| `thumbnail` | 갤러리 썸네일로 쓸 `captures` 의 이름 (선택). 기본은 기본값 촬영. 쉬는 시간이 있는 주기 효과처럼 Unity 시간에 따라 효과가 안 보이는 순간에 찍힐 수 있으면, 시간과 상관없이 효과가 보이는 촬영(이벤트 값을 고정한 상태 등)을 고른다 |
 | `inspiredBy` | 확인된 대표작만. `원제 (연도)` 형식, 빌린 축 최대 2개. 근거가 없으면 빈 배열 |
 | `original` | 무엇을 새로 만들었는지 |
 | `references` | 1~6개. 원리의 출처. `shader-selection.md` 의 URL 을 우선 쓴다 |
@@ -362,7 +363,7 @@ node tools/live.mjs <id> --query="auto=0&preset=<프리셋>" wait:800 stage:pres
 node tools/live.mjs <id> --query="auto=0" wait:800 click:<이벤트 글자> wait:100 stage:event
 ```
 
-`live.mjs` 는 이 표본만 넣어 빌드하고 `_shots/<id>/` 에 PNG 를 남긴다. 파일을 열어 눈으로 본다. 표본을 합친 뒤의 전체 검사는 다음과 같다. 표본 하나를 만드는 작업에서는 돌리지 않아도 된다.
+`live.mjs` 는 한 번에 `--query` 하나만 받는다. 쿼리에 `t=<초>` 를 더하면 무대 시간이 그 순간에 멈춘 채 열린다. 시간에 따라 모습이 바뀌는 효과는 단계와 효과 끄기를 `t=` 로 같은 순간에 찍어 비교한다 (예: `--query="auto=0&step=2&t=1.2"`). `live.mjs` 는 이 표본만 넣어 빌드하고 `_shots/<id>/` 에 PNG 를 남긴다. 파일을 열어 눈으로 본다. 표본을 합친 뒤의 전체 검사는 다음과 같다. 표본 하나를 만드는 작업에서는 돌리지 않아도 된다.
 
 ```bash
 npm --prefix web run build

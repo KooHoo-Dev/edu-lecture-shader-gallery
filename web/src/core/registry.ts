@@ -63,7 +63,7 @@ const PLANNED_ALL: PlannedSpecimen[] = [
   { id: 'triplanar-projection', title: '삼평면 투영', group: 'A', order: 3, kind: 'mesh', oneLiner: 'UV 없이 세 축에서 텍스처를 투영한다' },
   { id: 'screen-refraction-glass', title: '씬 컬러 굴절 유리', group: 'A', order: 4, kind: 'depth', oneLiner: '투명 표면 뒤 장면을 휘어 보여 준다' },
   { id: 'inverted-hull-outline', title: '껍데기 외곽선', group: 'B', order: 2, kind: 'mesh', oneLiner: '부풀린 뒷면을 한 번 더 그려 외곽선을 만든다' },
-  { id: 'xray-occluded-silhouette', title: '가려진 실루엣', group: 'B', order: 3, kind: 'depth', oneLiner: '벽 뒤에 가려진 부분만 단색으로 덧그린다' },
+  { id: 'xray-occluded-silhouette', title: '가려진 실루엣', group: 'B', order: 3, kind: 'mesh', oneLiner: '벽 뒤에 가려진 부분만 단색으로 덧그린다' },
   { id: 'water-depth-foam', title: '깊이 기반 물가 거품', group: 'C', order: 1, kind: 'depth', oneLiner: '물체와 만나는 곳에 거품 띠를 그린다' },
   { id: 'wind-sway-foliage', title: '바람 흔들림', group: 'C', order: 2, kind: 'mesh', oneLiner: '정점을 높이에 따라 흔들어 바람을 만든다' },
   { id: 'flow-map-liquid', title: '플로 맵 액체', group: 'C', order: 3, kind: 'mesh', oneLiner: '방향 텍스처로 UV 를 흘려 액체를 만든다' },

@@ -135,7 +135,7 @@
 #### 7. xray-occluded-silhouette — 가려진 실루엣 (★2, 1순위, 근거 강)
 - **설명**: 벽 뒤에 가려진 캐릭터만 단색 실루엣으로 덧그려 아군 표시, 투시, 숨은 대상 강조를 만든다.
 - **왜 자주 쓰나**: Unity 공식 예제가 Render Objects 기능에 Depth Test = Greater를 써서 가려진 부분만 그리는 방법과, 자기 겹침 오탐을 두 번째 기능으로 해결하는 방법을 설명한다. Unity 6 e-book도 스텐실 X-ray 레시피를 둔다. 실제 게임에서는 아군을 벽 너머로 보이게 하는 외곽선을 Overwatch가 2018년 패치로 추가했다. 출처: https://docs.unity3d.com/6000.2/Documentation/Manual/urp/renderer-features/how-to-custom-effect-render-objects.html (△) · https://unity.com/kr/resources/create-shaders-visual-effects-urp-unity-6 (○) · https://eu.forums.blizzard.com/en/overwatch/t/overwatch-ptr-patch-notes-august-30-2018/8320 (△)
-- **대표 게임 예**: Overwatch(패치 노트로 확인), Call of Duty: Modern Warfare(기사로 확인: https://mp1st.com/news/call-of-duty-modern-warfare-will-have-teammates-feature-outlines-so-you-can-see-them-through-walls △).
+- **대표 게임 예**: Overwatch(패치 노트로 확인. 출시 2016, Blizzard Entertainment, 2026-11-02 기사로 확인), Call of Duty: Modern Warfare(2019 리부트, 기사로 확인: https://mp1st.com/news/call-of-duty-modern-warfare-will-have-teammates-feature-outlines-so-you-can-see-them-through-walls △).
 - **무대**: 깊이 사용(벽 + 캐릭터).
 - **URP 핵심 기법**: `ZTest Greater`, `ZWrite Off`, Render Objects 렌더러 기능과 레이어 마스크, 스텐실 대안. 셰이더만으로는 안 되고 렌더러 기능 설정이 함께 필요하다.
 - **수업 연계**: XR 10 MR Portal의 `PortalMask`(스텐실), XR 11 MR Room의 `Occlusion`(깊이만 쓰기). 같은 도구(Stencil, ZTest)를 쓰는 짝이다. 3D 17 FPS Game.
@@ -146,7 +146,7 @@
 #### 8. water-depth-foam — 깊이 기반 물가 거품 (★3, 1순위, 근거 강)
 - **설명**: 물 표면이 지형이나 물체와 만나는 곳에 깊이 차이로 거품 띠를 그리고 얕은 곳을 투명하게 한다.
 - **왜 자주 쓰나**: Sea of Thieves의 SIGGRAPH 2018 발표가 물체가 수면과 교차하는 곳의 거품을 깊이 버퍼 비교로 만든다고 설명한다. Production Ready의 물 4종 중 연못 셰이더가 교차 거품과 칠할 수 있는 거품 마스크를 갖는다. 에셋스토어 툰 물 팩도 깊이 기반 색 그라데이션과 거품을 판다. 물 에셋 하나는 Unity 6 Render Graph와 비호환이라고 명시해 직접 구현의 가치를 보여 준다. 출처: https://history.siggraph.org/wp-content/uploads/2022/09/2018-Talks-Ang_The-Technical-Art-of-Sea-of-Thieves.pdf (△) · https://docs.unity3d.com/Packages/com.unity.shadergraph@17.4/manual/Shader-Graph-Sample-Production-Ready-Water.html (○) · https://assetstore-fallback.unity.com/packages/vfx/shaders/toon-water-urp-170520 (△)
-- **대표 게임 예**: Sea of Thieves(SIGGRAPH 발표로 확인).
+- **대표 게임 예**: Sea of Thieves(SIGGRAPH 발표로 확인). 출시 2018, 제작 Rare (2026-11-02 기사로 확인).
 - **무대**: 깊이 사용.
 - **URP 핵심 기법**: `SampleSceneDepth`와 `LinearEyeDepth` 차이, 스크린 UV, Gerstner 정점 변위 몇 개, 법선 스크롤, 프레넬, URP 에셋 Depth Texture.
 - **수업 연계**: XR 01 Lake Shader(Step1~7: 파동, 법선맵 두 장, 프레넬, 반사)와 10 MR Portal `Caustics`. 수업에 없는 것이 깊이 거품이므로 "Step 8" 확장으로 위치시킨다. 3D 05 Terrain Island.
@@ -300,7 +300,7 @@ UI 표본은 UGUI에서 쓰는 것을 기본으로 한다. 정점 색과 UV를 �
 #### 24. screen-vignette — 화면 비네트 (★1, 1순위, 근거 강(공식))
 - **설명**: 화면 가장자리를 어둡게 하거나 붉게 하는 오버레이다. 피격과 저체력 경고, VR 멀미 완화 터널링에 같은 수식을 쓴다.
 - **왜 자주 쓰나**: XR Interaction Toolkit이 TunnelingVignetteController(aperture 0~1, 페더, 서서히 켜기와 끄기)를 제공하고 Meta Interaction SDK도 비네트를 도 단위로 정의해 기기별 시야각 차이를 없앤다. 수업 XR 프로젝트에 `TunnelingVignette` 셰이더가 이미 있다. 게임 디자인 측면에서는 피격 번쩍임과 저체력 상태를 분리하고 끄기 옵션을 둔다는 실무 글이 있다(일화 수준). 출처: https://docs.unity3d.com/Packages/com.unity.xr.interaction.toolkit%403.0/manual/tunneling-vignette-controller.html (△) · https://developers.meta.com/horizon/documentation/unity/unity-isdk-locomotion-comfort/ (△) · https://community.focus-entmt.com/focus-entertainment/space-marine-2/ideas/8114-can-we-get-an-option-to-remove-the-vignette (△)
-- **대표 게임 예**: Space Marine 2(저체력 비네트에 대한 이용자 글로 확인).
+- **대표 게임 예**: Space Marine 2(저체력 비네트에 대한 이용자 글로 확인). 원제 Warhammer 40,000: Space Marine 2, 출시 2024, 개발 Saber Interactive (2026-11-02 기사로 확인).
 - **무대**: 전체 화면.
 - **URP 핵심 기법**: Full Screen Pass, 중심 거리 `smoothstep`, 화면비 보정, 맥동(초당 3회 이하), 강도를 C#이 체력으로 전달, 끄기 옵션.
 - **수업 연계**: XR의 XRI `TunnelingVignette` 샘플과 터널링 설정, 2D·3D 체력 HUD(UI 갤러리 체력 바 계열과 연결).

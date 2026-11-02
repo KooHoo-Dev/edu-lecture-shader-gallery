@@ -11,7 +11,7 @@ export type Route =
   | { name: 'specimen'; id: string; preset?: string; opts: SpecimenUrlOptions; query: string }
   | { name: 'about' }
 
-/** 수업 자료·자동 검사용 딥링크 옵션: #/s/<id>?preset=x&off=1&speed=0.25&event=hit&step=2&auto=0&p._Threshold=0.3 */
+/** 수업 자료·자동 검사용 딥링크 옵션: #/s/<id>?preset=x&off=1&speed=0.25&event=hit&step=2&auto=0&t=1.5&p._Threshold=0.3 */
 export interface SpecimenUrlOptions {
   /** off=1: 효과 끄기 상태로 시작 */
   off?: boolean
@@ -19,6 +19,8 @@ export interface SpecimenUrlOptions {
   event?: string
   /** 단계 보기 번호 */
   step?: number
+  /** t=<초>: 무대 시간을 이 값에 멈춘 채 시작 (주기 효과의 화면을 매번 같게 찍는다) */
+  time?: number
   auto?: boolean
   /** p.<속성>=<값>: 프리셋 위에 덮어쓰는 개별 조절 값 */
   params?: Record<string, string>
@@ -33,6 +35,7 @@ export function parseHash(hash: string): Route {
     const flag = (k: string) => (params.has(k) ? params.get(k) !== '0' : undefined)
     const speed = Number(params.get('speed'))
     const step = Number(params.get('step'))
+    const time = params.has('t') ? Number(params.get('t')) : NaN
     const overrides = Object.fromEntries([...params].filter(([k]) => k.startsWith('p.')).map(([k, v]) => [k.slice(2), v]))
     return {
       name: 'specimen',
@@ -44,6 +47,7 @@ export function parseHash(hash: string): Route {
         speed: [0.25, 0.5, 1].includes(speed) ? speed : undefined,
         event: params.get('event') ?? undefined,
         step: step > 0 ? step : undefined,
+        time: Number.isFinite(time) && time >= 0 ? time : undefined,
         auto: flag('auto'),
         params: Object.keys(overrides).length ? overrides : undefined,
       },

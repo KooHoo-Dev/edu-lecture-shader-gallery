@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { prefersReducedMotion } from '../core/flash'
-import { defaultParams } from '../core/params'
+import { defaultParams, thumbnailOf } from '../core/params'
 import { GROUPS, STAGE_KINDS } from '../core/taxonomy'
 import type { PlannedSpecimen, Specimen } from '../core/types'
 import { getShaderStage } from '../stage/ShaderStage'
@@ -19,7 +19,7 @@ export function SpecimenCard({ specimen }: { specimen: Specimen }) {
   const [live, setLive] = useState(false)
   const values = useMemo(() => defaultParams(m.params), [m.params])
   const canRun = !prefersReducedMotion() && getShaderStage() !== null
-  const thumb = specimen.shots.default
+  const thumb = thumbnailOf(specimen)
   const wake = () => {
     if (!canRun) return
     sleepPrevious?.()

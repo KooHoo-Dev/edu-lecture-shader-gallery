@@ -190,6 +190,11 @@ export interface SpecimenMeta {
   prompt: PromptGuide
   /** 기본값 외에 더 찍을 Unity 스크린샷 */
   captures?: Capture[]
+  /**
+   * 갤러리 썸네일로 쓸 촬영 이름 (captures 의 name). 기본은 'default'. 띠가 쉬는 시간이 있는 주기 효과처럼
+   * 기본값 촬영이 효과가 없는 순간에 찍힐 수 있을 때만, 시간과 상관없이 효과가 보이는 촬영을 고른다
+   */
+  thumbnail?: string
   inspiredBy: InspiredBy[]
   /** 원작과 다르게 새로 만든 것 */
   original: string

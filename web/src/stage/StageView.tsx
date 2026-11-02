@@ -1,5 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import type { ParamValues, Specimen } from '../core/types'
+import { thumbnailOf } from '../core/params'
 import { getShaderStage } from './ShaderStage'
 
 export interface StageViewHandle {
@@ -17,17 +18,19 @@ interface Props {
   playing: boolean
   speed: number
   auto: boolean
+  /** 무대 시간의 시작값 (초). 붙일 때만 쓴다 */
+  startTime?: number
   onLive?: (key: string, value: number | null) => void
   /** 상세 페이지에서 무대 위에 상태 배지를 표시 */
   children?: React.ReactNode
 }
 
 /** 공유 무대를 이 자리에 붙인다. WebGL2 가 없으면 Unity 실측 이미지로 대체한다 */
-export const StageView = forwardRef<StageViewHandle, Props>(function StageView({ specimen, values, step, off, playing, speed, auto, onLive, children }, ref) {
+export const StageView = forwardRef<StageViewHandle, Props>(function StageView({ specimen, values, step, off, playing, speed, auto, startTime, onLive, children }, ref) {
   const host = useRef<HTMLDivElement>(null)
   const [error, setError] = useState<string | null>(null)
   const stage = getShaderStage()
-  const settings = { values, step, off, playing, speed, auto }
+  const settings = { values, step, off, playing, speed, auto, startTime }
   const live = useRef(onLive)
   live.current = onLive
 
@@ -63,7 +66,7 @@ export const StageView = forwardRef<StageViewHandle, Props>(function StageView({
   return (
     <div className="stage" data-stage-kind={specimen.meta.stage.kind}>
       <div ref={host} className="stage-host" />
-      {!stage && specimen.shots.default && <img className="stage-fallback" src={specimen.shots.default} alt={`${specimen.meta.title} Unity 실측 화면`} />}
+      {!stage && thumbnailOf(specimen) && <img className="stage-fallback" src={thumbnailOf(specimen)} alt={`${specimen.meta.title} Unity 실측 화면`} />}
       {!stage && <p className="stage-note">이 PC에서 WebGL2 를 쓸 수 없어 Unity 실측 이미지를 표시합니다.</p>}
       {error && (
         <div className="stage-error" role="alert">

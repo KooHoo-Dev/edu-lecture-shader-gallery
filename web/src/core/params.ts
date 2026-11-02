@@ -1,4 +1,4 @@
-import type { ParamDef, ParamValues, Preset } from './types'
+import type { ParamDef, ParamValues, Preset, Specimen } from './types'
 
 export function defaultParams(defs: ParamDef[]): ParamValues {
   return Object.fromEntries(defs.map(d => [d.key, d.default]))
@@ -31,4 +31,9 @@ export function applyOverrides(defs: ParamDef[], base: ParamValues, raw: Record<
     else if (d.type === 'color' && /^#[0-9a-f]{6}$/i.test(v)) out[d.key] = v
   }
   return out
+}
+
+/** 갤러리 썸네일. meta.thumbnail 이 고른 촬영이 있으면 그것, 없으면 기본값 촬영 */
+export function thumbnailOf(specimen: Specimen): string | undefined {
+  return specimen.shots[specimen.meta.thumbnail ?? 'default'] ?? specimen.shots.default
 }

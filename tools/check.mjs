@@ -261,6 +261,7 @@ function checkMeta(id, meta, core, wrapper) {
     for (const key of Object.keys(capture.values)) if (!keys.has(key)) err(`${where}: 촬영 상태 ${capture.name} 의 ${key} 가 params 에 없다`)
   }
   if ((meta.captures?.length ?? 0) > 3) err(`${where}: captures 는 3개 이내 (HTML 용량)`)
+  if (meta.thumbnail && meta.thumbnail !== 'default' && !meta.captures?.some(c => c.name === meta.thumbnail)) err(`${where}: thumbnail ${meta.thumbnail} 이 captures 에 없다`)
 
   const count = (list, min, max, label) => {
     if (list.length < min || list.length > max) err(`${where}: ${label} 는 ${min}~${max}개 (${list.length}개)`)

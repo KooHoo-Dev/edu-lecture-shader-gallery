@@ -36,7 +36,8 @@ function SpecimenView({ specimen, presetId, opts, presenter }: { specimen: Speci
     applyOverrides(m.params, initialPreset ? applyPreset(m.params, initialPreset) : defaultParams(m.params), opts.params),
   )
   const [presetActive, setPresetActive] = useState<string | null>(initialPreset?.id ?? null)
-  const [playing, setPlaying] = useState(true)
+  // ?t= 로 시간을 정했으면 그 순간에 멈춘 채 시작한다
+  const [playing, setPlaying] = useState(opts.time === undefined)
   const [off, setOff] = useState(opts.off ?? false)
   const [speed, setSpeed] = useState(opts.speed ?? 1)
   const loopKeys = new Set(m.demo?.loops?.map(t => t.key))
@@ -149,6 +150,7 @@ function SpecimenView({ specimen, presetId, opts, presenter }: { specimen: Speci
             playing={playing}
             speed={speed}
             auto={autoplay}
+            startTime={opts.time}
             onLive={(key, value) => panel.current?.showLive(key, value)}
           >
             <div className="stage-badges" aria-live="polite">

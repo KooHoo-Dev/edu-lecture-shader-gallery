@@ -20,6 +20,8 @@ export interface StageSettings {
   playing: boolean
   speed: number
   auto: boolean
+  /** 무대 시간의 시작값 (초). mount 때만 쓴다 */
+  startTime?: number
 }
 
 export interface StageCallbacks {
@@ -177,7 +179,7 @@ class ShaderStage {
     this.callbacks = callbacks
     this.settings = settings
     this.errorLog = null
-    this.time = 0
+    this.time = settings.startTime ?? 0
     this.demoTime = 0
     this.active = []
     this.liveKeys.clear()
