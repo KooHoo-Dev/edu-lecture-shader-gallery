@@ -67,7 +67,7 @@ export const meta: SpecimenMeta = {
       '`UiSheenSweep.shader`, `core.hlsl`, `UiSheenTrigger.cs`, `UiSheenSweepCard.png` 를 `Assets/Shaders/ui-sheen-sweep/` 에 둔다.',
       'PNG 를 골라 Inspector 에서 Texture Type 을 Sprite (2D and UI), Sprite Mode 를 Single, sRGB (Color Texture) 켬, Alpha Is Transparency 켬, Wrap Mode 를 Clamp, Filter Mode 를 Bilinear 로 두고 Apply 한다. Sprite Atlas 에 넣지 않는다.',
       '셰이더를 우클릭해 Create > Material 로 머티리얼을 만든다.',
-      'Hierarchy 에서 Create > UI > Image 로 Image 를 만들고(버튼이면 Button 의 Image), Source Image 에 카드 스프라이트를, Material 칸에 머티리얼을 넣는다. Image Type 은 Simple 로 둔다.',
+      'Hierarchy 에서 Create > UI (Canvas) > Image 로 Image 를 만들고(버튼이면 Button 의 Image), Source Image 에 카드 스프라이트를, Material 칸에 머티리얼을 넣는다. Image Type 은 Simple 로 둔다.',
       '같은 오브젝트에 `UiSheenTrigger` 를 붙인다. Raycast Target 이 켜져 있고 씬에 EventSystem 이 있어야 마우스를 올리거나 누를 때 띠가 한 번 지나간다. 아이템을 얻은 순간에는 코드에서 `Play()` 를 부른다.',
       '평소에는 조용하고 이벤트 때만 반짝여야 하는 버튼은 머티리얼의 자동 훑기를 끈다.',
     ],

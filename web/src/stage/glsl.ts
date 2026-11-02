@@ -28,8 +28,14 @@ const INPUT: Record<StageKind, string> = {
   sprite: `struct SgInput { float2 uv; float4 color; float2 texelSize; float time; };`,
   depth: `uniform sampler2D _SgSceneDepth;
 uniform sampler2D _SgSceneColor;
+uniform vec2 uNearFar;
 float4 sgSceneColor(float2 uv) { return texture(_SgSceneColor, uv); }
-struct SgInput { float2 uv; float4 color; float3 positionOS; float3 positionWS; float3 normalOS; float3 normalWS; float3 viewWS; float2 screenUV; float depthDelta; float time; };`,
+float sgLinearEye(float raw) {
+  float z = raw * 2.0 - 1.0;
+  return 2.0 * uNearFar.x * uNearFar.y / (uNearFar.y + uNearFar.x - z * (uNearFar.y - uNearFar.x));
+}
+float sgSceneDepth(float2 uv) { return sgLinearEye(texture(_SgSceneDepth, uv).r); }
+struct SgInput { float2 uv; float4 color; float3 positionOS; float3 positionWS; float3 normalOS; float3 normalWS; float3 viewWS; float3 cameraRightWS; float3 cameraUpWS; float2 screenUV; float depthDelta; float time; };`,
   fullscreen: `uniform sampler2D _SgSource;
 uniform sampler2D _SgSceneDepth;
 uniform sampler2D _SgSceneNormal;
@@ -92,14 +98,10 @@ in vec3 vNormalOS;
 in vec3 vNormalWS;
 in float vEyeDepth;
 uniform vec3 cameraPosition;
+uniform mat4 viewMatrix;
 uniform vec2 uViewport;
-uniform vec2 uNearFar;
 uniform float uTime;
 out vec4 sgOut;
-float sgLinearEye(float raw) {
-  float z = raw * 2.0 - 1.0;
-  return 2.0 * uNearFar.x * uNearFar.y / (uNearFar.y + uNearFar.x - z * (uNearFar.y - uNearFar.x));
-}
 void main() {
   SgInput i;
   i.uv = vUv;
@@ -109,8 +111,11 @@ void main() {
   i.normalWS = normalize(SG_FLIP(vNormalWS));
   i.viewWS = normalize(SG_FLIP(cameraPosition - vPositionWS));
   i.screenUV = gl_FragCoord.xy / uViewport;
-  i.depthDelta = sgLinearEye(texture(_SgSceneDepth, i.screenUV).r) - vEyeDepth;
+  i.depthDelta = sgSceneDepth(i.screenUV) - vEyeDepth;
   i.color = vec4(1.0);
+  // 카메라의 오른쪽, 위 축 (월드). 보기 행렬의 첫 두 행이다 (Unity 래퍼는 UNITY_MATRIX_V[0], [1])
+  i.cameraRightWS = SG_FLIP(vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]));
+  i.cameraUpWS = SG_FLIP(vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]));
   i.time = uTime;
   vec4 c = sgEffect(i);
   ${writeColor(cutout)}

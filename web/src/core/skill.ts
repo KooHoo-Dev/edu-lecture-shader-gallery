@@ -28,7 +28,13 @@ function guide(meta: SpecimenMeta, files: SpecimenFile[], textures: string[]): s
     meta.oneLiner,
     `무대 종류: ${meta.stage.ui ? 'UI (UGUI Image)' : KIND_NAMES[meta.stage.kind]}. 난이도 ${meta.difficulty}/3. 기법: ${meta.tags.join(', ')}.`,
     `## 파일\n${list([...files.map(f => f.name), ...textures].map(name => `\`${name}\``))}\n\n모두 프로젝트의 \`Assets/Shaders/${meta.id}/\` 에 복사한다.`,
-    ...(meta.requires?.length ? [`## URP 설정\n사용 중인 URP Asset 에서 켠다: ${meta.requires.map(r => ({ depth: 'Depth Texture', opaque: 'Opaque Texture', normals: '법선 텍스처 (전체 화면 효과는 Full Screen Pass 의 Requirements 에서 Normal)' })[r]).join(', ')}.`] : []),
+    ...(meta.requires?.length
+      ? [
+          meta.stage.kind === 'fullscreen'
+            ? `## URP 설정\nFull Screen Pass Renderer Feature 의 Requirements 에서 켠다: ${meta.requires.map(r => ({ depth: 'Depth', opaque: 'Color', normals: 'Normal' })[r]).join(', ')}.`
+            : `## URP 설정\n사용 중인 URP Asset 에서 켠다: ${meta.requires.map(r => ({ depth: 'Depth Texture', opaque: 'Opaque Texture', normals: '법선 텍스처 (SSAO 처럼 법선을 요청하는 기능이 있어야 만들어진다)' })[r]).join(', ')}.`,
+        ]
+      : []),
     `## 넣는 순서\n${meta.unity.setup.map((s, i) => `${i + 1}. ${s}`).join('\n')}`,
     `## 확인\n${meta.unity.verify}`,
     `## 기본 머티리얼 값\n${materialTable(meta.params, defaults(meta))}`,

@@ -39,7 +39,8 @@ export const LAYOUT = {
     capsule: { position: [0, 0.6, 0], scale: 1.4 },
     cylinder: { position: [0, 0.6, 0], scale: 1.4 },
     cube: { position: [0, 0.5, 0], scale: 1.6 },
-    quad: { position: [0, 0.6, 0], scale: 2.4 },
+    // 패널(UI 표본)의 아래 모서리가 바닥에 묻히지 않게 띄운다
+    quad: { position: [0, 0.95, 0], scale: 1.6 },
     plane: { position: [0, 0.3, 0], scale: 0.35 },
     grass: { position: [0, 0, 0], scale: 1.4 },
   },

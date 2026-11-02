@@ -73,7 +73,7 @@ export const meta: SpecimenMeta = {
     setup: [
       '`UiSdfShape.shader`, `core.hlsl`, `UiSdfProgress.cs` 를 `Assets/Shaders/ui-sdf-shape/` 에 둔다.',
       '셰이더를 우클릭해 Create > Material 로 머티리얼을 만든다.',
-      'Hierarchy 에서 Create > UI > Image 로 Image 를 만들고 Image 컴포넌트의 Material 칸에 머티리얼을 넣는다. 텍스처는 원래 Source Image 칸이 맡지만 이 셰이더는 도형을 계산으로 그리므로 Source Image 를 비우고 Image Type 은 Simple 로 둔다.',
+      'Hierarchy 에서 Create > UI (Canvas) > Image 로 Image 를 만들고 Image 컴포넌트의 Material 칸에 머티리얼을 넣는다. 텍스처는 원래 Source Image 칸이 맡지만 이 셰이더는 도형을 계산으로 그리므로 Source Image 를 비우고 Image Type 은 Simple 로 둔다.',
       'Rect Transform 의 Width, Height 로 크기를 정한다. 셰이더가 실제 비율을 재므로 원과 링은 찌그러지지 않는다. Image 크기가 곧 막대 크기면(400x40 체력 바, 세로로 긴 게이지) 머티리얼의 도형 가로세로 비를 0 으로 두어 꽉 채운다. 0 보다 크면 그 비율의 도형을 Image 안에 끼워 넣는다.',
       '같은 오브젝트에 `UiSdfProgress` 를 붙이고 체력은 `SetValue(현재, 최대)`, 쿨타임은 `StartCooldown(초)` 를 호출한다. 꺼진 오브젝트에 불러도 되고, 꺼져 있는 동안 흐른 쿨타임은 다시 켰을 때 반영된다.',
     ],

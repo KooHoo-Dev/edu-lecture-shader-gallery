@@ -242,7 +242,14 @@ function checkMeta(id, meta, core, wrapper) {
     if (!meta.requires?.includes('normals')) err(`${where}: sgSceneNormal 을 쓰면 requires 에 'normals' 를 넣는다`)
     if (!wrapper.includes('DeclareNormalsTexture.hlsl')) err(`${id}/${meta.shaderFile}: sgSceneNormal 을 쓰면 DeclareNormalsTexture.hlsl 을 include 한다`)
   }
-  if (/\bsgScene(Depth|Normal)\s*\(/.test(core) && meta.stage.kind !== 'fullscreen') err(`${where}: sgSceneDepth, sgSceneNormal 은 fullscreen 무대 함수다 (깊이 무대는 depthDelta)`)
+  if (/\bsgSceneNormal\s*\(/.test(core) && meta.stage.kind !== 'fullscreen') err(`${where}: sgSceneNormal 은 fullscreen 무대 함수다`)
+  if (/\bsgSceneDepth\s*\(/.test(core) && !['fullscreen', 'depth'].includes(meta.stage.kind)) err(`${where}: sgSceneDepth 는 fullscreen, depth 무대 함수다`)
+  // 씬 색상을 직접 샘플링하면 URP SampleSceneColor 의 스케일·경계 처리가 빠진다 (가이드 4절)
+  if (/sgSceneColor\s*\(/.test(wrapper) && !/SampleSceneColor\s*\(/.test(wrapper) && !/ClampAndScaleUVForBilinear/.test(wrapper)) warn(`${id}/${meta.shaderFile}: sgSceneColor 가 SampleSceneColor 를 쓰지 않으면 ClampAndScaleUVForBilinear 로 좌표를 감싼다`)
+  // 이벤트는 C# 이 실제로 하는 일과 같아야 한다 (가이드 5절)
+  if (meta.events.some(e => e.tracks?.length) && existsSync(join(SHADERS, id)) && !readdirSync(join(SHADERS, id)).some(f => f.endsWith('.cs'))) warn(`${where}: 이벤트가 있는데 C# 스크립트가 없다. 이벤트는 C# 이 하는 일과 같아야 한다`)
+  // Shader Graph 의 Custom Function 은 void 이름_float(..., out ...) 형식만 받는다 (가이드 5절)
+  if (meta.unity.graph && /Custom Function/.test(meta.unity.graph) && !/_float\b/.test(meta.unity.graph) && !/Custom Function\s*(없이|을 쓰지|은 쓰지|는 쓰지)/.test(meta.unity.graph)) warn(`${where}: unity.graph 가 Custom Function 을 말하면 void 이름_float(..., out ...) 형식을 적는다`)
   for (const m of core.matchAll(/\bSG_TEX\s*\(\s*(\w+)/g)) if (!textures.has(m[1])) err(`${where}: 텍스처 ${m[1]} 이 stage.textures 에 없다`)
   // 내장 "gray" 는 sRGB 0.5 라 Linear 프로젝트에서 약 0.21 로 읽힌다. 0.5 를 0 으로 쓰는 데이터 텍스처는 칸이 비면 한쪽으로 쏠린다
   for (const [name, texture] of Object.entries(meta.stage.textures ?? {})) {

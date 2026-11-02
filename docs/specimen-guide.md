@@ -178,7 +178,7 @@ float effectNoise(float2 p)
 |---|---|---|---|---|
 | `mesh` | 바닥과 물체 하나 (`stage.mesh`). Y 30도에서 시작해 천천히 돈다 (`quad`, `plane`, `grass` 는 돌지 않는다) | `uv positionOS positionWS normalOS normalWS viewWS lightDirWS lightColor lighting time` | | 디졸브 |
 | `sprite` | 정사영 카메라, 드론 스프라이트(또는 `stage.textures._MainTex`), 2유닛 높이 | `uv color texelSize time` | `SG_TEX(_MainTex, uv)` | 스프라이트 |
-| `depth` | 바닥, 상자, 공, 그 위를 덮는 물체 (`stage.mesh`). `plane` 이면 소품을 가르는 수면 높이에 놓인다 | `uv color positionOS positionWS normalOS normalWS viewWS screenUV depthDelta time` | `sgSceneColor(screenUV)` | 역장 |
+| `depth` | 바닥, 상자, 공, 그 위를 덮는 물체 (`stage.mesh`). `plane` 이면 소품을 가르는 수면 높이에 놓인다 | `uv color positionOS positionWS normalOS normalWS viewWS cameraRightWS cameraUpWS screenUV depthDelta time` | `sgSceneColor(uv)`, `sgSceneDepth(uv)` | 역장 |
 | `fullscreen` | 바닥, 상자, 공을 그린 화면 전체 | `uv aspect texelSize time` | `sgSource(uv)`, `sgSceneDepth(uv)`, `sgSceneNormal(uv)` | 전환 |
 
 - `lighting` = `lightColor * saturate(dot(normalWS, lightDirWS)) + 환경광`. 대부분은 `albedo * i.lighting` 이면 된다. 툰처럼 빛을 직접 다루면 `lightDirWS`, `lightColor` 를 쓴다.
@@ -232,6 +232,10 @@ float effectNoise(float2 p)
   float4 sgSceneColor(float2 uv) { return float4(SampleSceneColor(uv), 1.0); }
   ```
 
+  반복문 안에서 여러 번 읽느라 밉 0 으로 직접 샘플링하면 `SampleSceneColor` 가 하던 스케일·경계 처리를 같이 옮긴다: `uv = ClampAndScaleUVForBilinear(UnityStereoTransformScreenSpaceTex(uv), _CameraOpaqueTexture_TexelSize.xy);` 다음에 `SAMPLE_TEXTURE2D_X_LOD(_CameraOpaqueTexture, sampler_CameraOpaqueTexture, uv, 0)`. 빠지면 Dynamic Resolution 처럼 스케일이 1 보다 작을 때 가장자리에서 유효 영역 밖을 읽는다 (`tools/check.mjs` 가 경고).
+- 깊이 무대의 `sgSceneDepth(uv)` 는 그 화면 좌표에 있는 씬 표면의 눈 깊이다. 이 픽셀의 눈 깊이는 `sgSceneDepth(i.screenUV) - i.depthDelta` 다. 화면 좌표를 밀어 읽는 표본(굴절)은 밀린 좌표의 깊이가 이 픽셀보다 앞이면 밀지 않은 좌표로 돌아가 앞 물체가 끌려 들어오지 않게 한다. 래퍼는 전체 화면과 같은 `sgSceneDepth` 함수(직교 카메라 분기 포함)를 core 앞에 둔다.
+- 깊이 무대의 `cameraRightWS`, `cameraUpWS` 는 카메라의 오른쪽과 위 방향(월드)이다. 화면 좌표를 미는 방향은 월드 위쪽이 아니라 이 두 축으로 만든다 (그래야 카메라가 기울거나 내려다보거나 XR 일 때 맞다). 래퍼는 `i.cameraRightWS = UNITY_MATRIX_V[0].xyz; i.cameraUpWS = UNITY_MATRIX_V[1].xyz;` 를 넣는다.
+
 - 전체 화면 표본은 C# 렌더러 기능을 새로 만들지 않는다. 내장 Full Screen Pass Renderer Feature 에 머티리얼을 넣는 방식만 쓴다. 2D Renderer 에서도 동작한다 (촬영으로 확인).
 
 ### UI 래퍼 (`stage.ui`)
@@ -247,6 +251,8 @@ UGUI Image 에 쓰는 표본용이다. 미리보기와 촬영은 스프라이트
 - 캔버스의 Vertex Color Always In Gamma Color Space 를 켜면 정점 색이 sRGB 그대로 들어온다. `_UIVertexColorAlwaysGammaSpace` 를 `CBUFFER` 밖에 선언하고, Linear 프로젝트(`#ifndef UNITY_COLORSPACE_GAMMA`)에서 값이 1 이면 정점 색을 선형으로 바꾼다.
 - 최근 UI/Default 는 RectMask2D 의 Softness(`_UIMaskSoftnessX`, `_UIMaskSoftnessY`)로 가장자리를 부드럽게 자른다. `step` 두 번으로 자르면 Softness 가 무시된다. 쓸 수 있으면 Softness 식으로 옮긴다.
 - 지금 미리보기와 촬영은 정사각형 스프라이트 하나라 4:1 같은 Image 비율, Mask, RectMask2D, Overlay 캔버스를 화면으로 확인하지 못한다. 이 부분은 글로 정확히 쓰고 Unity 에서 확인하지 못했다고 보고한다.
+- 씬 색상을 읽는 UI(배경 블러)는 Screen Space - Camera 캔버스를 권한다. URP 17.3 은 Overlay UI 도 카메라 렌더 그래프 안에서 그려 Opaque Texture 가 읽힐 수 있지만 보장되지 않고 확인하지 않았다 (읽혀도 투명 물체와 후처리가 빠진 복사본이라 색이 주변과 다르다). UI 전용 Overlay 카메라(카메라 스택)는 Opaque Texture 를 만들지 않는다. Unity 6.3 의 메뉴 이름은 `GameObject > UI (Canvas) > Image` 다.
+- 깊이 무대에 둔 UI 패널(`mesh: 'quad'`)은 바닥에서 띄워 아래 모서리가 보이게 놓인다. 촬영 도구는 캔버스가 넣는 `unity_GUIZTestMode` 를 LessEqual 로 고정해 찍는다.
 - `tools/check.mjs` 가 위 항목과 `LightMode` 가 없는지를 확인한다.
 
 ### 가려진 부분 패스 (`stage.occluded`)

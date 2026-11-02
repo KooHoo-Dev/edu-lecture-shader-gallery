@@ -37,6 +37,8 @@ namespace ShaderGallery.EditorTools
         {
             Shader shader = AssetDatabase.LoadAssetAtPath<Shader>(specimen.shader);
             var material = new Material(shader) { hideFlags = HideFlags.HideAndDontSave };
+            // UI 셰이더의 ZTest [unity_GUIZTestMode] 는 캔버스가 넣는 값이다. 캔버스 없이 찍으므로 기본 깊이 비교로 고정한다
+            material.SetFloat("unity_GUIZTestMode", (float)CompareFunction.LessEqual);
             foreach (SgTextureValue t in specimen.textures)
             {
                 material.SetTexture(t.k, LoadTexture(t));
@@ -255,7 +257,7 @@ namespace ShaderGallery.EditorTools
                     go = AddMesh(stage, "Cube.fbx", material, new Vector3(0f, depth ? 0.5f : 0.75f, 0f), depth ? 1.6f : 1.2f);
                     break;
                 case "quad":
-                    go = AddMesh(stage, "Quad.fbx", material, new Vector3(0f, depth ? 0.6f : 0.85f, 0f), depth ? 2.4f : 1.6f);
+                    go = AddMesh(stage, "Quad.fbx", material, new Vector3(0f, depth ? 0.95f : 0.85f, 0f), 1.6f);
                     break;
                 case "plane":
                     go = AddMesh(stage, "New-Plane.fbx", material, new Vector3(0f, depth ? 0.3f : 0.5f, 0f), depth ? 0.35f : 0.3f);

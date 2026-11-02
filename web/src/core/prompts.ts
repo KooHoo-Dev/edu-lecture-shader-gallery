@@ -35,17 +35,28 @@ const KIND_STEPS: Record<StageKind, string[]> = {
   ],
 }
 
-/** stage.ui 표본은 SpriteRenderer 가 아니라 UGUI Image 에 넣는다 */
-const UI_STEPS = [
-  '이 셰이더로 머티리얼을 만들어 Canvas 아래 Image 의 Material 칸에 넣는다. 텍스처는 Image 의 Source Image 로 정한다.',
-  '여러 Image 가 값을 따로 가지려면 Image 마다 머티리얼 복사본을 쓴다 (Image.material 에 넣는다고 복사본이 생기지는 않는다).',
-]
+/** stage.ui 표본은 SpriteRenderer 가 아니라 UGUI Image 에 넣는다. 텍스처를 쓰지 않는 표본은 Source Image 를 비워 둔다 */
+function uiSteps(meta: SpecimenMeta): string[] {
+  const image = meta.stage.textures?._MainTex ? ' 텍스처는 Image 의 Source Image 로 정한다.' : ''
+  return [
+    `Hierarchy 에서 GameObject > UI (Canvas) > Image 로 Image 를 만들고, 이 셰이더로 만든 머티리얼을 Image 의 Material 칸에 넣는다.${image}`,
+    ...(meta.requires?.includes('opaque') ? ['씬 색상을 읽으므로 Canvas 의 Render Mode 를 Screen Space - Camera 로 바꾸고 장면을 그리는 카메라를 넣는다 (Overlay 캔버스와 UI 전용 Overlay 카메라에서는 보장되지 않는다).'] : []),
+    '여러 Image 가 값을 따로 가지려면 Image 마다 머티리얼 복사본을 쓴다 (Image.material 에 넣는다고 복사본이 생기지는 않는다).',
+  ]
+}
 
 /** URP Asset 에서 켜야 하는 설정 */
 const REQUIRE_STEPS: Record<Requirement, string> = {
   depth: '사용 중인 URP Asset 의 Depth Texture 를 켠다. 품질 단계마다 URP Asset 이 다르면 모두 켠다. 카메라의 Depth Texture 가 Off 이면 Use Pipeline Settings 로 바꾼다. Universal Renderer 의 Depth Texture Mode 가 After Transparents 이면 투명 셰이더가 깊이를 읽지 못하므로 After Opaques 로 둔다.',
   opaque: '사용 중인 URP Asset 의 Opaque Texture 를 켠다. 품질 단계마다 URP Asset 이 다르면 모두 켠다. 카메라의 Opaque Texture 가 Off 이면 Use Pipeline Settings 로 바꾼다.',
   normals: '법선 텍스처가 필요하다. 전체 화면 효과는 Full Screen Pass Renderer Feature 의 Requirements 에서 Normal 을 켠다 (Depth 도 쓰면 함께 켠다). 그 밖의 효과는 SSAO 처럼 법선을 요청하는 기능이 있어야 만들어진다.',
+}
+
+/** 전체 화면 표본의 깊이와 법선은 URP Asset 이 아니라 Full Screen Pass 의 Requirements 가 만든다 */
+function requireStep(meta: SpecimenMeta, r: Requirement): string {
+  if (meta.stage.kind === 'fullscreen' && r === 'depth') return 'Full Screen Pass Renderer Feature 의 Requirements 에서 Depth 를 켠다 (URP Asset 의 Depth Texture 를 켜지 않아도 된다).'
+  if (meta.stage.kind === 'fullscreen' && r === 'normals') return 'Full Screen Pass Renderer Feature 의 Requirements 에서 Normal 을 켠다. 불투명 물체를 DepthNormals 패스로 한 번 더 그리게 되며, 그 패스가 없는 셰이더의 물체는 깊이와 법선에 들어가지 않는다.'
+  return REQUIRE_STEPS[r]
 }
 
 /** 표본 폴더 PNG 의 임포트 설정과 머티리얼 칸. 스프라이트의 _MainTex 는 SpriteRenderer 의 스프라이트가 채운다 */
@@ -97,12 +108,14 @@ export function buildPrompt(kind: PromptKind, source: PromptSource, values: Para
   const code = codeSection(source, values)
 
   if (kind === 'direct') {
-    const steps = [`아래 파일을 \`Assets/Shaders/${meta.id}/\` 에 그대로 만든다. 코드는 바꾸지 않는다.`, ...textureSteps(meta), ...(meta.requires ?? []).map(r => REQUIRE_STEPS[r]), ...(meta.stage.ui ? UI_STEPS : KIND_STEPS[meta.stage.kind]), '머티리얼 값을 아래 표대로 맞춘다.', `확인: ${meta.unity.verify}`]
+    const steps = [`아래 파일을 \`Assets/Shaders/${meta.id}/\` 에 그대로 만든다. 코드는 바꾸지 않는다.`, ...textureSteps(meta), ...(meta.requires ?? []).map(r => requireStep(meta, r)), ...(meta.stage.ui ? uiSteps(meta) : KIND_STEPS[meta.stage.kind]), '머티리얼 값을 아래 표대로 맞춘다.', `확인: ${meta.unity.verify}`]
     return [
       `# Unity 셰이더 추가: ${meta.title}`,
       head,
       `## 환경\n${ENVIRONMENT}`,
       `## 할 일\n${numbered(steps)}`,
+      // 표본이 쓴 넣는 순서에만 있는 단계(C# 연결, 평소 값으로 낮추기, 캔버스 설정)를 빠뜨리지 않게 함께 준다
+      `## 표본 안내의 넣는 순서 (C# 연결 포함)\n위 할 일과 겹치는 단계는 한 번만 한다. 머티리얼 값을 평소 값으로 낮추라는 단계가 있으면 표보다 그 단계를 따른다.\n${numbered(meta.unity.setup)}`,
       `## 머티리얼 값\n${table}`,
       `## 지킬 것\n${rules(meta)}`,
       `## 주의할 점\n${meta.unity.pitfalls.map(p => `- ${p}`).join('\n')}`,
