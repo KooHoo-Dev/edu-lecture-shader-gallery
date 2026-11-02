@@ -16,9 +16,10 @@ const ENVIRONMENT = ['- Unity 6.3 LTS (6000.3), URP 17.3', '- HLSL 코드 셰이
 
 /** 프롬프트에 항상 들어가는 금지 사항 */
 export const FIXED_RULES = [
-  '- `HLSLPROGRAM` 과 URP 의 `Packages/com.unity.render-pipelines.universal/ShaderLibrary` 만 쓴다. `CGPROGRAM`, `UnityCG.cginc`, Surface Shader 는 쓰지 않는다.',
+  '- `HLSLPROGRAM` 과 URP 패키지(`Packages/com.unity.render-pipelines.universal`, `com.unity.render-pipelines.core`)의 include 만 쓴다. `CGPROGRAM`, `UnityCG.cginc`, Surface Shader 는 쓰지 않는다.',
   '- SRP Batcher 호환을 유지한다. 머티리얼 값은 모두 `CBUFFER_START(UnityPerMaterial)` 안에 둔다.',
   '- 렌더 패스를 새로 만들어야 하면 Render Graph(`RecordRenderGraph`)로 작성한다. `Execute`, `OnCameraSetup`, `cmd.Blit` 같은 구버전 렌더 패스 API 는 쓰지 않는다.',
+  '- `SG_STEP` 줄, `#ifdef SG_OFF` 블록, 주석의 웹 미리보기 언급은 갤러리에서 쓰는 표시다. Unity 에서는 아무 일도 하지 않으므로 신경 쓰지 않아도 된다.',
 ].join('\n')
 
 const KIND_STEPS: Record<StageKind, string[]> = {
