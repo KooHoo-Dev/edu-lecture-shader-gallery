@@ -4,7 +4,7 @@ Shader "ShaderGallery/ScreenRefractionGlass"
 {
     Properties
     {
-        _Refraction ("굴절 세기", Range(0, 0.3)) = 0.12
+        _Refraction ("굴절 세기", Range(0, 0.2)) = 0.12
         _Thickness ("가장자리 두께", Range(0, 4)) = 1.5
         _NoiseStrength ("노이즈 세기", Range(0, 1)) = 0.3
         _NoiseScale ("노이즈 촘촘함", Range(1, 20)) = 6
@@ -26,6 +26,9 @@ Shader "ShaderGallery/ScreenRefractionGlass"
             Tags { "LightMode" = "UniversalForward" }
 
             // 뒤 장면은 Opaque Texture 에서 직접 읽어 그리므로 알파는 1 이다. 투명 큐에 두어야 Opaque Texture 가 준비된 뒤 그려진다.
+            // ZWrite Off 라 유리 뒤에 있으면서 유리보다 늦게 그려지는 투명 물체는 굴절 없이 유리 위에 얹힌다.
+            // 그런 물체를 일관되게 가리려면 ZWrite On 으로 바꾼다. 깊이 텍스처는 불투명 뒤에 복사되므로 굴절 계산에는 영향이 없다.
+            // 갤러리 규격의 투명 혼합(ZWrite Off)을 따라 기본은 Off 로 둔다.
             Blend SrcAlpha OneMinusSrcAlpha
             ZWrite Off
 
@@ -59,6 +62,8 @@ Shader "ShaderGallery/ScreenRefractionGlass"
                 float3 positionOS;
                 float3 normalWS;
                 float3 viewWS;
+                float3 cameraRightWS;
+                float3 cameraUpWS;
                 float2 screenUV;
                 float depthDelta;
                 float time;
@@ -66,6 +71,21 @@ Shader "ShaderGallery/ScreenRefractionGlass"
 
             // 불투명 물체만 그려진 장면 색 (URP 의 _CameraOpaqueTexture).
             float4 sgSceneColor(float2 uv) { return float4(SampleSceneColor(uv), 1.0); }
+
+            // 그 화면 좌표에 있는 씬 표면의 눈 깊이(미터, 카메라 정면 축 방향의 거리).
+            // 직교 카메라는 깊이 버퍼가 이미 선형이라 LinearEyeDepth 를 쓰면 틀린다. 가까운, 먼 평면 사이를 직접 보간한다.
+            float sgSceneDepth(float2 uv)
+            {
+                float raw = SampleSceneDepth(uv);
+                if (unity_OrthoParams.w > 0.5)
+                {
+                #if UNITY_REVERSED_Z
+                    raw = 1.0 - raw;
+                #endif
+                    return lerp(_ProjectionParams.y, _ProjectionParams.z, raw);
+                }
+                return LinearEyeDepth(raw, _ZBufferParams);
+            }
 
             #include "core.hlsl"
 
@@ -113,9 +133,12 @@ Shader "ShaderGallery/ScreenRefractionGlass"
                 i.normalWS = normalize(v.normalWS);
                 i.viewWS = GetWorldSpaceNormalizeViewDir(v.positionWS);
                 i.screenUV = GetNormalizedScreenSpaceUV(v.positionCS);
+                // 카메라의 오른쪽, 위 축(월드). 화면 좌표를 미는 방향을 이 두 축으로 만든다.
+                i.cameraRightWS = UNITY_MATRIX_V[0].xyz;
+                i.cameraUpWS = UNITY_MATRIX_V[1].xyz;
 
-                // 카메라에서 씬 표면까지의 거리 - 카메라에서 이 픽셀까지의 거리.
-                float sceneEye = LinearEyeDepth(SampleSceneDepth(i.screenUV), _ZBufferParams);
+                // 씬 표면의 눈 깊이 - 이 픽셀의 눈 깊이. 눈 깊이는 카메라 정면 축 방향의 거리다.
+                float sceneEye = sgSceneDepth(i.screenUV);
                 float selfEye = LinearEyeDepth(v.positionWS, UNITY_MATRIX_V);
                 i.depthDelta = sceneEye - selfEye;
 
