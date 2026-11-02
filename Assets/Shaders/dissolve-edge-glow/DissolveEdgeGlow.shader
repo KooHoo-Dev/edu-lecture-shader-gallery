@@ -1,20 +1,21 @@
 // 디졸브: 노이즈와 임계값으로 물체를 태워 없애는 메시 효과 (URP 17, HLSL).
 // 효과 본체는 core.hlsl 에 있고, 이 파일은 Unity 전용 부분(조명, 패스, SRP Batcher)만 맡는다.
-Shader "ShaderGallery/Dissolve"
+Shader "ShaderGallery/DissolveEdgeGlow"
 {
     Properties
     {
         _BaseColor ("기본 색", Color) = (0.62, 0.68, 0.76, 1)
-        _Threshold ("임계값", Range(0, 1)) = 0.48
+        _Threshold ("임계값", Range(0, 1)) = 0.42
         _NoiseScale ("노이즈 크기", Range(1, 20)) = 7
-        _EdgeWidth ("가장자리 폭", Range(0.005, 0.2)) = 0.06
-        _EdgeColor ("가장자리 색", Color) = (1, 0.42, 0.12, 1)
-        _EdgeGlow ("가장자리 밝기", Range(0, 12)) = 5
+        _Sweep ("위에서 쓸기", Range(0, 1)) = 0
+        _EdgeWidth ("가장자리 폭", Range(0.005, 0.25)) = 0.07
+        _EdgeColor ("가장자리 색", Color) = (1, 0.36, 0.08, 1)
+        _EdgeGlow ("가장자리 밝기", Range(0, 12)) = 2.5
     }
 
     SubShader
     {
-        Tags { "RenderType" = "Opaque" "Queue" = "AlphaTest" "RenderPipeline" = "UniversalPipeline" }
+        Tags { "RenderType" = "TransparentCutout" "Queue" = "AlphaTest" "RenderPipeline" = "UniversalPipeline" }
 
         HLSLINCLUDE
         #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
@@ -25,6 +26,7 @@ Shader "ShaderGallery/Dissolve"
             float4 _BaseColor;
             float _Threshold;
             float _NoiseScale;
+            float _Sweep;
             float _EdgeWidth;
             float4 _EdgeColor;
             float _EdgeGlow;
@@ -50,6 +52,7 @@ Shader "ShaderGallery/Dissolve"
             float4 positionOS : POSITION;
             float3 normalOS : NORMAL;
             float2 uv : TEXCOORD0;
+            UNITY_VERTEX_INPUT_INSTANCE_ID
         };
 
         struct Varyings
@@ -59,11 +62,16 @@ Shader "ShaderGallery/Dissolve"
             float3 positionOS : TEXCOORD1;
             float3 positionWS : TEXCOORD2;
             float3 normalWS : TEXCOORD3;
+            UNITY_VERTEX_INPUT_INSTANCE_ID
+            UNITY_VERTEX_OUTPUT_STEREO
         };
 
         Varyings vert(Attributes v)
         {
             Varyings o;
+            UNITY_SETUP_INSTANCE_ID(v);
+            UNITY_TRANSFER_INSTANCE_ID(v, o);
+            UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
             o.positionWS = TransformObjectToWorld(v.positionOS.xyz);
             o.positionCS = TransformWorldToHClip(o.positionWS);
             o.normalWS = TransformObjectToWorldNormal(v.normalOS);
@@ -85,6 +93,12 @@ Shader "ShaderGallery/Dissolve"
             i.time = _Time.y;
             return i;
         }
+
+        // 조명이 필요 없는 패스용. 알파만 쓴다.
+        float effectAlpha(Varyings v)
+        {
+            return sgEffect(makeInput(v, float3(0.0, 1.0, 0.0), float3(1.0, 1.0, 1.0), float3(1.0, 1.0, 1.0))).a;
+        }
         ENDHLSL
 
         Pass
@@ -95,11 +109,13 @@ Shader "ShaderGallery/Dissolve"
             HLSLPROGRAM
             #pragma vertex vert
             #pragma fragment frag
+            #pragma multi_compile_instancing
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
             #pragma multi_compile_fragment _ _SHADOWS_SOFT
 
             float4 frag(Varyings v) : SV_Target
             {
+                UNITY_SETUP_INSTANCE_ID(v);
                 float3 normalWS = normalize(v.normalWS);
                 Light light = GetMainLight(TransformWorldToShadowCoord(v.positionWS));
                 float3 lightColor = light.color * light.shadowAttenuation;
@@ -123,6 +139,7 @@ Shader "ShaderGallery/Dissolve"
             HLSLPROGRAM
             #pragma vertex vertShadow
             #pragma fragment fragClip
+            #pragma multi_compile_instancing
 
             float3 _LightDirection;
 
@@ -136,8 +153,8 @@ Shader "ShaderGallery/Dissolve"
 
             float4 fragClip(Varyings v) : SV_Target
             {
-                float4 c = sgEffect(makeInput(v, float3(0.0, 1.0, 0.0), float3(1.0, 1.0, 1.0), float3(1.0, 1.0, 1.0)));
-                clip(c.a - 0.5);
+                UNITY_SETUP_INSTANCE_ID(v);
+                clip(effectAlpha(v) - 0.5);
                 return 0;
             }
             ENDHLSL
@@ -154,11 +171,12 @@ Shader "ShaderGallery/Dissolve"
             HLSLPROGRAM
             #pragma vertex vert
             #pragma fragment fragClip
+            #pragma multi_compile_instancing
 
             float4 fragClip(Varyings v) : SV_Target
             {
-                float4 c = sgEffect(makeInput(v, float3(0.0, 1.0, 0.0), float3(1.0, 1.0, 1.0), float3(1.0, 1.0, 1.0)));
-                clip(c.a - 0.5);
+                UNITY_SETUP_INSTANCE_ID(v);
+                clip(effectAlpha(v) - 0.5);
                 return v.positionCS.z;
             }
             ENDHLSL
@@ -174,11 +192,12 @@ Shader "ShaderGallery/Dissolve"
             HLSLPROGRAM
             #pragma vertex vert
             #pragma fragment fragNormals
+            #pragma multi_compile_instancing
 
             float4 fragNormals(Varyings v) : SV_Target
             {
-                float4 c = sgEffect(makeInput(v, float3(0.0, 1.0, 0.0), float3(1.0, 1.0, 1.0), float3(1.0, 1.0, 1.0)));
-                clip(c.a - 0.5);
+                UNITY_SETUP_INSTANCE_ID(v);
+                clip(effectAlpha(v) - 0.5);
                 return float4(normalize(v.normalWS), 0.0);
             }
             ENDHLSL

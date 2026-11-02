@@ -134,15 +134,7 @@ namespace ShaderGallery.EditorTools
                 }
             }
 
-            item.batcherCompatible = ShaderBatcherCompatible(shader);
             return item;
-        }
-
-        static bool ShaderBatcherCompatible(Shader shader)
-        {
-            // 공개 API 가 없어 파일 내용으로 확인한다. CBUFFER 가 없으면 SRP Batcher 호환이 아니다.
-            string source = File.ReadAllText(AssetDatabase.GetAssetPath(shader));
-            return source.Contains("CBUFFER_START(UnityPerMaterial)") || !source.Contains("Properties");
         }
 
         static void AddMessage(SgSpecimenResult item, ShaderMessage m, string where)

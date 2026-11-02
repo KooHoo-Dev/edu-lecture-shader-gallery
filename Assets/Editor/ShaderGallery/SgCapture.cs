@@ -18,8 +18,8 @@ namespace ShaderGallery.EditorTools
 
         // web/src/stage/layout.ts 와 같은 값.
         static readonly Color Background = new Color(0.035f, 0.04f, 0.055f, 1f);
-        static readonly Color FloorA = new Color(0.12f, 0.135f, 0.16f, 1f);
-        static readonly Color FloorB = new Color(0.085f, 0.095f, 0.115f, 1f);
+        static readonly Color FloorA = new Color(0.2f, 0.22f, 0.25f, 1f);
+        static readonly Color FloorB = new Color(0.15f, 0.165f, 0.195f, 1f);
         static readonly Color PropColor = new Color(0.72f, 0.62f, 0.46f, 1f);
         static readonly Color PropColor2 = new Color(0.34f, 0.5f, 0.66f, 1f);
         static readonly Color Ambient = new Color(0.34f, 0.38f, 0.46f, 1f);
@@ -37,6 +37,10 @@ namespace ShaderGallery.EditorTools
         {
             Shader shader = AssetDatabase.LoadAssetAtPath<Shader>(specimen.shader);
             var material = new Material(shader) { hideFlags = HideFlags.HideAndDontSave };
+            foreach (SgTextureValue t in specimen.textures)
+            {
+                material.SetTexture(t.k, LoadTexture(t));
+            }
             foreach (SgFloatValue f in state.floats)
             {
                 material.SetFloat(f.k, f.v);
@@ -113,6 +117,23 @@ namespace ShaderGallery.EditorTools
             return feature;
         }
 
+        // 표본 폴더의 텍스처를 메타 데이터에 적힌 설정으로 불러온다. 설정이 다르면 .meta 를 고친다.
+        static Texture2D LoadTexture(SgTextureValue t)
+        {
+            var importer = (TextureImporter)AssetImporter.GetAtPath(t.path);
+            bool srgb = !t.linear;
+            TextureWrapMode wrap = t.repeat ? TextureWrapMode.Repeat : TextureWrapMode.Clamp;
+            FilterMode filter = t.point ? FilterMode.Point : FilterMode.Bilinear;
+            if (importer.sRGBTexture != srgb || importer.wrapMode != wrap || importer.filterMode != filter)
+            {
+                importer.sRGBTexture = srgb;
+                importer.wrapMode = wrap;
+                importer.filterMode = filter;
+                importer.SaveAndReimport();
+            }
+            return AssetDatabase.LoadAssetAtPath<Texture2D>(t.path);
+        }
+
         static Stage Build(SgJobSpecimen specimen, Material material)
         {
             var stage = new Stage { scene = EditorSceneManager.NewPreviewScene() };
@@ -144,7 +165,7 @@ namespace ShaderGallery.EditorTools
             switch (specimen.stage)
             {
                 case "sprite":
-                    BuildSprite(stage, material);
+                    BuildSprite(stage, specimen, material);
                     break;
                 case "depth":
                     BuildPerspective(stage);
@@ -161,7 +182,7 @@ namespace ShaderGallery.EditorTools
                 default:
                     BuildPerspective(stage);
                     AddFloor(stage);
-                    AddMesh(stage, MeshType(specimen.mesh), material, new Vector3(0f, 0.85f, 0f), 1.5f);
+                    PlaceEffectMesh(stage, specimen.mesh, material);
                     break;
             }
 
@@ -177,7 +198,7 @@ namespace ShaderGallery.EditorTools
             stage.camera.transform.LookAt(new Vector3(0f, 0.75f, 0f));
         }
 
-        static void BuildSprite(Stage stage, Material material)
+        static void BuildSprite(Stage stage, SgJobSpecimen specimen, Material material)
         {
             stage.camera.orthographic = true;
             stage.camera.orthographicSize = 1.5f;
@@ -185,7 +206,8 @@ namespace ShaderGallery.EditorTools
             stage.camera.transform.rotation = Quaternion.identity;
             stage.camera.backgroundColor = new Color(0.1f, 0.115f, 0.15f, 1f);
 
-            var texture = AssetDatabase.LoadAssetAtPath<Texture2D>(SpritePath);
+            SgTextureValue custom = specimen.textures.Find(t => t.k == "_MainTex");
+            Texture2D texture = custom != null ? LoadTexture(custom) : AssetDatabase.LoadAssetAtPath<Texture2D>(SpritePath);
             // Tight 메시는 투명 여백을 잘라 외곽선이 사라지므로 Full Rect 로 만든다.
             Sprite sprite = Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), new Vector2(0.5f, 0.5f), texture.height / 2f, 0, SpriteMeshType.FullRect);
             sprite.hideFlags = HideFlags.HideAndDontSave;
@@ -197,13 +219,26 @@ namespace ShaderGallery.EditorTools
             spriteRenderer.sharedMaterial = material;
         }
 
-        static PrimitiveType MeshType(string mesh)
+        // web/src/stage/layout.ts 의 meshPlacement 와 같은 값.
+        static void PlaceEffectMesh(Stage stage, string mesh, Material material)
         {
             switch (mesh)
             {
-                case "capsule": return PrimitiveType.Capsule;
-                case "cube": return PrimitiveType.Cube;
-                default: return PrimitiveType.Sphere;
+                case "capsule":
+                    AddMesh(stage, PrimitiveType.Capsule, material, new Vector3(0f, 1f, 0f), 1f);
+                    break;
+                case "cylinder":
+                    AddMesh(stage, PrimitiveType.Cylinder, material, new Vector3(0f, 1f, 0f), 1f);
+                    break;
+                case "cube":
+                    AddMesh(stage, PrimitiveType.Cube, material, new Vector3(0f, 0.75f, 0f), 1.2f);
+                    break;
+                case "quad":
+                    AddMesh(stage, PrimitiveType.Quad, material, new Vector3(0f, 0.85f, 0f), 1.6f);
+                    break;
+                default:
+                    AddMesh(stage, PrimitiveType.Sphere, material, new Vector3(0f, 0.85f, 0f), 1.5f);
+                    break;
             }
         }
 
@@ -223,7 +258,6 @@ namespace ShaderGallery.EditorTools
             Material floor = LitMaterial(stage, Color.white);
             floor.SetTexture("_BaseMap", texture);
             floor.SetTextureScale("_BaseMap", new Vector2(4f, 4f));
-            floor.SetFloat("_Smoothness", 0.1f);
 
             GameObject plane = AddMesh(stage, PrimitiveType.Plane, floor, Vector3.zero, 1f);
             plane.transform.localScale = new Vector3(1.6f, 1f, 1.6f);
@@ -238,9 +272,9 @@ namespace ShaderGallery.EditorTools
 
         static Material LitMaterial(Stage stage, Color color)
         {
-            var material = new Material(Shader.Find("Universal Render Pipeline/Lit")) { hideFlags = HideFlags.HideAndDontSave };
+            // 웹 무대와 맞추려고 반사가 없는 Simple Lit 을 쓴다. 웹은 같은 값의 Lambert 로 그린다.
+            var material = new Material(Shader.Find("Universal Render Pipeline/Simple Lit")) { hideFlags = HideFlags.HideAndDontSave };
             material.SetColor("_BaseColor", color);
-            material.SetFloat("_Smoothness", 0.25f);
             stage.temporary.Add(material);
             return material;
         }

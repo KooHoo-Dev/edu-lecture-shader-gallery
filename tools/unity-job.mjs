@@ -42,7 +42,14 @@ export async function buildJob(root, ids, { outDir, capture }) {
     if (!all.includes(id)) throw new Error(`표본 메타가 없습니다: ${id}`)
     const meta = await loadMeta(root, id)
     const states = [{ name: 'default', values: {} }, ...(meta.captures ?? [])].map(c => toState(meta, c.name, c.values))
-    specimens.push({ id, shader: `Assets/Shaders/${id}/${meta.shaderFile}`, stage: meta.stage.kind, mesh: meta.stage.mesh ?? 'sphere', states })
+    const textures = Object.entries(meta.stage.textures ?? {}).map(([k, t]) => ({
+      k,
+      path: `Assets/Shaders/${id}/${t.file}`,
+      linear: Boolean(t.linear),
+      repeat: Boolean(t.repeat),
+      point: Boolean(t.point),
+    }))
+    specimens.push({ id, shader: `Assets/Shaders/${id}/${meta.shaderFile}`, stage: meta.stage.kind, mesh: meta.stage.mesh ?? 'sphere', textures, states })
   }
   return { outDir: outDir.replaceAll('\\', '/'), width: 1280, height: 720, capture, specimens }
 }

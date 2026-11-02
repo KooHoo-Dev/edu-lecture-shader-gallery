@@ -22,6 +22,16 @@ namespace ShaderGallery.EditorTools
     }
 
     [Serializable]
+    public class SgTextureValue
+    {
+        public string k;
+        public string path;
+        public bool linear;
+        public bool repeat;
+        public bool point;
+    }
+
+    [Serializable]
     public class SgCaptureState
     {
         public string name;
@@ -36,6 +46,7 @@ namespace ShaderGallery.EditorTools
         public string shader;
         public string stage;
         public string mesh;
+        public List<SgTextureValue> textures = new List<SgTextureValue>();
         public List<SgCaptureState> states = new List<SgCaptureState>();
     }
 
@@ -75,7 +86,6 @@ namespace ShaderGallery.EditorTools
     {
         public string id;
         public bool compileOk;
-        public bool batcherCompatible;
         public int variantsCompiled;
         public List<SgMessage> messages = new List<SgMessage>();
         public List<SgShot> shots = new List<SgShot>();

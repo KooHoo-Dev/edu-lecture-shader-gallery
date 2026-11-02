@@ -151,17 +151,22 @@ async function main() {
   const useEditor = mode === 'editor' || (mode === 'auto' && editorOpen() && bridgeAlive())
   if (useEditor) {
     console.log('열린 에디터에서 실행')
-    const answer = await runEditor(jobPath)
-    if (answer.error) console.log(`[치명] ${answer.error}`)
-  } else {
-    if (!existsSync(UNITY)) throw new Error(`Unity 실행 파일이 없습니다: ${UNITY}`)
-    const { code, log } = await runBatch(jobPath)
-    if (!existsSync(join(OUT, 'result.json'))) {
-      console.log(`결과 파일이 없습니다 (종료 코드 ${code}). 로그 끝부분:`)
-      const text = readFileSync(log, 'utf8')
-      console.log(text.split('\n').filter(l => /error|Aborting|Exception|license/i.test(l)).slice(-30).join('\n'))
-      return 2
+    try {
+      const answer = await runEditor(jobPath)
+      if (answer.error) console.log(`[치명] ${answer.error}`)
+      return report()
+    } catch (e) {
+      if (mode === 'editor') throw e
+      console.log(`${e.message}. 복사본 배치 실행으로 넘어갑니다`)
     }
+  }
+  if (!existsSync(UNITY)) throw new Error(`Unity 실행 파일이 없습니다: ${UNITY}`)
+  const { code, log } = await runBatch(jobPath)
+  if (!existsSync(join(OUT, 'result.json'))) {
+    console.log(`결과 파일이 없습니다 (종료 코드 ${code}). 로그 끝부분:`)
+    const text = readFileSync(log, 'utf8')
+    console.log(text.split('\n').filter(l => /error|Aborting|Exception|license/i.test(l)).slice(-30).join('\n'))
+    return 2
   }
   return report()
 }
