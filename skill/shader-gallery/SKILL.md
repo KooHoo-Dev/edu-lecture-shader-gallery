@@ -1,6 +1,6 @@
 ---
 name: shader-gallery
-description: "Unity URP 에 게임 셰이더 효과를 넣거나 변형하거나 고칠 때 쓴다. Unity 6.3 LTS, URP 17.3, HLSL 코드 셰이더 기준의 검증된 샘플과 설정 순서가 들어 있다. 포함된 효과: 램프 툰 조명(Toon Ramp Lit), 프레넬 림 빛(Fresnel Rim Glow), 삼평면 투영(Triplanar Projection), 씬 컬러 굴절 유리(Screen Refraction Glass), 디졸브(Dissolve Edge Glow), 껍데기 외곽선(Inverted Hull Outline), 가려진 실루엣(X-ray Occluded Silhouette), 깊이 기반 물가 거품(Water Depth Foam), 바람 흔들림(Wind Sway Foliage), 플로 맵 액체(Flow Map Liquid), 젖음과 눈 쌓임(Surface Wetness and Snow), 역장 교차(Force Field Intersection), 충격파 왜곡(Screen Shockwave Distortion), 홀로그램(Hologram Scanline Glitch), 스크롤·왜곡 에너지(Scroll Distort Energy), 스프라이트 외곽선 + 피격 번쩍임(Sprite Outline & Hit Flash), 팔레트 스왑(Palette Swap (LUT)), 타일 스크롤 패럴랙스(Tiling Scroll Parallax), SDF 도형(UI SDF Shape), 광택 훑기(UI Sheen Sweep), 배경 블러 유리(UI Backdrop Blur), 화면 전환 와이프(Screen Transition Wipe), 깊이·법선 윤곽선 후처리(Depth Normal Edge Outline), 화면 비네트(Screen Vignette). 비슷한 효과를 새로 만들 때도 기준 코드로 삼는다."
+description: "Unity URP 에 게임 셰이더 효과를 넣거나 변형하거나 고칠 때 쓴다. Unity 6.3 LTS, URP 17.3, HLSL 코드 셰이더 기준의 검증된 샘플과 설정 순서가 들어 있다. 포함된 효과: 램프 툰 조명(Toon Ramp Lit), 프레넬 림 빛(Fresnel Rim Glow), 삼평면 투영(Triplanar Projection), 씬 컬러 굴절 유리(Screen Refraction Glass), 디졸브(Dissolve Edge Glow), 껍데기 외곽선(Inverted Hull Outline), 가려진 실루엣(X-ray Occluded Silhouette), 물결 수면(Water Wave Surface), 깊이 기반 물가 거품(Water Depth Foam), 바람 흔들림(Wind Sway Foliage), 플로 맵 액체(Flow Map Liquid), 젖음과 눈 쌓임(Surface Wetness and Snow), 노이즈 불꽃(Noise Flame), 역장 교차(Force Field Intersection), 충격파 왜곡(Screen Shockwave Distortion), 홀로그램(Hologram Scanline Glitch), 스크롤·왜곡 에너지(Scroll Distort Energy), 스프라이트 외곽선 + 피격 번쩍임(Sprite Outline & Hit Flash), 팔레트 스왑(Palette Swap (LUT)), 타일 스크롤 패럴랙스(Tiling Scroll Parallax), SDF 도형(UI SDF Shape), 광택 훑기(UI Sheen Sweep), 배경 블러 유리(UI Backdrop Blur), 화면 전환 와이프(Screen Transition Wipe), 깊이·법선 윤곽선 후처리(Depth Normal Edge Outline), 화면 비네트(Screen Vignette). 비슷한 효과를 새로 만들 때도 기준 코드로 삼는다."
 license: MIT
 compatibility: Unity 6.3 LTS (6000.3), Universal Render Pipeline 17.3
 metadata:
@@ -23,10 +23,12 @@ metadata:
 | `dissolve-edge-glow` | 디졸브 | 메시 | 노이즈와 임계값으로 물체를 태워 없앤다. 사망, 소환, 텔레포트 연출의 기본 |
 | `inverted-hull-outline` | 껍데기 외곽선 | 메시 | 조금 키운 껍데기의 뒷면을 한 번 더 그려 외곽선을 만든다 |
 | `xray-occluded-silhouette` | 가려진 실루엣 | 메시 | 벽 뒤에 가려진 부분만 단색으로 덧그린다 |
+| `water-wave-surface` | 물결 수면 | 메시 | 사인파를 더해 수면을 출렁이게 하고 하늘빛을 비춘다 |
 | `water-depth-foam` | 깊이 기반 물가 거품 | 깊이 사용 | 물체와 만나는 곳에 거품 띠를 그린다 |
 | `wind-sway-foliage` | 바람 흔들림 | 메시 | 정점을 높이에 따라 흔들어 바람을 만든다 |
 | `flow-map-liquid` | 플로 맵 액체 | 메시 | 방향 텍스처로 UV 를 흘려 액체를 만든다 |
 | `surface-wet-snow` | 젖음과 눈 쌓임 | 메시 | 윗면에 젖은 느낌이나 눈을 얹는다 |
+| `fire-noise-flame` | 노이즈 불꽃 | 메시 | 흐르는 노이즈를 불꽃 모양으로 깎아 타오르게 한다 |
 | `force-field-intersection` | 역장 교차 | 깊이 사용 | 투명한 보호막이 다른 물체와 닿는 선을 깊이 비교로 밝힌다 |
 | `screen-shockwave-distortion` | 충격파 왜곡 | 전체 화면 | 퍼지는 고리 모양으로 화면을 왜곡한다 |
 | `hologram-scanline-glitch` | 홀로그램 | 메시 | 스캔라인과 글리치로 홀로그램을 만든다 |
