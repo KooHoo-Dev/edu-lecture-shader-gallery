@@ -13,7 +13,9 @@ namespace ShaderGallery.Samples
         static readonly int SweepPulse = Shader.PropertyToID("_SweepPulse");
 
         // 띠 하나가 이 시간보다 자주 지나가지 않게 막는 하한(초). 마우스를 버튼 위에서 흔들어도 빛이 깜빡이듯 연달아 지나가지 않는다.
-        // 머티리얼의 자동 훑기(주기 1초 이상)와 합쳐도 한 점을 지나는 빈도가 초당 3회를 넘지 않게 정했다.
+        // 배속(Time.timeScale) 1 이하에서는 머티리얼의 자동 훑기(주기 1초 이상, 1Hz 이하)와 합쳐도 한 점을 지나는 빈도가
+        // 초당 3회를 넘지 않게 정했다. 자동 훑기는 _Time 을 따르므로 배속 2 면 자동 몫이 2Hz 가 되어 합이 4Hz 까지 오른다.
+        // 배속을 올리는 게임에서는 자동 훑기를 끄고 이 스크립트로만 재생한다.
         const float MinIntervalFloor = 0.5f;
 
         [SerializeField] bool playOnPointerEnter = true;

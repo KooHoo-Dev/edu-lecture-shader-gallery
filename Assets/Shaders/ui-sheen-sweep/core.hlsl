@@ -61,7 +61,8 @@ float4 sgEffect(SgInput i)
     // 2. 띠 마스크. 한 주기 = 지나가는 시간 + 쉬는 시간. frac 으로 주기 안에서의 위치(0~1)를 구하고,
     //    앞쪽 (1 - 쉬는 비율) 동안만 띠를 -reach 에서 +reach 로 옮긴다. 나머지는 +reach 끝(이미지 밖)에서 쉰다.
     //    한 점을 띠가 지나는 빈도는 1 / 주기다. 주기 하한 1초라 1Hz 를 넘지 않는다.
-    float phase = frac(i.time / max(_SweepPeriod, 0.01));
+    //    Range(1, 6) 은 Inspector 에서만 막고 SetFloat 나 Animator 는 그 아래 값도 넣으므로 여기서 한 번 더 막는다.
+    float phase = frac(i.time / max(_SweepPeriod, 1.0));
     float travel = min(phase / max(1.0 - _SweepPause, 0.05), 1.0);
     float autoBand = sheenBand(r.x - lerp(-reach, reach, travel), halfWidth, _SheenSoftness) * step(0.5, _AutoSweep);
     // 이벤트(클릭, 획득)용 띠. C# 이 _SweepPulse 를 0 에서 1 로 올리는 동안 한 번 지나간다.
@@ -82,7 +83,9 @@ float4 sgEffect(SgInput i)
     // 3. 알파로 가린 띠: 화면에 실제로 더해지는 빛의 양. 알파 혼합은 색에 알파를 곱해 화면에 얹으므로,
     //    알파를 이미지 알파 그대로 두면 빛도 band * 이미지 알파만큼만 남는다. 투명 여백에서는 0, 그림 가장자리에서는 옅다.
     float masked = band * tex.a;
-    SG_STEP(3, float3(masked, masked, masked));
+    // 띠가 쉬는 동안에도 어디가 그림 안인지 보이게 이미지 알파를 옅은 회색 윤곽으로 깐다 (단계 보기 전용)
+    float shown = max(masked, tex.a * 0.05);
+    SG_STEP(3, float3(shown, shown, shown));
 
     // 최종: 이미지 색에 빛을 더하고(가산) 정점 색을 곱한다. 알파는 이미지 알파 그대로다.
     // 정점 색에는 Image.color, CanvasGroup 의 alpha, Button 의 색 전환이 들어온다. 광택까지 함께 곱하므로
