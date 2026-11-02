@@ -57,7 +57,8 @@ Shader "ShaderGallery/UiSheenSweep"
         // UI 공통: UI/Default 와 같은 태그. 단 CanUseSpriteAtlas 만 다르다.
         // 이 셰이더는 uv 가 Image 의 0~1 을 돈다고 보고 띠의 위치와 이동 거리를 정한다. 아틀라스에 묶인 스프라이트는
         // uv 가 아틀라스 속 작은 구간만 돌아 띠가 아틀라스 전체를 기준으로 지나가므로 False 로 둔다.
-        // 아틀라스 스프라이트에 쓰려면 아틀라스에서 빼거나, 스프라이트의 uv 범위를 C# 에서 넘겨 uv 를 0~1 로 되돌린다.
+        // 스프라이트 시트(Sprite Mode Multiple)와 Sliced, Tiled 도 같다. 아틀라스·시트에서 뺀 스프라이트를 Simple 로 쓰거나,
+        // BaseMeshEffect 로 Image 기준 0~1 좌표를 uv1 에 넣고(캔버스 Additional Shader Channels 의 TexCoord1) 그 좌표로 띠를 계산한다.
         Tags
         {
             "Queue" = "Transparent"
