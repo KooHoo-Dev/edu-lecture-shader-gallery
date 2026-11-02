@@ -23,8 +23,10 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { ensureWebModules } from './lib/worktree.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+ensureWebModules(ROOT)
 const argv = process.argv.slice(2)
 const id = argv.find(a => !a.startsWith('--'))
 if (!id) {

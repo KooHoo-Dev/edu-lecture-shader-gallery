@@ -22,8 +22,10 @@ import { hexToProperty, propertyPattern } from '../web/src/core/codegen.ts'
 import { skillEntries } from './build-skill.mjs'
 import { findChrome, withChrome } from './lib/chrome.mjs'
 import { loadMeta, specimenIds } from './unity-job.mjs'
+import { ensureWebModules } from './lib/worktree.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+ensureWebModules(ROOT)
 const WEB = join(ROOT, 'web')
 const SHADERS = join(ROOT, 'Assets', 'Shaders')
 const DIST = join(WEB, 'dist', 'index.html')

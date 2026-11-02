@@ -10,6 +10,7 @@
 //   editor: 에디터가 이 프로젝트를 열고 있고 SgBridge 가 살아 있으면 명령 파일로 맡긴다.
 //   batch : 그 밖의 경우. 에디터가 열려 있으면 같은 폴더로 배치 모드를 실행할 수 없으므로 복사본에서 실행한다.
 //           복사본은 ~/.sg-unity/<리포 이름> 에 있고 Library 를 유지해 두 번째부터 빠르다. SG_UNITY_COPY 로 바꿀 수 있다.
+//           git worktree 에서도 메인 작업 폴더 이름의 복사본을 함께 쓴다. 동시에 두 번 돌리지 않는다.
 //
 // 결과: _shots/unity/result.json 과 _shots/unity/<id>/<상태>.png. 오류가 있으면 종료 코드 1.
 
@@ -19,11 +20,12 @@ import { homedir } from 'node:os'
 import { basename, dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { buildJob } from './unity-job.mjs'
+import { mainRoot } from './lib/worktree.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const OUT = join(ROOT, '_shots', 'unity')
 const UNITY = process.env.SG_UNITY_EXE ?? findUnityExe()
-const COPY = process.env.SG_UNITY_COPY ?? join(homedir(), '.sg-unity', basename(ROOT))
+const COPY = process.env.SG_UNITY_COPY ?? join(homedir(), '.sg-unity', basename(mainRoot(ROOT)))
 const BRIDGE = join(ROOT, 'Temp', 'ShaderGalleryBridge')
 const BATCH_TIMEOUT_MS = 20 * 60 * 1000
 // 에디터가 명령을 집어 갈 때까지(도메인 리로드 포함)와, 집어 간 뒤 끝날 때까지의 제한
