@@ -16,23 +16,29 @@ float4 sgEffect(SgInput i)
     float t = i.time * _FlowSpeed;
 
     // 1. 노이즈 한 층: UV 에서 시간을 빼면 무늬가 위(+v)로 흘러 보인다.
-    // 흐름 오프셋은 frac 으로 0~1 에 감싼다. 텍스처 주기가 1 이라 결과는 같고, 오래 켜 두어도 UV 에 큰 수가 붙지 않아 떨리지 않는다.
+    // 흐름 오프셋은 frac 으로 0~1 에 감싼다. 텍스처 주기가 1 이라 결과는 같고, UV 에 더하는 값이 커지지 않는다.
     // 텍스처 자체가 세로로 긴 결이라 UV 에 크기만 곱하면 위로 뻗은 불길 무늬가 된다.
+    // 화면 속도 = 오프셋 속도 ÷ 반복 횟수. 이 층은 0.6 ÷ 노이즈 크기, 기본값에서 초당 Quad 높이의 0.6 배만큼 오른다.
     float2 noiseUV = uv * _NoiseScale;
     float2 uvA = noiseUV + float2(0.0, frac(-t * 0.6));
     float layerA = SG_TEX(_NoiseTex, uvA).r;
     SG_STEP(1, float3(layerA, layerA, layerA));
 
-    // 2. 두 층 곱하기: 같은 텍스처를 두 배 잘게, 두 배쯤 빠르게 한 번 더 읽어 곱한다.
+    // 2. 두 층 곱하기: 같은 텍스처를 두 배 잘게, 화면에서 두 배 빠르게 한 번 더 읽어 곱한다.
+    // 두 배로 반복한 층은 오프셋을 같은 만큼 움직여도 화면에서 절반만 움직인다.
+    // 그래서 화면 속도를 첫 층의 두 배(1.2 ÷ 노이즈 크기)로 하려면 오프셋 속도는 1.2 × 2 = 2.4 가 된다.
+    // (오프셋 속도를 1.3 쯤으로 두면 화면 속도가 0.65 라 첫 층과 거의 같아, 두 층이 한 덩어리로 미끄러진다.)
     // 두 무늬의 밝은 곳이 겹치는 자리만 남고, 속도가 달라 겹치는 자리가 계속 바뀌어 일렁인다.
+    // 가로 0.37 은 두 층의 무늬가 같은 자리에서 시작하지 않게 옆으로 비킨 값이다.
     // 0.5 근처 값끼리 곱하면 0.25 근처로 어두워지므로 2 를 곱해 평균 밝기를 되돌린다.
-    float2 uvB = noiseUV * 2.0 + float2(0.37, frac(-t * 1.3));
+    float2 uvB = noiseUV * 2.0 + float2(0.37, frac(-t * 2.4));
     float layerB = SG_TEX(_NoiseTex, uvB).r;
     float noise = layerA * layerB * 2.0;
     SG_STEP(2, float3(noise, noise, noise));
 
     // 3. 모양 마스크: UV 로 만든 부드러운 불꽃 모양. 아래는 넓고 위로 갈수록 좁아지다 불꽃 높이에서 0 이 된다.
     // 너울: 크고 느린 노이즈로 가로 위치를 민다. 높이를 곱해 뿌리는 제자리에 두고 위쪽만 좌우로 흔든다.
+    // UV 를 0.5 배로 읽어 무늬가 Quad 두 개 크기이고, 화면 속도는 0.25 ÷ 0.5 = 0.5 로 노이즈 크기와 상관없다.
     float h = saturate(uv.y / _FlameHeight);
     float sway = SG_TEX(_NoiseTex, uv * 0.5 + float2(0.21, frac(-t * 0.25))).r - 0.5;
     float x = uv.x - 0.5 + sway * _Wobble * h;
@@ -57,11 +63,14 @@ float4 sgEffect(SgInput i)
     float flame = smoothstep(FIRE_FLAME_CUT - _EdgeSoftness, FIRE_FLAME_CUT + _EdgeSoftness, fire);
     SG_STEP(4, float3(flame, flame, flame));
 
-    // 최종: 기준값을 넘은 정도(heat)로 색을 고른다. 가장자리는 빨강, 가운데는 주황, 속은 밝은 노랑.
+    // 최종: 깎기 전 값(fire)이 기준값을 넘은 정도(heat)로 색을 고른다. 가장자리는 빨강, 가운데는 주황, 속은 밝은 노랑.
+    // 깎은 알파(flame)는 경계 바로 안쪽에서 벌써 1 이 되므로, 그것으로 고르면 불 대부분이 속 색이 된다.
     float heat = saturate((fire - FIRE_FLAME_CUT) / 2.0);
     float3 color = lerp(_EdgeColor.rgb, _MidColor.rgb, smoothstep(0.0, 0.3, heat));
     color = lerp(color, _CoreColor.rgb, smoothstep(0.5, 1.0, heat));
     // 세기는 1 을 넘는 HDR 배율. Bloom 이 있으면 번지므로 세기를 낮춘다.
+    // 정점 색(i.color)을 색과 알파에 곱한다. Particle System 의 Start Color 와 Color over Lifetime 이 여기로 들어온다.
+    // Quad 의 정점 색은 흰색(1)이라 화면이 바뀌지 않는다.
     // 더하기 혼합이라 알파는 가리는 정도가 아니라 더할 양이다. 깎여 나간 곳은 아무것도 더하지 않는다.
-    return float4(color * _Intensity, flame);
+    return float4(color * _Intensity * i.color.rgb, flame * i.color.a);
 }
