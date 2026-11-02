@@ -122,6 +122,8 @@ Shader "ShaderGallery/XrayOccludedSilhouette"
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(v);
                 float3 normalWS = normalize(v.normalWS);
                 // 위치를 넘기는 형식이라야 그림자가 Max Distance 근처에서 서서히 사라진다.
+                // distanceAttenuation(광원 Culling Mask)은 곱하지 않는다. 갤러리 촬영 씬에서 0 으로 들어와 직사광이 사라졌다.
+                // 그래서 광원의 Culling Mask 와 Rendering Layers 는 이 본체 조명에 반영되지 않는다.
                 Light light = GetMainLight(TransformWorldToShadowCoord(v.positionWS), v.positionWS, half4(1, 1, 1, 1));
                 float3 lightColor = light.color * light.shadowAttenuation;
                 float3 lighting = lightColor * saturate(dot(normalWS, light.direction)) + SampleSH(normalWS);
@@ -135,8 +137,10 @@ Shader "ShaderGallery/XrayOccludedSilhouette"
 
         // 실루엣 패스. 깊이 버퍼에 이미 더 가까운 것(벽)이 있는 픽셀만 통과한다(ZTest Greater).
         // 깊이를 쓰지 않아(ZWrite Off) 본체와 다른 물체의 깊이를 망치지 않고, 알파로 벽 위에 섞는다.
-        // Unity 는 같은 물체의 SRPDefaultUnlit 패스를 UniversalForwardOnly 본체보다 먼저 그린다. 그래서 자기 몸에 가려진 뒷부분은 실루엣이 되지 않는다.
-        // 깊이 프리패스(DepthOnly)가 먼저 돌면 그 순서가 깨진다 (meta 의 pitfalls 참고).
+        // Forward(+) 에서 Unity 는 같은 물체의 SRPDefaultUnlit 패스를 UniversalForwardOnly 본체보다 먼저 그린다. 그래서 자기 몸에 가려진 뒷부분은 실루엣이 되지 않는다.
+        // Depth Priming 이 켜지면 불투명 그리기 전체가 ZTest Equal 로 덮어써져 이 패스의 ZTest Greater 가 무시되고 실루엣이 통째로 사라진다.
+        // 프라이밍 없는 깊이 프리패스(SSAO 등)는 깊이 텍스처에만 그리므로 상관없다.
+        // 자기 겹침은 Deferred(본체가 먼저 그려질 수 있다)와 렌더러, 서브메시가 여럿인 캐릭터에서 생긴다 (meta 의 pitfalls 참고).
         // 같은 LightMode 태그의 패스가 둘이면 URP 는 첫 패스만 그리므로 본체와 다른 태그를 쓴다.
         Pass
         {
