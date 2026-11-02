@@ -55,7 +55,8 @@ float4 sgEffect(SgInput i)
     float2 flowB = frac(float2(-0.07, -0.12) * t);
 
     // 잔물결 법선: 높이를 옆 칸과 비교한 기울기로 법선을 눕힌다. 한 칸 = 첫 장 텍스처의 한 텍셀.
-    float e = 1.0 / (128.0 * _RippleScale);
+    // 텍셀 크기를 텍스처에서 받으므로 다른 크기의 노이즈로 바꿔도 늘 한 텍셀 차이를 재고, 물결 세기가 텍스처 크기에 따라 바뀌지 않는다.
+    float e = _NoiseTex_TexelSize.x / _RippleScale;
     float h = waterFoamRipple(i.uv, flowA, flowB);
     float hu = waterFoamRipple(i.uv + float2(e, 0.0), flowA, flowB);
     float hv = waterFoamRipple(i.uv + float2(0.0, e), flowA, flowB);
@@ -65,7 +66,7 @@ float4 sgEffect(SgInput i)
     float3 n = normalize(i.normalWS + float3(slope.x, 0.0, slope.y));
 
     // 1. 깊이 차이: 수면 뒤 씬 표면까지의 거리를 깊이 범위로 나눠 0~1 로 만든다. 물체와 닿는 곳이 0 이다.
-    // 수직 깊이가 아니라 카메라 시선 축의 거리 차이라서, 같은 물도 비스듬히 볼수록 깊게 나온다.
+    // 수직 깊이가 아니라 카메라 정면 축으로 잰 눈 깊이의 차이라서, 같은 물도 비스듬히 볼수록 깊게 나온다.
     float depth01 = saturate(i.depthDelta / _DepthRange);
     SG_STEP(1, float3(depth01, depth01, depth01));
 
