@@ -29,7 +29,7 @@ const INPUT: Record<StageKind, string> = {
   depth: `uniform sampler2D _SgSceneDepth;
 uniform sampler2D _SgSceneColor;
 float4 sgSceneColor(float2 uv) { return texture(_SgSceneColor, uv); }
-struct SgInput { float2 uv; float3 positionOS; float3 positionWS; float3 normalOS; float3 normalWS; float3 viewWS; float2 screenUV; float depthDelta; float time; };`,
+struct SgInput { float2 uv; float4 color; float3 positionOS; float3 positionWS; float3 normalOS; float3 normalWS; float3 viewWS; float2 screenUV; float depthDelta; float time; };`,
   fullscreen: `uniform sampler2D _SgSource;
 uniform sampler2D _SgSceneDepth;
 uniform sampler2D _SgSceneNormal;
@@ -110,6 +110,7 @@ void main() {
   i.viewWS = normalize(SG_FLIP(cameraPosition - vPositionWS));
   i.screenUV = gl_FragCoord.xy / uViewport;
   i.depthDelta = sgLinearEye(texture(_SgSceneDepth, i.screenUV).r) - vEyeDepth;
+  i.color = vec4(1.0);
   i.time = uTime;
   vec4 c = sgEffect(i);
   ${writeColor(cutout)}
