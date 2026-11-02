@@ -681,12 +681,15 @@ class ShaderStage {
       renderer.readRenderTargetPixels(probe, 0, 0, probe.width, probe.height, pixels)
       return pixels
     }
+    // 벽(stage.occluded)은 카메라에서 그림자 자리를 가리므로 함께 숨긴다
     this.effect.visible = false
+    if (this.wall) this.wall.visible = false
     renderer.setClearColor(0x000000, 1)
     const shaded = floorPixels(1)
     const unshaded = floorPixels(0)
     floor.material.uniforms.uShadowMaskOn.value = 1
     this.effect.visible = true
+    if (this.wall) this.wall.visible = true
     renderer.setRenderTarget(null)
     probe.dispose()
 
