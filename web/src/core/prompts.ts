@@ -52,9 +52,11 @@ export function filesWithValues(source: PromptSource, values: ParamValues): Spec
 }
 
 function codeSection(source: PromptSource, values: ParamValues): string {
+  const pngs = Object.values(source.meta.stage.textures ?? {}).map(t => `\`${t.file}\``)
+  const textureNote = pngs.length ? `\n\n### 텍스처\n${pngs.join(', ')} 은 글로 넣을 수 없어 갤러리의 '이 효과만 zip' 에 들어 있다. 받아서 같은 폴더에 둔다.` : ''
   return filesWithValues(source, values)
     .map(f => `### Assets/Shaders/${source.meta.id}/${f.name}\n\n\`\`\`${f.lang === 'csharp' ? 'csharp' : 'hlsl'}\n${f.code.replace(/\r\n/g, '\n').trimEnd()}\n\`\`\``)
-    .join('\n\n')
+    .join('\n\n') + textureNote
 }
 
 function numbered(lines: string[]): string {

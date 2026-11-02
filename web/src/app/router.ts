@@ -8,7 +8,7 @@ import { ALIASES } from '../core/registry'
  */
 export type Route =
   | { name: 'home' }
-  | { name: 'specimen'; id: string; preset?: string; opts: SpecimenUrlOptions }
+  | { name: 'specimen'; id: string; preset?: string; opts: SpecimenUrlOptions; query: string }
   | { name: 'about' }
 
 /** 수업 자료·자동 검사용 딥링크 옵션: #/s/<id>?preset=x&off=1&speed=0.25&event=hit&step=2&auto=0&p._Threshold=0.3 */
@@ -37,6 +37,7 @@ export function parseHash(hash: string): Route {
     return {
       name: 'specimen',
       id,
+      query,
       preset: params.get('preset') ?? undefined,
       opts: {
         off: flag('off'),

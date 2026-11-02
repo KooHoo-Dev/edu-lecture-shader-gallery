@@ -10,8 +10,9 @@ export async function writeText(text: string): Promise<void> {
     area.value = text
     document.body.append(area)
     area.select()
-    document.execCommand('copy')
+    const copied = document.execCommand('copy')
     area.remove()
+    if (!copied) throw new Error('클립보드를 쓸 수 없습니다')
   }
 }
 
@@ -25,11 +26,13 @@ export function downloadBlob(blob: Blob, name: string): void {
 }
 
 /** 이미지를 클립보드에 넣는다. 안 되는 환경이면 파일로 내려받는다 */
-export async function writeImage(png: Blob, fallbackName: string): Promise<void> {
+export async function writeImage(png: Blob, fallbackName: string): Promise<CopyResult> {
   try {
     await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })])
+    return '복사됨'
   } catch {
     downloadBlob(png, fallbackName)
+    return '파일로 저장됨'
   }
 }
 
@@ -49,16 +52,22 @@ export function imageUrlToPng(url: string): Promise<Blob> {
   })
 }
 
-/** 복사 버튼용: 눌린 뒤 잠깐 '복사됨' 을 보여 준다 */
-export function useCopy(): [boolean, (action: () => Promise<void>) => void] {
-  const [copied, setCopied] = useState(false)
+export type CopyResult = '복사됨' | '파일로 저장됨'
+
+/** 복사 버튼용: 눌린 뒤 잠깐 결과를 보여 준다. 평소에는 null */
+export function useCopy(): [string | null, (action: () => Promise<CopyResult | void>) => void] {
+  const [status, setStatus] = useState<string | null>(null)
   const timer = useRef(0)
-  const run = useCallback((action: () => Promise<void>) => {
-    void action().then(() => {
-      setCopied(true)
+  const run = useCallback((action: () => Promise<CopyResult | void>) => {
+    const show = (text: string) => {
+      setStatus(text)
       clearTimeout(timer.current)
-      timer.current = window.setTimeout(() => setCopied(false), 1400)
-    })
+      timer.current = window.setTimeout(() => setStatus(null), 1600)
+    }
+    action().then(
+      result => show(result ?? '복사됨'),
+      () => show('복사 실패'),
+    )
   }, [])
-  return [copied, run]
+  return [status, run]
 }

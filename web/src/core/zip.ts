@@ -3,7 +3,7 @@
 
 export interface ZipEntry {
   path: string
-  content: string
+  content: string | Uint8Array
 }
 
 const CRC_TABLE = (() => {
@@ -38,7 +38,7 @@ export function createZip(entries: ZipEntry[], when = new Date()): Uint8Array {
 
   for (const entry of entries) {
     const name = encoder.encode(entry.path)
-    const data = encoder.encode(entry.content)
+    const data = typeof entry.content === 'string' ? encoder.encode(entry.content) : entry.content
     const crc = crc32(data)
 
     const local = new Uint8Array(30 + name.length + data.length)

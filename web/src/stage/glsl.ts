@@ -32,6 +32,8 @@ float4 sgSource(float2 uv) { return texture(_SgSource, uv); }
 struct SgInput { float2 uv; float aspect; float time; };`,
 }
 
+const writeColor = (cutout: boolean) => (cutout ? 'if (c.a < 0.5) discard;\n  sgOut = vec4(c.rgb, 1.0);' : 'sgOut = c;')
+
 const FRAGMENT_MAIN: Record<StageKind, (cutout: boolean) => string> = {
   mesh: cutout => `in vec2 vUv;
 in vec3 vPositionOS;
@@ -54,9 +56,9 @@ void main() {
   i.lighting = uLightColor * saturate(dot(i.normalWS, uLightDir)) + uAmbient;
   i.time = uTime;
   vec4 c = sgEffect(i);
-  ${cutout ? 'if (c.a < 0.5) discard;\n  sgOut = vec4(c.rgb, 1.0);' : 'sgOut = c;'}
+  ${writeColor(cutout)}
 }`,
-  sprite: () => `in vec2 vUv;
+  sprite: cutout => `in vec2 vUv;
 uniform vec4 uSpriteColor;
 uniform float uTime;
 out vec4 sgOut;
@@ -66,9 +68,10 @@ void main() {
   i.color = uSpriteColor;
   i.texelSize = _MainTex_TexelSize.xy;
   i.time = uTime;
-  sgOut = sgEffect(i);
+  vec4 c = sgEffect(i);
+  ${writeColor(cutout)}
 }`,
-  depth: () => `in vec2 vUv;
+  depth: cutout => `in vec2 vUv;
 in vec3 vPositionOS;
 in vec3 vPositionWS;
 in vec3 vNormalWS;
@@ -91,7 +94,8 @@ void main() {
   i.screenUV = gl_FragCoord.xy / uViewport;
   i.depthDelta = sgLinearEye(texture(_SgSceneDepth, i.screenUV).r) - vEyeDepth;
   i.time = uTime;
-  sgOut = sgEffect(i);
+  vec4 c = sgEffect(i);
+  ${writeColor(cutout)}
 }`,
   fullscreen: () => `in vec2 vUv;
 uniform float uAspect;

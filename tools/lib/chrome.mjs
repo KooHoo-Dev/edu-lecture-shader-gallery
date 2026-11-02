@@ -33,9 +33,10 @@ export async function withChrome(run, { extraArgs = [], size = [1280, 900] } = {
     '--enable-unsafe-swiftshader',
     '--ignore-gpu-blocklist',
     `--window-size=${size[0]},${size[1]}`,
+    ...(process.env.CI ? ['--no-sandbox'] : []),
     ...extraArgs,
     'about:blank',
-  ])
+  ], { stdio: 'ignore' })
   try {
     let target
     for (let i = 0; i < 60 && !target; i++) {

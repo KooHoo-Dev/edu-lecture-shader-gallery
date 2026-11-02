@@ -13,19 +13,21 @@ export const SKILL_LINE_LIMIT = 500
 export interface SkillSource {
   meta: SpecimenMeta
   files: SpecimenFile[]
+  /** 표본 폴더의 PNG */
+  textures?: { name: string; data: Uint8Array }[]
 }
 
 const defaults = (meta: SpecimenMeta): ParamValues => Object.fromEntries(meta.params.map(p => [p.key, p.default]))
 
 const KIND_NAMES = { mesh: '메시', sprite: '스프라이트', depth: '깊이 사용', fullscreen: '전체 화면' } as const
 
-function guide(meta: SpecimenMeta, files: SpecimenFile[]): string {
+function guide(meta: SpecimenMeta, files: SpecimenFile[], textures: string[]): string {
   const list = (lines: string[]) => lines.map(line => `- ${line}`).join('\n')
   return [
     `# ${meta.title} (${meta.titleEn})`,
     meta.oneLiner,
     `무대 종류: ${KIND_NAMES[meta.stage.kind]}. 난이도 ${meta.difficulty}/3. 기법: ${meta.tags.join(', ')}.`,
-    `## 파일\n${list(files.map(f => `\`${f.name}\``))}\n\n모두 프로젝트의 \`Assets/Shaders/${meta.id}/\` 에 복사한다.`,
+    `## 파일\n${list([...files.map(f => f.name), ...textures].map(name => `\`${name}\``))}\n\n모두 프로젝트의 \`Assets/Shaders/${meta.id}/\` 에 복사한다.`,
     ...(meta.requires?.length ? [`## URP 설정\n사용 중인 URP Asset 에서 켠다: ${meta.requires.map(r => (r === 'depth' ? 'Depth Texture' : 'Opaque Texture')).join(', ')}.`] : []),
     `## 넣는 순서\n${meta.unity.setup.map((s, i) => `${i + 1}. ${s}`).join('\n')}`,
     `## 확인\n${meta.unity.verify}`,
@@ -71,7 +73,7 @@ function skillMarkdown(name: string, specimens: SkillSource[], version: string):
     '## 진행 순서',
     '',
     '1. `references/<id>/guide.md` 를 읽는다.',
-    '2. 같은 폴더의 `.shader`, `core.hlsl`, C# 파일을 프로젝트의 `Assets/Shaders/<id>/` 에 그대로 복사한다.',
+    '2. 같은 폴더의 `.shader`, `core.hlsl`, C#, PNG 파일을 프로젝트의 `Assets/Shaders/<id>/` 에 그대로 복사한다.',
     '3. guide 의 넣는 순서대로 머티리얼과 렌더러 설정을 안내하거나 적용한다.',
     '4. 사용자가 다른 모습을 원하면 효과 본체인 `core.hlsl` 을 고친다. `.shader` 는 새 속성을 넣거나 패스 설정이 달라질 때만 고친다.',
     '5. 새 머티리얼 값은 `Properties` 와 `CBUFFER_START(UnityPerMaterial)` 양쪽에 넣는다.',
@@ -96,12 +98,13 @@ function skillMarkdown(name: string, specimens: SkillSource[], version: string):
 export function buildSkillFiles(specimens: SkillSource[], version: string, single = false): ZipEntry[] {
   const name = single && specimens.length === 1 ? `${SKILL_NAME}-${specimens[0].meta.id}` : SKILL_NAME
   const entries: ZipEntry[] = [{ path: `${name}/SKILL.md`, content: skillMarkdown(name, specimens, version) }]
-  for (const { meta, files } of specimens) {
-    entries.push({ path: `${name}/references/${meta.id}/guide.md`, content: guide(meta, files) })
+  for (const { meta, files, textures = [] } of specimens) {
+    entries.push({ path: `${name}/references/${meta.id}/guide.md`, content: guide(meta, files, textures.map(t => t.name)) })
     for (const file of files) {
       const code = file.name.endsWith('.shader') ? applyValuesToShader(file.code, meta.params, defaults(meta)) : file.code
       entries.push({ path: `${name}/references/${meta.id}/${file.name}`, content: code.replace(/\r\n/g, '\n') })
     }
+    for (const texture of textures) entries.push({ path: `${name}/references/${meta.id}/${texture.name}`, content: texture.data })
   }
   return entries
 }

@@ -16,6 +16,7 @@
 *.unityproj
 .vs/
 .idea/
+.claude/settings.local.json
 
 # Web
 node_modules/

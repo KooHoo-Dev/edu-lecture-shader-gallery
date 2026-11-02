@@ -44,7 +44,8 @@ float4 sgEffect(SgInput i)
 
     // 최종: 외곽선을 스프라이트 뒤에 깔고 합친다.
     float outlineAlpha = outline * _OutlineColor.a * i.color.a;
-    float alpha = saturate(base.a + outlineAlpha);
-    float3 rgb = lerp(_OutlineColor.rgb, flashed, base.a);
+    float alpha = base.a + outlineAlpha * (1.0 - base.a);
+    // 스프라이트 자체가 반투명이어도(Color 의 알파) 안쪽에 외곽선 색이 섞이지 않게 비율로 나눈다.
+    float3 rgb = lerp(_OutlineColor.rgb, flashed, base.a / max(alpha, 0.0001));
     return float4(rgb, alpha);
 }

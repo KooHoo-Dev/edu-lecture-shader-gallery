@@ -18,6 +18,7 @@ const onlySpecimen: Plugin = {
       .replace(`'../../../Assets/Shaders/*/*.{shader,hlsl,cs}'`, `'../../../Assets/Shaders/${only}/*.{shader,hlsl,cs}'`)
       .replace(`'../specimens/*/web.glsl'`, `'../specimens/${only}/web.glsl'`)
       .replace(`'../shots/*/*.webp'`, `'../shots/${only}/*.webp'`)
+      .replace(`'../../../Assets/Shaders/*/*.png'`, `'../../../Assets/Shaders/${only}/*.png'`)
   },
 }
 

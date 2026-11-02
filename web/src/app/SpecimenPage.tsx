@@ -39,7 +39,12 @@ function SpecimenView({ specimen, presetId, opts, presenter }: { specimen: Speci
   const [playing, setPlaying] = useState(true)
   const [off, setOff] = useState(opts.off ?? false)
   const [speed, setSpeed] = useState(opts.speed ?? 1)
-  const [autoplay, setAutoplay] = useState(() => opts.auto ?? (!prefersReducedMotion() && !opts.event && !opts.step))
+  const loopKeys = new Set(m.demo?.loops?.map(t => t.key))
+  const touchesLoop = (keys: string[]) => keys.some(k => loopKeys.has(k))
+  // 자동 데모가 움직이는 값을 링크나 프리셋으로 정했으면 데모가 덮어쓰지 않게 끈다
+  const [autoplay, setAutoplay] = useState(
+    () => opts.auto ?? (!prefersReducedMotion() && !opts.event && !opts.step && !touchesLoop([...Object.keys(opts.params ?? {}), ...Object.keys(initialPreset?.values ?? {})])),
+  )
   const [step, setStep] = useState(opts.step && m.steps.some(s => s.n === opts.step) ? opts.step : 0)
   const [tab, setTab] = useState<'controls' | 'steps'>(opts.step ? 'steps' : 'controls')
   const stage = useRef<StageViewHandle>(null)
@@ -71,17 +76,19 @@ function SpecimenView({ specimen, presetId, opts, presenter }: { specimen: Speci
   useEffect(() => {
     const on = (e: KeyboardEvent) => {
       if (isTyping(e) || e.ctrlKey || e.metaKey || e.altKey) return
-      const k = e.key.toLowerCase()
-      if (k === ' ' && !(e.target instanceof HTMLButtonElement)) {
+      // e.key 는 한글 입력 상태에서 'Process' 가 되므로 키 위치(e.code)로 판단한다
+      const code = e.code
+      const digit = /^(?:Digit|Numpad)([1-9])$/.exec(code)
+      if (code === 'Space' && !(e.target instanceof HTMLButtonElement)) {
         e.preventDefault()
         setPlaying(v => !v)
-      } else if (k === 'j') setOff(v => !v)
-      else if (k === 's') setSpeed(s => SPEEDS[(SPEEDS.indexOf(s) + 1) % SPEEDS.length])
-      else if (k === 'a') setAutoplay(v => !v)
-      else if (k === 'arrowright' && !(e.target instanceof HTMLInputElement)) stepBy(1)
-      else if (k === 'arrowleft' && !(e.target instanceof HTMLInputElement)) stepBy(-1)
-      else if (/^[1-9]$/.test(k)) {
-        const ev = m.events[Number(k) - 1]
+      } else if (code === 'KeyJ') setOff(v => !v)
+      else if (code === 'KeyS') setSpeed(s => SPEEDS[(SPEEDS.indexOf(s) + 1) % SPEEDS.length])
+      else if (code === 'KeyA') setAutoplay(v => !v)
+      else if (code === 'ArrowRight' && !(e.target instanceof HTMLInputElement)) stepBy(1)
+      else if (code === 'ArrowLeft' && !(e.target instanceof HTMLInputElement)) stepBy(-1)
+      else if (digit) {
+        const ev = m.events[Number(digit[1]) - 1]
         if (ev) fire(ev.id)
       }
     }
@@ -197,11 +204,12 @@ function SpecimenView({ specimen, presetId, opts, presenter }: { specimen: Speci
                 setParams(p => ({ ...p, [k]: v }))
                 setPresetActive(null)
                 // 직접 움직인 값이 자동 데모에 덮이지 않게 한다
-                if (m.demo?.loops?.some(t => t.key === k)) setAutoplay(false)
+                if (touchesLoop([k])) setAutoplay(false)
               }}
               onPreset={p => {
                 setParams(applyPreset(m.params, p))
                 setPresetActive(p.id)
+                if (touchesLoop(Object.keys(p.values))) setAutoplay(false)
                 history.replaceState(null, '', hrefSpecimen(m.id, p.id))
               }}
               onReset={() => {

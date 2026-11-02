@@ -24,7 +24,7 @@ metadata:
 ## 진행 순서
 
 1. `references/<id>/guide.md` 를 읽는다.
-2. 같은 폴더의 `.shader`, `core.hlsl`, C# 파일을 프로젝트의 `Assets/Shaders/<id>/` 에 그대로 복사한다.
+2. 같은 폴더의 `.shader`, `core.hlsl`, C#, PNG 파일을 프로젝트의 `Assets/Shaders/<id>/` 에 그대로 복사한다.
 3. guide 의 넣는 순서대로 머티리얼과 렌더러 설정을 안내하거나 적용한다.
 4. 사용자가 다른 모습을 원하면 효과 본체인 `core.hlsl` 을 고친다. `.shader` 는 새 속성을 넣거나 패스 설정이 달라질 때만 고친다.
 5. 새 머티리얼 값은 `Properties` 와 `CBUFFER_START(UnityPerMaterial)` 양쪽에 넣는다.

@@ -1,30 +1,33 @@
 // Shader Gallery 검사 (Node 만 사용).
-//   node tools/check.mjs            # 규격 검사. web/dist 가 있으면 용량, 오프라인 실행, WebGL 컴파일까지
-//   node tools/check.mjs <id> ...   # 지정한 표본의 규격만 검사하고 dist 검사는 건너뜀
+//   node tools/check.mjs            # 전체 규격 + web/dist 의 용량, 오프라인 실행, WebGL 컴파일, 무대 동작, Skill 최신 여부
+//   node tools/check.mjs <id> ...   # 지정한 표본: 규격 + 그 표본만 넣어 빌드한 뒤 WebGL 컴파일과 무대 동작
 //   node tools/check.mjs --links    # + 출처 링크 생존 확인 (인터넷 필요)
 //
 // 검사 항목 (자세한 규칙은 docs/specimen-guide.md)
-//   1. 폴더: kebab-case ID, meta.ts, core.hlsl, .shader 존재, .meta 존재, meta.id 와 폴더명 일치
+//   1. 폴더: kebab-case ID, meta.ts, core.hlsl, .shader, .meta 존재, 이름 규칙, 클래스 중복
 //   2. core.hlsl 공통 문법: 금지 문법, Unity·웹 예약어, include 금지
-//   3. .shader: HLSLPROGRAM, CBUFFER, 금지 API, core.hlsl include
-//   4. 메타와 셰이더 일치: 속성 이름과 기본값, CBUFFER, SG_STEP 번호, SG_OFF 분기, 이벤트 트랙
+//   3. .shader: HLSLPROGRAM, CBUFFER, 금지 API, core.hlsl include, 혼합과 패스 태그
+//   4. 메타와 셰이더 일치: 속성 이름, 범위, 기본값, CBUFFER, SG_STEP 번호, 트랙, 정점 변형, 텍스처, URP 요구 사항
 //   5. 글: 개수 규칙, 게임명이 ID·제목에 없는지, inspiredBy 형식
 //   6. import 대소문자 (Windows 에서 통과해도 Linux CI 에서 깨진다)
-//   7. dist 용량 예산, 외부 참조, 네트워크 차단 오프라인 실행, WebGL2 컴파일 로그, Skill 최신 여부
+//   7. 페이지: WebGL2 컴파일 로그, 무대가 실제로 그리는지, 이벤트와 자동 데모, 페이지 오류
+//   8. 전체 검사만: dist 용량 예산, 외부 참조, 네트워크 차단 오프라인 실행, Skill 최신 여부
 
+import { spawnSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { dirname, join, parse, relative, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { gzipSync } from 'node:zlib'
-import { propertyPattern, hexToProperty } from '../web/src/core/codegen.ts'
+import { hexToProperty, propertyPattern } from '../web/src/core/codegen.ts'
+import { skillEntries } from './build-skill.mjs'
 import { findChrome, withChrome } from './lib/chrome.mjs'
 import { loadMeta, specimenIds } from './unity-job.mjs'
-import { skillEntries } from './build-skill.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const WEB = join(ROOT, 'web')
 const SHADERS = join(ROOT, 'Assets', 'Shaders')
 const DIST = join(WEB, 'dist', 'index.html')
+const VITE = join(WEB, 'node_modules', 'vite', 'bin', 'vite.js')
 const BUDGET = 5 * 1024 * 1024
 const BUDGET_GZIP = 1.5 * 1024 * 1024
 const KEBAB = /^[a-z0-9]+(-[a-z0-9]+)*$/
@@ -34,6 +37,12 @@ const errors = []
 const warnings = []
 const err = message => errors.push(message)
 const warn = message => warnings.push(message)
+
+const pascalCase = id =>
+  id
+    .split('-')
+    .map(part => part[0].toUpperCase() + part.slice(1))
+    .join('')
 
 /** core.hlsl 에서 양쪽 동작이 갈려 금지한 문법. 컴파일은 통과해도 결과가 달라지는 것들이다 */
 const FORBIDDEN = [
@@ -52,7 +61,7 @@ const FORBIDDEN = [
   [/\b(texture|tex2D|sampler2D|SAMPLE_TEXTURE2D|TEXTURE2D)\b/, '텍스처는 SG_TEX(이름, uv) 로만 읽는다'],
   [/\bclip\s*\(|\bdiscard\b/, 'clip, discard 금지: 알파를 돌려주면 래퍼가 처리한다'],
   [/\b_Time\b|\bunity_|\b_WorldSpaceCameraPos\b|\bUNITY_/, 'Unity 전용 값 금지: SgInput 으로 받는다'],
-  [/^\s*#\s*(include|pragma)\b/m, '#include, #pragma 금지: 래퍼가 맡는다'],
+  [/^\s*#\s*(include|pragma)\b/, '#include, #pragma 금지: 래퍼가 맡는다'],
 ]
 
 /** HLSL 이나 GLSL 한쪽에서만 예약된 이름. 변수·함수 이름으로 쓰면 다른 쪽에서 깨진다 */
@@ -68,7 +77,6 @@ function checkCore(id, text) {
   for (const [pattern, message] of FORBIDDEN) {
     const line = lines.findIndex(l => pattern.test(l))
     if (line >= 0) err(`${id}/core.hlsl:${line + 1}: ${message}`)
-    else if (pattern.flags.includes('m') && pattern.test(code)) err(`${id}/core.hlsl: ${message}`)
   }
   const declared = new Set()
   for (const m of code.matchAll(/\b(?:float[234]?|int|bool|void)\s+([A-Za-z_]\w*)/g)) declared.add(m[1])
@@ -80,8 +88,10 @@ function checkCore(id, text) {
 }
 
 function checkWrapper(id, name, text, meta) {
-  const code = stripComments(text.replace(/\r\n/g, '\n'))
+  const source = text.replace(/\r\n/g, '\n')
+  const code = stripComments(source)
   const where = `${id}/${name}`
+  const expected = pascalCase(id)
   for (const [pattern, message] of [
     [/\bCGPROGRAM\b|\bCGINCLUDE\b/, 'CGPROGRAM 금지'],
     [/UnityCG\.cginc/, 'UnityCG.cginc 금지'],
@@ -90,22 +100,28 @@ function checkWrapper(id, name, text, meta) {
   ]) {
     if (pattern.test(code)) err(`${where}: ${message}`)
   }
+  if (name !== `${expected}.shader`) err(`${where}: 파일 이름은 ${expected}.shader 여야 한다`)
   if (!code.includes('HLSLPROGRAM')) err(`${where}: HLSLPROGRAM 이 없다`)
   if (!code.includes('"RenderPipeline" = "UniversalPipeline"')) err(`${where}: SubShader 태그에 "RenderPipeline" = "UniversalPipeline" 이 없다`)
   if (!code.includes('CBUFFER_START(UnityPerMaterial)')) err(`${where}: CBUFFER_START(UnityPerMaterial) 이 없다`)
   if (!code.includes('#include "core.hlsl"')) err(`${where}: #include "core.hlsl" 이 없다`)
-  if (!new RegExp(`Shader\\s+"ShaderGallery/${name.replace('.shader', '')}"`).test(code)) err(`${where}: 셰이더 이름은 "ShaderGallery/${name.replace('.shader', '')}" 이어야 한다`)
+  if (!new RegExp(`Shader\\s+"ShaderGallery/${expected}"`).test(code)) err(`${where}: 셰이더 이름은 "ShaderGallery/${expected}" 이어야 한다`)
 
   const cbuffer = /CBUFFER_START\(UnityPerMaterial\)([\s\S]*?)CBUFFER_END/.exec(code)?.[1] ?? ''
   for (const def of meta.params) {
-    const m = propertyPattern(def.key).exec(text.replace(/\r\n/g, '\n'))
+    const m = propertyPattern(def.key).exec(source)
     if (!m) {
       err(`${where}: Properties 에 ${def.key} 가 없다`)
       continue
     }
     if (!new RegExp(`\\b${def.key}\\b`).test(cbuffer)) err(`${where}: CBUFFER 에 ${def.key} 가 없다`)
     const actual = m[2].replace(/\s+/g, '')
-    if (def.type === 'range' && Number(actual) !== def.default) err(`${where}: ${def.key} 기본값이 다르다 (.shader ${actual}, meta ${def.default})`)
+    if (def.type === 'range') {
+      if (Number(actual) !== def.default) err(`${where}: ${def.key} 기본값이 다르다 (.shader ${actual}, meta ${def.default})`)
+      const range = /Range\(\s*([-\d.]+)\s*,\s*([-\d.]+)\s*\)/.exec(m[1])
+      if (!range) err(`${where}: ${def.key} 는 Range 속성이어야 한다`)
+      else if (Number(range[1]) !== def.min || Number(range[2]) !== def.max) err(`${where}: ${def.key} 범위가 다르다 (.shader ${range[1]}~${range[2]}, meta ${def.min}~${def.max})`)
+    }
     if (def.type === 'toggle' && Number(actual) !== (def.default ? 1 : 0)) err(`${where}: ${def.key} 기본값이 다르다`)
     if (def.type === 'select' && actual !== def.default) err(`${where}: ${def.key} 기본값이 다르다 (.shader ${actual}, meta ${def.default})`)
     if (def.type === 'color') {
@@ -116,7 +132,23 @@ function checkWrapper(id, name, text, meta) {
       if (a.some((v, i) => Math.abs(v - b[i]) > 0.006)) err(`${where}: ${def.key} 기본값이 다르다 (.shader ${actual}, meta ${def.default} = ${hexToProperty(def.default)})`)
     }
   }
-  return { code, cbuffer }
+
+  // 혼합과 패스 태그가 메타의 무대 설정과 맞아야 웹과 Unity 가 같게 보인다
+  const kind = meta.stage.kind
+  const blend = meta.stage.blend ?? (kind === 'mesh' ? 'cutout' : 'alpha')
+  if (kind !== 'fullscreen') {
+    if (blend === 'additive' && !/Blend\s+SrcAlpha\s+One\b/.test(code)) err(`${where}: stage.blend 가 additive 인데 Blend SrcAlpha One 이 없다`)
+    if (blend === 'alpha' && !/Blend\s+SrcAlpha\s+OneMinusSrcAlpha/.test(code)) err(`${where}: stage.blend 가 alpha 인데 Blend SrcAlpha OneMinusSrcAlpha 가 없다`)
+    if (blend === 'cutout' && !/\bclip\s*\(/.test(code)) err(`${where}: stage.blend 가 cutout 인데 clip 이 없다`)
+    if (blend !== 'cutout' && !/ZWrite\s+Off/.test(code)) err(`${where}: 투명 혼합인데 ZWrite Off 가 없다`)
+    if (blend !== 'cutout' && kind !== 'sprite' && !/"Queue"\s*=\s*"Transparent"/.test(code)) err(`${where}: 투명 혼합인데 "Queue" = "Transparent" 가 없다`)
+    if (Boolean(meta.stage.doubleSided) !== /Cull\s+Off/.test(code) && kind !== 'sprite') err(`${where}: Cull Off 와 stage.doubleSided 가 맞지 않다`)
+  }
+  if (kind === 'mesh' && blend === 'cutout' && /"LightMode"\s*=\s*"UniversalForward"/.test(code)) err(`${where}: 불투명·잘라 내기 메시는 Deferred 에서도 그려지도록 UniversalForwardOnly 를 쓴다`)
+  if (kind === 'sprite' && !(code.includes('"Universal2D"') && code.includes('"UniversalForward"'))) err(`${where}: 스프라이트는 Universal2D 와 UniversalForward 패스가 모두 있어야 한다`)
+  if (kind === 'depth' && !code.includes('DeclareDepthTexture.hlsl')) err(`${where}: 깊이 무대는 DeclareDepthTexture.hlsl 을 include 한다`)
+  if (kind === 'fullscreen' && !code.includes('Blit.hlsl')) err(`${where}: 전체 화면 무대는 Blit.hlsl 을 include 한다`)
+  return code
 }
 
 function checkMeta(id, meta, core, wrapper) {
@@ -128,15 +160,28 @@ function checkMeta(id, meta, core, wrapper) {
   const keys = new Set(meta.params.map(p => p.key))
 
   // 코어에서 쓰는 머티리얼 값은 메타에 있어야 웹 유니폼이 만들어진다
-  const textures = new Set([...Object.keys(meta.stage.textures ?? {}), '_MainTex'])
+  const textures = new Set([...Object.keys(meta.stage.textures ?? {}), ...(meta.stage.kind === 'sprite' ? ['_MainTex'] : [])])
   for (const m of core.matchAll(/\b_[A-Z]\w*/g)) {
     const name = m[0]
     if (name.endsWith('_TexelSize') && textures.has(name.replace('_TexelSize', ''))) continue
-    if (!keys.has(name) && !textures.has(name)) err(`${id}/core.hlsl: ${name} 가 meta.params 에 없다`)
+    if (!keys.has(name) && !textures.has(name)) err(`${id}/core.hlsl: ${name} 가 meta.params 나 stage.textures 에 없다`)
   }
 
-  // 메타의 값이 코어나 래퍼에서 실제로 쓰이는지
-  for (const key of keys) if (!core.includes(key) && !wrapper.includes(`${key};`)) warn(`${where}: ${key} 를 core.hlsl 이 쓰지 않는다`)
+  // 아무것도 바꾸지 않는 슬라이더를 막는다. Properties 와 CBUFFER 선언은 사용으로 치지 않는다
+  const wrapperBody = wrapper.replace(/Properties\s*\{[\s\S]*?\n\s*\}/, '').replace(/CBUFFER_START\(UnityPerMaterial\)[\s\S]*?CBUFFER_END/g, '')
+  for (const key of keys) {
+    const word = new RegExp(`\\b${key}\\b`)
+    if (!word.test(core) && !word.test(wrapperBody)) err(`${where}: ${key} 를 셰이더 어디에서도 쓰지 않는다`)
+  }
+
+  // 메타의 무대 설정과 셰이더 내용이 맞아야 웹과 Unity 가 갈리지 않는다
+  const hasVertex = /\bfloat3\s+sgVertex\s*\(/.test(core)
+  if (hasVertex !== Boolean(meta.stage.vertex)) err(`${where}: core.hlsl 의 sgVertex 와 stage.vertex 가 맞지 않다`)
+  if (hasVertex && !wrapper.includes('sgVertex(')) err(`${id}/${meta.shaderFile}: 래퍼의 vert 가 sgVertex 를 부르지 않는다`)
+  if (hasVertex && !['mesh', 'depth'].includes(meta.stage.kind)) err(`${where}: sgVertex 는 mesh, depth 무대에서만 쓴다`)
+  if (/\bsgSceneColor\s*\(/.test(core) && !meta.requires?.includes('opaque')) err(`${where}: 씬 색상을 쓰면 requires 에 'opaque' 를 넣는다`)
+  if (/\bdepthDelta\b/.test(core) && !meta.requires?.includes('depth')) err(`${where}: 깊이를 쓰면 requires 에 'depth' 를 넣는다`)
+  for (const m of core.matchAll(/\bSG_TEX\s*\(\s*(\w+)/g)) if (!textures.has(m[1])) err(`${where}: 텍스처 ${m[1]} 이 stage.textures 에 없다`)
 
   // 단계 보기 번호와 SG_STEP 번호
   const coreSteps = [...core.matchAll(/\bSG_STEP\(\s*(\d+)\s*,/g)].map(m => Number(m[1]))
@@ -159,6 +204,7 @@ function checkMeta(id, meta, core, wrapper) {
   for (const capture of meta.captures ?? []) {
     for (const key of Object.keys(capture.values)) if (!keys.has(key)) err(`${where}: 촬영 상태 ${capture.name} 의 ${key} 가 params 에 없다`)
   }
+  if ((meta.captures?.length ?? 0) > 3) err(`${where}: captures 는 3개 이내 (HTML 용량)`)
 
   const count = (list, min, max, label) => {
     if (list.length < min || list.length > max) err(`${where}: ${label} 는 ${min}~${max}개 (${list.length}개)`)
@@ -173,46 +219,61 @@ function checkMeta(id, meta, core, wrapper) {
   for (const item of meta.inspiredBy) {
     if (item.borrowed.length > 2) err(`${where}: inspiredBy 의 빌린 축은 최대 2개`)
     if (!/\(\d{4}\)$/.test(item.title)) err(`${where}: inspiredBy.title 은 "원제 (연도)" 형식`)
-  }
-  for (const item of meta.inspiredBy) {
     const name = item.title.replace(/\s*\(\d{4}\)$/, '').toLowerCase()
     if (meta.title.toLowerCase().includes(name) || id.includes(name.replaceAll(' ', '-'))) err(`${where}: 제목·ID 에 게임명 금지`)
   }
   if (meta.flashes && !meta.events.length) warn(`${where}: flashes 인데 이벤트가 없다`)
 }
 
-function checkSpecimens(ids) {
+async function checkSpecimens(ids) {
   const titles = []
-  return Promise.all(
-    ids.map(async id => {
-      if (!KEBAB.test(id)) err(`${id}: 폴더 이름은 kebab-case`)
-      const folder = join(SHADERS, id)
-      if (!existsSync(folder)) {
-        err(`${id}: Assets/Shaders/${id} 폴더가 없다`)
-        return
+  const classOwners = new Map()
+  for (const folder of specimenIds(ROOT)) {
+    const dir = join(SHADERS, folder)
+    if (!existsSync(dir)) continue
+    for (const f of readdirSync(dir).filter(n => n.endsWith('.cs'))) {
+      for (const m of readFileSync(join(dir, f), 'utf8').matchAll(/\bclass\s+(\w+)/g)) {
+        classOwners.set(m[1], [...(classOwners.get(m[1]) ?? []), folder])
       }
-      const meta = await loadMeta(ROOT, id)
-      titles.push([id, meta.title])
-      const corePath = join(folder, 'core.hlsl')
-      const shaderPath = join(folder, meta.shaderFile)
-      if (!existsSync(corePath)) return err(`${id}: core.hlsl 이 없다`)
-      if (!existsSync(shaderPath)) return err(`${id}: ${meta.shaderFile} 이 없다`)
-      for (const f of readdirSync(folder)) {
-        if (f.endsWith('.meta')) continue
-        if (!existsSync(join(folder, `${f}.meta`))) warn(`${id}/${f}: .meta 가 없다. node tools/unity.mjs ${id} 를 실행하면 생긴다`)
-      }
-      for (const texture of Object.values(meta.stage.textures ?? {})) if (!existsSync(join(folder, texture.file))) err(`${id}: 텍스처 ${texture.file} 이 없다`)
-      if (meta.webGlslReason) {
-        if (!existsSync(join(WEB, 'src', 'specimens', id, 'web.glsl'))) err(`${id}: webGlslReason 이 있는데 web.glsl 이 없다`)
-      } else if (existsSync(join(WEB, 'src', 'specimens', id, 'web.glsl'))) {
-        err(`${id}: web.glsl 을 쓰면 meta.webGlslReason 에 사유를 적는다`)
-      }
-      const core = checkCore(id, readFileSync(corePath, 'utf8'))
-      const { code } = checkWrapper(id, meta.shaderFile, readFileSync(shaderPath, 'utf8'), meta)
-      checkMeta(id, meta, core, code)
-      if (!existsSync(join(WEB, 'src', 'shots', id, 'default.webp'))) warn(`${id}: Unity 스크린샷이 없다. node tools/unity.mjs ${id} 뒤 node tools/shots.mjs ${id}`)
-    }),
-  ).then(() => titles)
+    }
+  }
+  for (const [name, owners] of classOwners) {
+    if (owners.length > 1) err(`C# 클래스 ${name} 이 여러 표본에 있다: ${owners.join(', ')}. Unity 전체 컴파일이 멈춘다`)
+  }
+
+  for (const id of ids) {
+    if (!KEBAB.test(id)) err(`${id}: 폴더 이름은 kebab-case`)
+    const folder = join(SHADERS, id)
+    if (!existsSync(folder)) {
+      err(`${id}: Assets/Shaders/${id} 폴더가 없다`)
+      continue
+    }
+    const meta = await loadMeta(ROOT, id)
+    titles.push([id, meta.title])
+    const corePath = join(folder, 'core.hlsl')
+    const shaderPath = join(folder, meta.shaderFile)
+    if (!existsSync(corePath)) {
+      err(`${id}: core.hlsl 이 없다`)
+      continue
+    }
+    if (!existsSync(shaderPath)) {
+      err(`${id}: ${meta.shaderFile} 이 없다`)
+      continue
+    }
+    if (!existsSync(`${folder}.meta`)) warn(`${id}: Assets/Shaders/${id}.meta 가 없다. node tools/unity.mjs ${id} 를 실행하면 생긴다`)
+    for (const f of readdirSync(folder)) {
+      if (!f.endsWith('.meta') && !existsSync(join(folder, `${f}.meta`))) warn(`${id}/${f}: .meta 가 없다. node tools/unity.mjs ${id} 를 실행하면 생긴다`)
+    }
+    for (const texture of Object.values(meta.stage.textures ?? {})) if (!existsSync(join(folder, texture.file))) err(`${id}: 텍스처 ${texture.file} 이 없다`)
+    const hasWebGlsl = existsSync(join(WEB, 'src', 'specimens', id, 'web.glsl'))
+    if (meta.webGlslReason && !hasWebGlsl) err(`${id}: webGlslReason 이 있는데 web.glsl 이 없다`)
+    if (!meta.webGlslReason && hasWebGlsl) err(`${id}: web.glsl 을 쓰면 meta.webGlslReason 에 사유를 적는다`)
+    const core = checkCore(id, readFileSync(corePath, 'utf8'))
+    const wrapper = checkWrapper(id, meta.shaderFile, readFileSync(shaderPath, 'utf8'), meta)
+    checkMeta(id, meta, core, wrapper)
+    if (!existsSync(join(WEB, 'src', 'shots', id, 'default.webp'))) warn(`${id}: Unity 스크린샷이 없다. node tools/unity.mjs ${id} 뒤 node tools/shots.mjs ${id}`)
+  }
+  return titles
 }
 
 const IMPORT_RE = /(?:import|export)[^'"\n]*?from\s*['"](\.[^'"]+)['"]|import\(\s*['"](\.[^'"]+)['"]/g
@@ -244,9 +305,51 @@ function checkImportCase(dir = join(WEB, 'src')) {
   }
 }
 
+/** 네트워크를 완전히 막고 file:// 로 연 페이지에서 표본을 컴파일하고 실제로 돌려 본다 */
+async function checkPage(html, titles, { home }) {
+  if (!findChrome()) {
+    // CI 에서 Chrome 이 없으면 통과처럼 보이지 않게 오류로 친다
+    ;(process.env.CI ? err : warn)('Chrome 을 찾지 못해 페이지 검사를 건너뜀')
+    return
+  }
+  await withChrome(
+    async page => {
+      const url = pathToFileURL(html).href
+      await page.goto(`${url}#/`)
+      await page.sleep(1500)
+      if (home) {
+        const text = await page.evaluate('document.body.innerText')
+        const missing = titles.filter(([, title]) => !text.includes(title)).map(([id]) => id)
+        if (missing.length) err(`오프라인(file://, 네트워크 차단)에서 보이지 않는 표본: ${missing.join(', ')}`)
+        else console.log(`  오프라인 실행: 표본 ${titles.length}개 모두 표시됨`)
+      }
+
+      const results = await page.evaluate('window.__sgCompileAll()')
+      const failed = results.filter(r => r.errors.length)
+      for (const r of failed) err(`WebGL 컴파일 실패 ${r.id} (${r.variant}): ${r.errors.join(' / ')}`)
+      console.log(`  WebGL2 컴파일: ${results.length - failed.length}/${results.length} 통과`)
+
+      for (const [id] of titles) {
+        // 자동 데모를 켠 채로 열어 트랙 경로까지 돌린다. 이벤트도 하나씩 눌러 본다
+        await page.goto(`${url}#/s/${id}`)
+        await page.sleep(900)
+        await page.evaluate(`document.querySelector('.btn-event')?.click()`)
+        await page.sleep(300)
+        const state = await page.evaluate('window.__sgStage()')
+        if (state?.error) err(`무대 셰이더 오류 ${id}: ${state.error}`)
+        else if (!state?.frames) err(`무대가 그리지 않음: ${id}`)
+        const shown = await page.evaluate(`document.querySelector('.notfound')?.innerText ?? ''`)
+        if (shown) err(`표본을 표시하지 못함 ${id}: ${shown}`)
+      }
+      for (const log of page.logs.slice(0, 5)) err(`페이지 오류: ${log.slice(0, 300)}`)
+    },
+    { extraArgs: ['--host-resolver-rules=MAP * ~NOTFOUND'] },
+  )
+}
+
 async function checkDist(titles) {
   if (!existsSync(DIST)) {
-    warn('web/dist/index.html 이 없다. web 에서 npm run build 후 다시 실행하면 용량, 오프라인, 컴파일 검사를 한다')
+    err('web/dist/index.html 이 없다. npm --prefix web run build 뒤 다시 실행한다')
     return
   }
   const raw = readFileSync(DIST)
@@ -266,38 +369,22 @@ async function checkDist(titles) {
   ]) {
     if (pattern.test(html)) err(`dist 에 ${what} 참조가 있다 (오프라인 실행 불가)`)
   }
+  await checkPage(DIST, titles, { home: true })
+}
 
-  if (!findChrome()) {
-    warn('Chrome 을 찾지 못해 오프라인·컴파일 검사를 건너뜀')
-    return
+/** 지정한 표본만 넣어 빌드한다. 다른 표본의 미완성 파일에 영향받지 않는다 */
+function buildSingle(id) {
+  const outDir = join(ROOT, '_shots', `build-${id}`)
+  const r = spawnSync(process.execPath, [VITE, 'build', '--outDir', outDir, '--emptyOutDir', '--logLevel', 'error'], {
+    cwd: WEB,
+    env: { ...process.env, SG_ONLY: id },
+    encoding: 'utf8',
+  })
+  if (r.status !== 0) {
+    err(`${id}: 웹 빌드 실패\n${(r.stdout + r.stderr).slice(-1500)}`)
+    return null
   }
-  // 네트워크를 완전히 막고 file:// 로 연다
-  await withChrome(
-    async page => {
-      const url = pathToFileURL(DIST).href
-      await page.goto(`${url}#/`)
-      await page.sleep(1500)
-      const text = await page.evaluate('document.body.innerText')
-      const missing = titles.filter(([, title]) => !text.includes(title)).map(([id]) => id)
-      if (missing.length) err(`오프라인(file://, 네트워크 차단)에서 보이지 않는 표본: ${missing.join(', ')}`)
-      else console.log(`  오프라인 실행: 표본 ${titles.length}개 모두 표시됨`)
-
-      const results = await page.evaluate('window.__sgCompileAll()')
-      const failed = results.filter(r => r.errors.length)
-      for (const r of failed) err(`WebGL 컴파일 실패 ${r.id} (${r.variant}): ${r.errors.join(' / ')}`)
-      console.log(`  WebGL2 컴파일: ${results.length - failed.length}/${results.length} 통과`)
-
-      for (const [id] of titles) {
-        await page.goto(`${url}#/s/${id}?auto=0`)
-        await page.sleep(900)
-        const state = await page.evaluate('window.__sgStage()')
-        if (state?.error) err(`무대 셰이더 오류 ${id}: ${state.error}`)
-        else if (!state?.frames) err(`무대가 그리지 않음: ${id}`)
-      }
-      if (page.logs.length) warn(`페이지 오류 로그 ${page.logs.length}개: ${page.logs.slice(0, 3).join(' / ').slice(0, 400)}`)
-    },
-    { extraArgs: ['--host-resolver-rules=MAP * ~NOTFOUND'] },
-  )
+  return join(outDir, 'index.html')
 }
 
 async function checkSkill() {
@@ -305,11 +392,10 @@ async function checkSkill() {
   const entries = await skillEntries()
   for (const entry of entries) {
     const path = join(skillDir, entry.path)
-    if (!existsSync(path)) {
-      err(`Skill 이 최신이 아니다: ${entry.path} 없음. node tools/build-skill.mjs`)
-      return
-    }
-    if (readFileSync(path, 'utf8').replace(/\r\n/g, '\n') !== entry.content) {
+    const same =
+      existsSync(path) &&
+      (typeof entry.content === 'string' ? readFileSync(path, 'utf8').replace(/\r\n/g, '\n') === entry.content : Buffer.compare(readFileSync(path), Buffer.from(entry.content)) === 0)
+    if (!same) {
       err(`Skill 이 최신이 아니다: ${entry.path}. node tools/build-skill.mjs`)
       return
     }
@@ -345,7 +431,15 @@ async function main() {
     if (statSync(join(SHADERS, folder)).isDirectory() && !all.includes(folder)) err(`Assets/Shaders/${folder} 에 해당하는 meta.ts 가 없다`)
   }
   checkImportCase()
-  if (!only.length) {
+  if (only.length) {
+    // 규격 오류가 있으면 빌드까지 가지 않아도 고칠 것이 분명하다
+    if (!errors.length) {
+      for (const [id, title] of titles) {
+        const html = buildSingle(id)
+        if (html) await checkPage(html, [[id, title]], { home: false })
+      }
+    }
+  } else {
     await checkSkill()
     await checkDist(titles)
   }

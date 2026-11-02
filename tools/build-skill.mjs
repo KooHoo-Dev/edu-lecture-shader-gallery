@@ -23,7 +23,8 @@ async function loadSources() {
       .filter(f => /\.(shader|hlsl|cs)$/.test(f))
       .sort((a, b) => fileOrder(a) - fileOrder(b) || a.localeCompare(b))
       .map(name => ({ name, lang: name.endsWith('.cs') ? 'csharp' : 'cpp', code: readFileSync(join(folder, name), 'utf8') }))
-    sources.push({ meta, files })
+    const textures = Object.values(meta.stage.textures ?? {}).map(t => ({ name: t.file, data: new Uint8Array(readFileSync(join(folder, t.file))) }))
+    sources.push({ meta, files, textures })
   }
   return sources.sort((a, b) => a.meta.group.localeCompare(b.meta.group) || a.meta.order - b.meta.order)
 }

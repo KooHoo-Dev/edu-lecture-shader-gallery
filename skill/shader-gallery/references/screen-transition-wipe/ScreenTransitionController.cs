@@ -9,6 +9,9 @@ namespace ShaderGallery.Samples
     {
         static readonly int Progress = Shader.PropertyToID("_Progress");
 
+        /// <summary>씬이 바뀌어도 살아 있는 전환 관리자. 호출은 이쪽으로 한다.</summary>
+        public static ScreenTransitionController Instance { get; private set; }
+
         // Full Screen Pass Renderer Feature 의 Pass Material 에 넣은 그 머티리얼.
         [SerializeField] Material transitionMaterial;
         [SerializeField] float coverSeconds = 0.6f;
@@ -18,6 +21,13 @@ namespace ShaderGallery.Samples
 
         void Awake()
         {
+            // 이 오브젝트가 있는 씬으로 돌아오면 복사본이 또 생긴다. 먼저 있던 것만 남긴다.
+            if (Instance != null)
+            {
+                Destroy(gameObject);
+                return;
+            }
+            Instance = this;
             // 씬이 바뀌어도 전환이 끝까지 이어지게 한다.
             DontDestroyOnLoad(gameObject);
             transitionMaterial.SetFloat(Progress, 0f);
@@ -26,10 +36,17 @@ namespace ShaderGallery.Samples
         /// <summary>전환 연출과 함께 씬을 불러온다. 전환 중에 다시 불러도 무시한다.</summary>
         public void LoadScene(string sceneName)
         {
-            if (!running)
+            if (running)
             {
-                StartCoroutine(Run(sceneName));
+                return;
             }
+            // Build Profiles 에 없는 씬은 불러올 수 없다. 덮기 전에 막아야 화면이 덮인 채로 멈추지 않는다.
+            if (!Application.CanStreamedLevelBeLoaded(sceneName))
+            {
+                Debug.LogError($"씬을 불러올 수 없습니다. Build Profiles 를 확인하세요: {sceneName}");
+                return;
+            }
+            StartCoroutine(Run(sceneName));
         }
 
         IEnumerator Run(string sceneName)
@@ -60,10 +77,22 @@ namespace ShaderGallery.Samples
 
         void OnDisable()
         {
+            if (Instance != this)
+            {
+                return;
+            }
             StopAllCoroutines();
             running = false;
             // 머티리얼 에셋은 플레이를 멈춰도 값이 남는다. 덮인 채로 남지 않게 되돌린다.
             transitionMaterial.SetFloat(Progress, 0f);
+        }
+
+        void OnDestroy()
+        {
+            if (Instance == this)
+            {
+                Instance = null;
+            }
         }
     }
 }

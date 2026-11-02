@@ -7,6 +7,9 @@ import { getShaderStage } from '../stage/ShaderStage'
 import { StageView } from '../stage/StageView'
 import { hrefSpecimen } from './router'
 
+/** 공유 무대는 한 곳에만 붙으므로 실행 중인 카드도 하나뿐이다. 새 카드가 깨어나면 앞의 카드를 끈다 */
+let sleepPrevious: (() => void) | null = null
+
 /**
  * 갤러리 카드: 평소엔 Unity 실측 썸네일, 마우스를 올리거나 포커스하면 공유 무대로 실제 셰이더를 실행한다.
  * 표본 수가 늘어도 첫 화면이 느려지지 않고 WebGL 컨텍스트 제한에도 걸리지 않는다.
@@ -17,14 +20,20 @@ export function SpecimenCard({ specimen }: { specimen: Specimen }) {
   const values = useMemo(() => defaultParams(m.params), [m.params])
   const canRun = !prefersReducedMotion() && getShaderStage() !== null
   const thumb = specimen.shots.default
+  const wake = () => {
+    if (!canRun) return
+    sleepPrevious?.()
+    sleepPrevious = () => setLive(false)
+    setLive(true)
+  }
 
   return (
     <a
       className="card"
       href={hrefSpecimen(m.id)}
-      onPointerEnter={() => canRun && setLive(true)}
+      onPointerEnter={wake}
       onPointerLeave={() => setLive(false)}
-      onFocus={() => canRun && setLive(true)}
+      onFocus={wake}
       onBlur={() => setLive(false)}
     >
       <div className="card-stage">

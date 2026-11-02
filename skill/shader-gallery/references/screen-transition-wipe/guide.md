@@ -16,7 +16,7 @@
 2. 셰이더를 우클릭해 Create > Material 로 머티리얼을 만든다.
 3. 사용 중인 렌더러 에셋(Universal Renderer Data 또는 Renderer 2D Data)의 Add Renderer Feature 에서 Full Screen Pass Renderer Feature 를 추가한다.
 4. Pass Material 에 머티리얼을 넣고 Injection Point 를 Before Rendering Post Processing 으로, Fetch Color Buffer 를 켠다.
-5. 빈 오브젝트에 `ScreenTransitionController` 를 붙이고 머티리얼을 연결한 뒤 `LoadScene("씬 이름")` 을 호출한다.
+5. 빈 오브젝트에 `ScreenTransitionController` 를 붙이고 머티리얼을 연결한 뒤 `ScreenTransitionController.Instance.LoadScene("씬 이름")` 을 호출한다. 씬은 Build Profiles 에 등록되어 있어야 한다.
 
 ## 확인
 머티리얼의 진행을 0 에서 1 로 올리면 Game 뷰 화면이 왼쪽부터 마름모 칸으로 덮이고, 0 으로 내리면 다시 걷힌다.
@@ -41,6 +41,7 @@
 - 2D Renderer 도 Renderer 2D Data 에 같은 기능을 추가하면 된다 (Unity 6000.3.20f1 에서 촬영으로 확인).
 - Renderer Feature 는 그 렌더러를 쓰는 모든 카메라에 적용된다. 쓰지 않을 때는 진행값이 0 이어도 패스 비용이 든다.
 - 머리에 고정된 전체 화면 효과라 XR 에서는 권장하지 않는다.
+- Screen Space - Overlay Canvas 는 이 패스가 끝난 뒤에 그려져 덮이지 않는다. UI 까지 덮으려면 Canvas 를 Screen Space - Camera 로 바꾼다.
 
 ## 흔한 실수
 - **원이 타원이 된다**: UV 는 가로세로가 모두 0~1 이라 그대로 거리를 재면 화면비만큼 찌그러진다. `float2(aspect, 1.0)` 를 곱해 실제 비율로 잰다.

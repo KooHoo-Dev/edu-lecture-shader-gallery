@@ -10,7 +10,7 @@ export type GroupId = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G'
 
 /** 미리보기 무대 4종 */
 export type StageKind = 'mesh' | 'sprite' | 'depth' | 'fullscreen'
-export type MeshShape = 'sphere' | 'capsule' | 'cube' | 'cylinder' | 'quad'
+export type MeshShape = 'sphere' | 'capsule' | 'cube' | 'cylinder' | 'quad' | 'plane'
 /** URP 에셋에서 켜야 하는 것. 프롬프트의 설정 단계에 자동으로 들어간다 */
 export type Requirement = 'depth' | 'opaque'
 /** cutout: 알파 0.5 미만을 잘라 낸다 · alpha: 알파 혼합 · additive: 더하기 혼합 */
@@ -130,6 +130,8 @@ export interface SpecimenStage {
   blend?: StageBlend
   /** core.hlsl 에 sgVertex 가 있으면 true (mesh, depth 무대) */
   vertex?: boolean
+  /** 래퍼가 Cull Off 이면 true */
+  doubleSided?: boolean
   /** 표본 폴더에 둔 텍스처. sprite 무대에서 _MainTex 를 적지 않으면 앱이 스테이지 스프라이트를 넣는다 */
   textures?: Record<string, StageTexture>
 }
@@ -178,11 +180,6 @@ export interface SpecimenMeta {
   related?: { id: string; why: string }[]
   /** 화면의 넓은 영역이 번쩍이는 효과. 이벤트가 제한기를 거친다 */
   flashes?: boolean
-}
-
-export interface StageTrigger {
-  id: string
-  seq: number
 }
 
 export interface SpecimenFile {

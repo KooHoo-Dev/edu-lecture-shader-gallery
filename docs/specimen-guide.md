@@ -26,20 +26,21 @@ Assets/Shaders/<id>/<Name>.shader      Unity 래퍼
 Assets/Shaders/<id>/<Name>...cs        C# 스크립트 (값을 움직이는 표본만)
 Assets/Shaders/<id>/*.png              표본 전용 텍스처 (필요할 때만, 직접 생성)
 Assets/Shaders/<id>/*.meta             Unity 가 만든다. 함께 커밋
+Assets/Shaders/<id>.meta               폴더의 .meta. 역시 Unity 가 만든다
 web/src/specimens/<id>/meta.ts         글, 조절 값, 프리셋, 단계, 프롬프트 재료
 web/src/shots/<id>/<상태>.webp         Unity 실측 스크린샷 (도구가 만든다)
 ```
 
 - `<id>` 는 **영구 불변** kebab-case 영어. 폴더 이름과 `meta.id` 가 같아야 한다.
-- `<Name>` 은 ID 를 PascalCase 로 바꾼 것 (`force-field-intersection` -> `ForceFieldIntersection`). 셰이더 이름은 `Shader "ShaderGallery/<Name>"`.
+- `<Name>` 은 ID 를 PascalCase 로 바꾼 것 (`force-field-intersection` -> `ForceFieldIntersection`). 파일 이름은 `<Name>.shader`, 셰이더 이름은 `Shader "ShaderGallery/<Name>"`.
 - **폴더 하나만 복사하면 동작해야 한다.** 다른 폴더의 파일을 include 하지 않는다. 노이즈 같은 헬퍼는 3-3절에서 복사해 넣는다.
-- 맡은 폴더 밖(`web/src/app`, `web/src/core`, `web/src/stage`, `tools`, 다른 표본)은 고치지 않는다. 공통 기능이 필요하면 9절대로 요청으로 남긴다.
+- 맡은 폴더 밖(`web/src/app`, `web/src/core`, `web/src/stage`, `tools`, 다른 표본, `skill/`)은 고치지 않는다. 공통 기능이 필요하면 9절대로 요청으로 남긴다. `skill/` 은 생성물이라 표본들을 합치는 단계에서 다시 만든다.
 
 ## 2. 새 표본 만드는 순서
 
-1. 같은 무대의 샘플 폴더를 `Assets/Shaders/<id>/` 로 복사하고 `.meta` 파일은 지운다.
+1. 같은 무대의 샘플 폴더를 `Assets/Shaders/<id>/` 로 복사한다. `.meta` 파일은 지우고, `.cs` 는 지우거나 파일 이름과 클래스 이름을 새 표본에 맞게 바꾼다. 같은 이름의 클래스가 둘이면 Unity 프로젝트 전체의 컴파일이 멈춘다. `.shader` 파일 이름도 `<Name>.shader` 로 바꾼다.
 2. `core.hlsl` 을 쓴다 (3절). 단계마다 `SG_STEP`, 흔한 실수를 `SG_OFF` 로 넣는다.
-3. `.shader` 의 이름, `Properties`, `CBUFFER` 를 고친다 (4절). 나머지는 그대로 둔다.
+3. `.shader` 의 셰이더 이름, `Properties`, `CBUFFER` 를 고친다 (4절). 나머지는 그대로 둔다.
 4. `web/src/specimens/<id>/meta.ts` 를 쓴다 (5절).
 5. 검증한다 (8절). `node tools/check.mjs <id>` 부터 통과시킨다.
 6. Unity 로 컴파일하고 촬영한다. 만든 `.meta` 가 리포로 회수된다.
@@ -155,7 +156,7 @@ float effectNoise(float2 p)
 
 ### 3-4. 텍스처와 정점 변형
 
-- 텍스처는 `SG_TEX(_MyTex, uv)` 로만 읽는다. `_MyTex_TexelSize` 도 쓸 수 있다. 래퍼에 `#define SG_TEX(name, uv) SAMPLE_TEXTURE2D(name, sampler##name, uv)` 와 `TEXTURE2D(_MyTex); SAMPLER(sampler_MyTex);`, `CBUFFER` 안에 `float4 _MyTex_TexelSize;` 를 둔다. 텍스처 파일은 표본 폴더에 두고 `meta.stage.textures` 에 적는다. 임포트 설정은 촬영 도구가 맞춘다.
+- 텍스처는 `SG_TEX(_MyTex, uv)` 로만 읽는다. `_MyTex_TexelSize` 도 쓸 수 있다. 래퍼에는 `Properties` 에 `_MyTex ("이름", 2D) = "white" {}`, 그 아래에 `TEXTURE2D(_MyTex); SAMPLER(sampler_MyTex);` 와 `#define SG_TEX(name, uv) SAMPLE_TEXTURE2D(name, sampler##name, uv)`, `CBUFFER` 안에 `float4 _MyTex_TexelSize;` 를 둔다. 텍스처 파일은 표본 폴더에 두고 `meta.stage.textures` 에 적는다. 텍스처는 `meta.params` 에 넣지 않는다. 임포트 설정은 촬영 도구가 맞춘다. PNG 는 프롬프트에 넣을 수 없어 Skill zip 으로 전달되므로 `unity.setup` 에 임포트 설정(sRGB, Wrap Mode, Filter Mode)을 적는다.
 - 스프라이트의 `_MainTex` 크기는 `_MainTex_TexelSize` 를 믿을 수 없다 (렌더러 단위로 넘어와 머티리얼 버퍼와 어긋난다. 실제로 촬영에서 틀린 값이 나왔다). `i.texelSize` 를 쓴다.
 - 정점을 움직이는 표본은 `core.hlsl` 에 다음 함수를 두고 `meta.stage.vertex = true` 로 한다. 메시와 깊이 무대에서 쓸 수 있다. 움직인 뒤의 오브젝트 공간 위치를 돌려준다.
 
@@ -171,28 +172,29 @@ float effectNoise(float2 p)
 
 | 무대 (`stage.kind`) | 무대 내용 | `SgInput` 필드 | 쓰는 함수 | 기준 샘플 |
 |---|---|---|---|---|
-| `mesh` | 바닥과 물체 하나 (`stage.mesh`: `sphere` `capsule` `cube` `cylinder` `quad`). 천천히 돈다 | `uv positionOS normalWS viewWS lightDirWS lightColor lighting time` | | 디졸브 |
+| `mesh` | 바닥과 물체 하나 (`stage.mesh`). 천천히 돈다 (`quad`, `plane` 은 돌지 않는다) | `uv positionOS normalWS viewWS lightDirWS lightColor lighting time` | | 디졸브 |
 | `sprite` | 정사영 카메라, 드론 스프라이트(또는 `stage.textures._MainTex`), 2유닛 높이 | `uv color texelSize time` | `SG_TEX(_MainTex, uv)` | 스프라이트 |
-| `depth` | 바닥, 상자, 공, 그 위를 덮는 물체 (`stage.mesh`) | `uv positionOS normalWS viewWS screenUV depthDelta time` | `sgSceneColor(screenUV)` | 역장 |
+| `depth` | 바닥, 상자, 공, 그 위를 덮는 물체 (`stage.mesh`). `plane` 이면 소품을 가르는 수면 높이에 놓인다 | `uv positionOS normalWS viewWS screenUV depthDelta time` | `sgSceneColor(screenUV)` | 역장 |
 | `fullscreen` | 바닥, 상자, 공을 그린 화면 전체 | `uv aspect time` | `sgSource(uv)` | 전환 |
 
 - `lighting` = `lightColor * saturate(dot(normalWS, lightDirWS)) + 환경광`. 대부분은 `albedo * i.lighting` 이면 된다. 툰처럼 빛을 직접 다루면 `lightDirWS`, `lightColor` 를 쓴다.
 - `viewWS` 는 표면에서 카메라 쪽 방향. `normalWS`, `viewWS` 는 정규화되어 있다.
 - `depthDelta` = 카메라에서 씬 표면까지 거리 - 카메라에서 이 픽셀까지 거리 (미터). 물체가 닿는 곳에서 0 에 가까워진다.
 - `fullscreen` 의 `uv` 는 왼쪽 아래가 (0, 0) 이고 위쪽이 1 이다. 화면비 보정은 `float2(aspect, 1.0)` 을 곱한다.
-- `positionOS` 는 오브젝트 공간. `sphere` 는 반지름 0.5 이고 `capsule`, `cylinder` 는 높이 2 다.
+- `positionOS` 는 오브젝트 공간. `sphere` 반지름 0.5, `capsule`, `cylinder` 높이 2, `cube`, `quad` 한 변 1 (`quad` 는 카메라 쪽으로 서 있다), `plane` 은 XZ 로 누운 한 변 10 이다. `plane` 은 Unity 기본 메시라 정점 간격이 1 이다. 정점 변형은 그만큼 거칠다.
+- 스프라이트는 높이 2 유닛에 맞고 폭은 텍스처 비율을 따른다.
 - `time` 은 초. 웹에서는 배속과 일시정지가 반영된다. `sin(time * 빠른 값)` 처럼 넓은 면이 깜빡이는 코드는 9절 안전 규칙을 본다.
 
 ### 알파의 뜻 (`stage.blend`)
 
 | 값 | 웹 | Unity 래퍼 | 쓰는 곳 |
 |---|---|---|---|
-| `cutout` (mesh 기본) | 알파 0.5 미만 버림 | `clip(c.a - 0.5)`, `Queue=AlphaTest` | 디졸브 |
-| `alpha` (sprite, depth 기본) | 알파 혼합 | `Blend SrcAlpha OneMinusSrcAlpha`, `ZWrite Off` | 스프라이트 |
-| `additive` | 더하기 혼합 | `Blend SrcAlpha One`, `ZWrite Off` | 역장 |
+| `cutout` (mesh 기본) | 알파 0.5 미만 버림 | `clip(c.a - 0.5)`, `"Queue" = "AlphaTest"`, `"RenderType" = "TransparentCutout"`, `"LightMode" = "UniversalForwardOnly"` | 디졸브 |
+| `alpha` (sprite, depth 기본) | 알파 혼합 | `Blend SrcAlpha OneMinusSrcAlpha`, `ZWrite Off`, `"Queue" = "Transparent"`, `"RenderType" = "Transparent"` | 스프라이트 |
+| `additive` | 더하기 혼합 | `Blend SrcAlpha One`, `ZWrite Off`, 태그는 `alpha` 와 같다 | 역장 |
 | (fullscreen) | 알파 무시 | 해당 없음 | 전환 |
 
-불투명 표본은 `blend: 'cutout'` 으로 두고 항상 알파 1.0 을 돌려준다.
+불투명 표본은 `blend: 'cutout'` 으로 두고 항상 알파 1.0 을 돌려준다. 투명 메시는 샘플이 없다. 역장의 래퍼에서 깊이 관련 줄을 빼고 `SgInput` 을 메시 형식으로 바꾼 뒤, `"LightMode" = "UniversalForward"` 패스 하나로 쓴다. 웹 쪽 입력은 `stage.kind` 를 따르므로 `kind: 'mesh'` 와 `blend` 를 함께 적는다. 양면을 그리면 래퍼에 `Cull Off`, 메타에 `stage.doubleSided: true` 를 둔다.
 
 ### 래퍼 규칙
 
@@ -200,8 +202,9 @@ float effectNoise(float2 p)
 - 머티리얼 값은 전부 `CBUFFER_START(UnityPerMaterial)` 안에 둔다 (SRP Batcher). 텍스처 선언(`TEXTURE2D`, `SAMPLER`)은 밖에 둔다.
 - 샘플의 XR 매크로(`UNITY_VERTEX_INPUT_INSTANCE_ID` 등)와 `#pragma multi_compile_instancing` 을 지우지 않는다. 수업 XR 프로젝트에서 쓴다.
 - 메시 잘라 내기 표본은 `Forward`, `ShadowCaster`, `DepthOnly`, `DepthNormals` 네 패스를 모두 유지한다. 알파로 자르는 부분이 그림자와 깊이에 빠지면 사라진 자리에 그림자가 남는다. 투명 표본은 `Forward` 패스 하나면 된다.
+- 불투명, 잘라 내기 메시의 `Forward` 패스 태그는 `UniversalForwardOnly`, 노멀 패스 태그는 `DepthNormalsOnly` 다. `UniversalForward` 만 있으면 Deferred 렌더 경로에서 오류 없이 사라진다.
 - 스프라이트 표본은 `Universal2D` 와 `UniversalForward` 두 패스를 유지한다. 2D Renderer 는 `Universal2D` 와 `SRPDefaultUnlit` 만 그리고 Universal Renderer 는 `UniversalForward` 만 그린다. 둘 다 촬영으로 확인했다.
-- 메시, 깊이 표본의 패스는 `UniversalForward` 기준이라 2D Renderer 에서는 그려지지 않는다. 3D 프로젝트용이라고 `unity.pitfalls` 에 적는다.
+- 메시, 깊이 표본의 패스는 2D Renderer 에서 그려지지 않는다 (`Universal2D`, `SRPDefaultUnlit` 만 그린다). 3D 프로젝트용이라고 `unity.pitfalls` 에 적는다.
 - 깊이 표본은 `DeclareDepthTexture.hlsl` 을 include 하고 `meta.requires` 에 `'depth'` 를 넣는다. 씬 색상을 쓰면 `DeclareOpaqueTexture.hlsl` 을 더 include 하고 다음을 `core.hlsl` include 앞에 두고 `requires` 에 `'opaque'` 를 넣는다.
 
   ```hlsl
@@ -272,6 +275,8 @@ float effectNoise(float2 p)
 - `Shader.PropertyToID` 로 ID 를 캐시한다.
 - 물체 하나에 쓰는 값은 `renderer.material` 복사본에 넣고 `OnDestroy` 에서 지운다. MaterialPropertyBlock 은 쓰지 않는다 (SRP Batcher 에서 빠진다).
 - 머티리얼 에셋을 직접 고치면(전체 화면 표본) `OnDisable` 에서 원래 값으로 되돌린다.
+- 머티리얼 기본값은 썸네일을 위한 값일 수 있다. 연출을 시작하기 전의 값은 `Awake` 에서 넣는다 (`DissolveController` 참고).
+- `DontDestroyOnLoad` 오브젝트는 씬을 오갈 때 복사본이 쌓이지 않게 인스턴스를 하나만 남긴다 (`ScreenTransitionController` 참고).
 - 코루틴은 `OnDisable` 에서 `StopAllCoroutines` 하고 상태 변수를 초기화한다.
 - 금지: `FindObjectOfType`, `Rigidbody.velocity`, 구 Input Manager (`Input.GetKey` 등), DOTween 같은 외부 패키지.
 
@@ -285,8 +290,8 @@ float effectNoise(float2 p)
 ## 8. 검증
 
 ```bash
-node tools/check.mjs <id>                # 규격 검사. 먼저 통과시킨다
-node tools/unity.mjs <id>                # Unity 컴파일(D3D11, Vulkan, GLES3, Metal)과 촬영. 새 .meta 회수
+node tools/check.mjs <id>                # 규격 검사, 이 표본만 넣은 빌드, WebGL 컴파일, 무대 실행. 먼저 통과시킨다
+node tools/unity.mjs <id>                # Unity 컴파일(D3D11, Vulkan, GLES3, Metal, 인스턴싱·스테레오 등 키워드 조합)과 촬영. 새 .meta 회수
 node tools/shots.mjs <id>                # 촬영 결과를 내장 이미지로
 node tools/live.mjs <id> --query="auto=0" wait:1000 stage:final
 node tools/live.mjs <id> --query="auto=0&step=1" wait:800 stage:step1
@@ -295,10 +300,10 @@ node tools/live.mjs <id> --query="auto=0&preset=<프리셋>" wait:800 stage:pres
 node tools/live.mjs <id> --query="auto=0" wait:800 click:<이벤트 글자> wait:100 stage:event
 ```
 
-`live.mjs` 는 이 표본만 넣어 빌드하고 `_shots/<id>/` 에 PNG 를 남긴다. 파일을 열어 눈으로 본다. 전체 검사는 다음과 같다.
+`live.mjs` 는 이 표본만 넣어 빌드하고 `_shots/<id>/` 에 PNG 를 남긴다. 파일을 열어 눈으로 본다. 표본을 합친 뒤의 전체 검사는 다음과 같다. 표본 하나를 만드는 작업에서는 돌리지 않아도 된다.
 
 ```bash
-cd web && npm run build
+npm --prefix web run build
 node tools/build-skill.mjs
 node tools/check.mjs
 ```
@@ -327,6 +332,7 @@ node tools/check.mjs
 | 웹에서 한 물체를 패스 두 개로 그리기 (`Cull Front`) | `inverted-hull-outline` | 앱 확장 필요 |
 | 웹에서 `ZTest Greater` 로 가려진 부분만 그리기 | `xray-occluded-silhouette` | 앱 확장 필요 |
 | 전체 화면 무대에서 깊이, 법선 읽기 | `depth-normal-edge-outline` | 앱 확장 필요 |
+| 촘촘한 수면 메시 (`plane` 은 정점 간격 1) | `water-depth-foam` 의 파도 | 파도가 거칠면 요청 |
 | UGUI Canvas 무대 | `ui-*` | 스프라이트 무대로 대체. `_MainTex` 만 바꾼다 |
 
 공통 문법으로 도저히 안 되는 효과는 `web/src/specimens/<id>/web.glsl` 에 같은 `sgEffect` 를 GLSL 로 따로 쓰고 `meta.webGlslReason` 에 사유를 적는다. Unity 쪽은 여전히 `core.hlsl` 을 쓴다. 양쪽이 갈릴 위험이 있으므로 마지막 수단이다.

@@ -39,7 +39,7 @@ export const meta: SpecimenMeta = {
   demo: { fire: [{ event: 'hit', every: 1.8 }] },
   steps: [
     { n: 1, label: '원본', body: '스프라이트 텍스처에 SpriteRenderer 의 Color 를 곱한 기본 모습이다.' },
-    { n: 2, label: '외곽선', body: '주변 8방향의 알파를 읽어 가장 큰 값에서 자기 알파를 뺀다. 그림 바로 바깥 픽셀만 남는다. 거리는 `_MainTex_TexelSize` 로 텍셀 단위로 맞춘다.' },
+    { n: 2, label: '외곽선', body: '주변 8방향의 알파를 읽어 가장 큰 값에서 자기 알파를 뺀다. 그림 바로 바깥 픽셀만 남는다. 거리는 `i.texelSize` 로 텍셀 단위로 맞춘다.' },
     { n: 3, label: '번쩍임', body: '`lerp` 로 번쩍임 색과 섞는다. 색을 곱하면 원본보다 밝아질 수 없어 어두운 스프라이트가 번쩍이지 않는다. 이벤트 버튼으로 확인한다.' },
   ],
   offNote: '`SpriteRenderer.color` 를 바꾸는 것과 같은 곱하기 방식이다. 흰색을 곱해도 원본 그대로라 피격 버튼을 눌러도 번쩍이지 않고, 외곽선도 없다.',

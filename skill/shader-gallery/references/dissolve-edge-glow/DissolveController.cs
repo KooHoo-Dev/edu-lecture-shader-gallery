@@ -19,6 +19,8 @@ namespace ShaderGallery.Samples
         {
             // 공유 머티리얼을 건드리지 않도록 이 물체 전용 복사본을 쓴다.
             material = GetComponent<Renderer>().material;
+            // 머티리얼 기본값은 미리보기용이라 구멍이 뚫려 있다. 온전한 모습으로 시작한다.
+            material.SetFloat(Threshold, 0f);
         }
 
         /// <summary>물체를 태워 없앤다.</summary>

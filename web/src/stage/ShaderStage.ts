@@ -156,6 +156,8 @@ class ShaderStage {
     this.azimuth = 0
     this.elevation = 0
     this.spin = 0
+    this.dragging = false
+    this.framesRendered = 0
     this.build(specimen)
     host.appendChild(this.canvas)
     this.resizeObserver.observe(host)
@@ -272,6 +274,7 @@ class ShaderStage {
     if (shape === 'capsule') return new THREE.CapsuleGeometry(0.5, 1, 16, 48)
     if (shape === 'cylinder') return new THREE.CylinderGeometry(0.5, 0.5, 2, 64, 24)
     if (shape === 'quad') return new THREE.PlaneGeometry(1, 1, 32, 32)
+    if (shape === 'plane') return new THREE.PlaneGeometry(10, 10, 64, 64).rotateX(-Math.PI / 2)
     return new THREE.SphereGeometry(0.5, 96, 64)
   }
 
@@ -293,8 +296,9 @@ class ShaderStage {
       this.addFloor(this.propShadows())
       this.addProps()
       const mesh = new THREE.Mesh(this.effectGeometry(specimen), material)
-      mesh.position.set(...toThree(LAYOUT.depthMesh.position))
-      mesh.scale.setScalar(LAYOUT.depthMesh.scale)
+      const place = LAYOUT.depthPlacement[specimen.meta.stage.mesh ?? 'sphere']
+      mesh.position.set(...toThree(place.position))
+      mesh.scale.setScalar(place.scale)
       mesh.renderOrder = 10
       this.scene.add(mesh)
       this.effect = mesh
@@ -343,7 +347,7 @@ class ShaderStage {
       vertexShader: sources.vertex,
       fragmentShader: sources.fragment,
       uniforms,
-      side: meta.stage.kind === 'sprite' ? THREE.DoubleSide : THREE.FrontSide,
+      side: meta.stage.kind === 'sprite' || meta.stage.doubleSided ? THREE.DoubleSide : THREE.FrontSide,
     })
     const blend = defaultBlend(meta)
     if (meta.stage.kind === 'fullscreen') {
@@ -370,6 +374,8 @@ class ShaderStage {
     const key = `${url}|${config?.linear ?? false}|${config?.repeat ?? false}|${config?.point ?? false}`
     const setTexelSize = (image: { width: number; height: number }) => {
       for (const material of this.materials) material?.uniforms[`${name}_TexelSize`]?.value.set(1 / image.width, 1 / image.height, image.width, image.height)
+      // 스프라이트는 높이 2 유닛에 맞춘다. 정사각형이 아니면 Unity 와 같이 폭이 늘어난다
+      if (name === '_MainTex' && specimen.meta.stage.kind === 'sprite') this.effect?.scale.set(image.width / image.height, 1, 1)
       this.dirty = true
     }
     const cached = this.textures.get(key)
@@ -454,7 +460,9 @@ class ShaderStage {
       const dt = Math.min(0.1, (now - this.last) / 1000) * this.settings.speed
       this.time += dt
       if (this.settings.auto) this.demoTime += dt
-      if (this.specimen?.meta.stage.kind === 'mesh' && !this.dragging) this.spin += dt * 0.25
+      // 납작한 물체는 돌리면 옆면이 되어 사라지므로 돌리지 않는다
+      const shape = this.specimen?.meta.stage.mesh
+      if (this.specimen?.meta.stage.kind === 'mesh' && shape !== 'quad' && shape !== 'plane' && !this.dragging) this.spin += dt * 0.25
       this.fireDemoEvents()
       this.dirty = true
     }

@@ -89,8 +89,9 @@ const chrome = spawn(CHROME, [
   '--hide-scrollbars',
   '--force-device-scale-factor=1',
   `--window-size=${w},${h}`,
+  ...(process.env.CI ? ['--no-sandbox'] : []),
   'about:blank',
-])
+], { stdio: 'ignore' })
 const sleep = ms => new Promise(r => setTimeout(r, ms))
 
 try {
@@ -130,7 +131,7 @@ try {
   await send('Page.navigate', { url })
   await sleep(1200)
   const failed = await evaluate(`document.querySelector('.stage-error')?.textContent ?? ''`)
-  if (failed) console.log(`주의: 무대 오류 표시됨: ${failed}`)
+  if (failed) console.log(`무대 오류 표시됨: ${failed}`)
 
   const KEYS = { Enter: ['Enter', 13, '\r'], Escape: ['Escape', 27], Backspace: ['Backspace', 8], Tab: ['Tab', 9], ArrowUp: ['ArrowUp', 38], ArrowDown: ['ArrowDown', 40], ArrowLeft: ['ArrowLeft', 37], ArrowRight: ['ArrowRight', 39], ' ': ['Space', 32, ' '] }
   for (const a of actions) {
@@ -156,6 +157,11 @@ try {
       writeFileSync(file, Buffer.from(r.data, 'base64'))
       console.log(`shot: ${file}`)
     } else console.log(`모르는 동작: ${a}`)
+  }
+  const stageError = await evaluate(`document.querySelector('.stage-error')?.textContent ?? ''`)
+  if (stageError) {
+    console.log(`실패: 무대 오류: ${stageError}`)
+    process.exitCode = 1
   }
   ws.close()
 } catch (e) {

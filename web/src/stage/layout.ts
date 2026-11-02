@@ -24,8 +24,17 @@ export const LAYOUT = {
     cylinder: { position: [0, 1, 0], scale: 1, shadow: 0.5 },
     cube: { position: [0, 0.75, 0], scale: 1.2, shadow: 0.7 },
     quad: { position: [0, 0.85, 0], scale: 1.6, shadow: 0.1 },
+    plane: { position: [0, 0.5, 0], scale: 0.3, shadow: 0 },
   },
-  depthMesh: { position: [0, 0.55, 0], scale: 2.2 },
+  /** depth 무대의 물체 배치. 같은 값이 SgCapture.PlaceEffectMesh 에 있다 */
+  depthPlacement: {
+    sphere: { position: [0, 0.55, 0], scale: 2.2 },
+    capsule: { position: [0, 0.6, 0], scale: 1.4 },
+    cylinder: { position: [0, 0.6, 0], scale: 1.4 },
+    cube: { position: [0, 0.5, 0], scale: 1.6 },
+    quad: { position: [0, 0.6, 0], scale: 2.4 },
+    plane: { position: [0, 0.3, 0], scale: 0.35 },
+  },
   fullscreenBall: { position: [0, 0.75, 0], scale: 1.5 },
   box: { position: [0.95, 0.4, 0.3], scale: 0.8, rotationYDeg: 28 },
   ball: { position: [-1.1, 0.45, 0.5], scale: 0.9 },

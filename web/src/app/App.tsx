@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { load, save } from '../core/storage'
 import { About } from './About'
 import { EnvBadge } from './EnvBadge'
+import { ErrorBoundary } from './ErrorBoundary'
 import { Home } from './Home'
 import { useRoute } from './router'
 import { SpecimenPage } from './SpecimenPage'
@@ -27,8 +28,9 @@ export function App() {
   // P: 발표 모드, Esc: 해제 (입력창에서는 무시)
   useEffect(() => {
     const on = (e: KeyboardEvent) => {
-      if (isTyping(e)) return
-      if (e.key === 'p' || e.key === 'P') setPresenter(v => !v)
+      if (isTyping(e) || e.ctrlKey || e.metaKey || e.altKey) return
+      // e.key 는 한글 입력 상태에서 'Process' 가 되므로 키 위치(e.code)로 판단한다
+      if (e.code === 'KeyP') setPresenter(v => !v)
       if (e.key === 'Escape') setPresenter(false)
     }
     addEventListener('keydown', on)
@@ -75,7 +77,11 @@ export function App() {
 
       <main id="main" className="main" tabIndex={-1}>
         {route.name === 'home' && <Home />}
-        {route.name === 'specimen' && <SpecimenPage key={route.id} id={route.id} presetId={route.preset} opts={route.opts} presenter={presenter} />}
+        {route.name === 'specimen' && (
+          <ErrorBoundary key={`${route.id}?${route.query}`} label="이 표본">
+            <SpecimenPage id={route.id} presetId={route.preset} opts={route.opts} presenter={presenter} />
+          </ErrorBoundary>
+        )}
         {route.name === 'about' && <About />}
       </main>
 
