@@ -31,7 +31,8 @@ float backdropCover(float d)
 }
 
 // 화면 픽셀마다 다른 0~1 값 (interleaved gradient noise). 나선을 픽셀마다 조금씩 돌려
-// 적은 샘플 수에서 생기는 겹상(같은 물체가 몇 겹으로 비치는 무늬)을 고운 알갱이로 바꾼다
+// 적은 샘플 수에서 생기는 겹상(같은 물체가 몇 겹으로 비치는 무늬)을 고운 알갱이로 바꾼다.
+// 화면 픽셀 좌표로 정해지므로 알갱이 무늬는 화면에 고정되어, 패널이 움직여도 제자리에 남는다
 float backdropPixelNoise(float2 pixel)
 {
     return frac(52.9829189 * frac(dot(pixel, float2(0.06711056, 0.00583715))));
@@ -40,10 +41,19 @@ float backdropPixelNoise(float2 pixel)
 // 나선 샘플링 블러. center 주변 반경 radius(화면 uv, 가로세로 따로) 안을 taps 번 읽어 가중 평균한다.
 // k 번째 샘플은 반지름 sqrt((k + 0.5) / taps), 각도 k * 황금각에 놓인다 (해바라기 씨 배치).
 // 반지름에 sqrt 를 쓰면 원판 넓이에 고르게 퍼지고, 가운데일수록 무겁게(가우스 모양) 주어 경계가 부드럽다.
+// 탭마다 cos, sin, exp 를 새로 부르면 High 에서 픽셀당 96번이다. 방향은 황금각 회전을 곱해 이어 가고
+// 무게는 같은 비율을 곱해 이어 가서, 픽셀마다 cos, sin, exp 를 한 번씩만 부른다. sqrt 는 싼 명령이라 탭마다 둔다.
 float3 backdropBlur(float2 center, float2 radius, float taps, float spin)
 {
     float3 sum = float3(0.0, 0.0, 0.0);
     float total = 0.0;
+    // 첫 샘플의 방향. 픽셀마다 다른 spin 만큼 돌아 있다
+    float2 dir = float2(cos(spin), sin(spin));
+    // 한 샘플마다 돌리는 회전. 상수라 컴파일러가 미리 계산한다
+    float2 turn = float2(cos(BACKDROP_GOLDEN_ANGLE), sin(BACKDROP_GOLDEN_ANGLE));
+    // 무게 exp(-2t) 는 t 가 1/taps 씩 늘 때마다 exp(-2/taps) 배가 된다. 끝에 total 로 나누므로 첫 무게는 1 로 둔다
+    float decay = exp(-2.0 / taps);
+    float w = 1.0;
     for (int k = 0; k < BACKDROP_MAX_TAPS; k++)
     {
         float fk = float(k);
@@ -53,11 +63,12 @@ float3 backdropBlur(float2 center, float2 radius, float taps, float spin)
             break;
         }
         float t = (fk + 0.5) / taps;
-        float angle = fk * BACKDROP_GOLDEN_ANGLE + spin;
-        float2 offset = float2(cos(angle), sin(angle)) * sqrt(t) * radius;
-        float w = exp(-2.0 * t);
+        float2 offset = dir * sqrt(t) * radius;
         sum = sum + sgSceneColor(center + offset).rgb * w;
         total = total + w;
+        // 다음 샘플: 방향을 황금각만큼 돌리고 무게를 줄인다
+        dir = float2(dir.x * turn.x - dir.y * turn.y, dir.x * turn.y + dir.y * turn.x);
+        w = w * decay;
     }
     return sum / max(total, 0.0001);
 }

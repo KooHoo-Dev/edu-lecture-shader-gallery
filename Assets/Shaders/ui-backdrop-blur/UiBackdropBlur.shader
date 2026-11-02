@@ -2,18 +2,23 @@
 // 패널 뒤 화면을 URP 의 Opaque Texture(카메라가 불투명 물체를 그린 직후의 복사본)에서 여러 번 읽어 흐리게 비춘다.
 // URP Asset 의 Opaque Texture 를 켜야 한다. 효과 본체는 core.hlsl 에 있다.
 //
+// 패널을 열고 닫는 _Hide 는 UiBackdropPanel.cs 가 Image 마다 만든 머티리얼 복사본에 넣는다.
+//
 // [UI 래퍼] ui-sdf-shape 의 UiSdfShape.shader 를 복사했다. 셰이더 이름, "표본 속성" 묶음, CBUFFER, 씬 색상 읽기만 바꿨다.
 // "UI 공통" 이라고 적힌 줄은 Mask, RectMask2D, 캔버스가 이름으로 찾아 쓰므로 이름과 구조를 그대로 둔다.
 //
 // 캔버스 제약:
-//   - Screen Space - Overlay 캔버스는 카메라가 장면을 다 그린 뒤 따로 그려진다. 그때 Opaque Texture 는 이 캔버스용이 아니라
-//     읽을 수 없다. Screen Space - Camera 나 World Space 캔버스에 둔다.
+//   - Screen Space - Camera 캔버스를 권한다 (Render Camera 에 장면을 그리는 Base 카메라). World Space 캔버스도 된다.
+//   - Screen Space - Overlay 캔버스에서 Opaque Texture 가 읽히는지는 보장되지 않고 확인하지 않았다. URP 17.3 은 Overlay UI 도
+//     카메라 렌더 그래프 안에서 그려 읽힐 수 있지만, 읽혀도 투명 물체와 후처리가 빠진 복사본이라 패널 색이 주변 화면과 다르다.
+//   - UI 만 그리는 Overlay 카메라(카메라 스택)는 Opaque Texture 를 만들지 않는다. 그 카메라를 Render Camera 로 쓰면 뒤가 비치지 않는다.
 //   - Opaque Texture 는 불투명 물체만 담는다. 다른 UI, 투명 물체, 파티클은 흐림에 들어가지 않는다.
+//     반대로 패널보다 앞에 있는 불투명 물체는 들어 있어, 그 물체 둘레에 물체 색이 흐리게 번진다.
 //   - 2D Renderer 에는 Opaque Texture 가 없다. Camera Sorting Layer Texture 를 대신 읽어야 한다 (sgSceneColor 를 바꾼다).
 //
 // 패스는 LightMode 태그 없이 하나다.
 //   - Camera, World Space 캔버스와 2D Renderer 는 태그 없는 패스를 SRPDefaultUnlit 으로 보고 그린다.
-//   - Overlay 캔버스도 첫 패스를 쓰지만 위 이유로 뒤가 비치지 않는다.
+//   - Overlay 캔버스도 첫 패스를 쓰지만 위 이유로 뒤가 맞게 비친다고 보장할 수 없다.
 Shader "ShaderGallery/UiBackdropBlur"
 {
     Properties
@@ -43,7 +48,8 @@ Shader "ShaderGallery/UiBackdropBlur"
         // UI 공통: Mask 의 Show Mask Graphic 을 끄면 0 이 들어와 색을 쓰지 않고 스텐실만 쓴다.
         _ColorMask ("Color Mask", Float) = 15
 
-        // UI 공통: 켜면 알파가 거의 0 인 픽셀을 버린다. Mask 가 마스크 그래픽의 복사본 머티리얼에서 자동으로 켠다.
+        // UI 공통: 켜면 알파가 거의 0 인 픽셀을 버린다. Mask 가 마스크 그래픽의 복사본 머티리얼에서 자동으로 켠다
+        // (스텐실을 패널 모양대로 쓰게). 직접 켜는 것은 겹친 UI 의 스텐실, 깊이 문제를 피할 때다.
         [Toggle(UNITY_UI_ALPHACLIP)] _UseUIAlphaClip ("Use Alpha Clip", Float) = 0
     }
 
@@ -92,6 +98,7 @@ Shader "ShaderGallery/UiBackdropBlur"
             // UI 공통: RectMask2D 가 자식에게 켜는 키워드. 켜지면 _ClipRect 밖을 지운다.
             #pragma multi_compile_local _ UNITY_UI_CLIP_RECT
             // UI 공통: _UseUIAlphaClip 토글이 켜는 키워드. Mask 가 마스크 그래픽의 머티리얼 복사본에서 자동으로 켠다.
+            // 실행 중에 만든 복사본이 켜는 키워드라 shader_feature 로 바꾸면 빌드에서 변형이 빠질 수 있다. multi_compile 로 둔다.
             #pragma multi_compile_local _ UNITY_UI_ALPHACLIP
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
@@ -129,12 +136,16 @@ Shader "ShaderGallery/UiBackdropBlur"
             // core.hlsl 안에서 텍스처를 읽는 매크로. 이 표본은 쓰지 않는다.
             #define SG_TEX(name, uv) SAMPLE_TEXTURE2D(name, sampler##name, uv)
 
-            // 씬 색상. 가이드의 SampleSceneColor 와 같은 텍스처를 읽되 밉 0 을 직접 고른다(LOD).
+            // 씬 색상. SampleSceneColor 와 같은 텍스처를 읽되 밉 0 을 직접 고른다(LOD).
             // 블러는 반복문 안에서 여러 번 읽는데, 미분을 쓰는 보통 샘플은 횟수가 바뀌는 반복문 안에서
             // 일부 컴파일러(D3D)가 반복을 강제로 펼치거나 거부한다. Opaque Texture 는 밉이 없어 결과는 같다.
+            // SampleSceneColor 가 하던 좌표 처리도 같이 옮긴다. ClampAndScaleUVForBilinear 는 Dynamic Resolution 처럼
+            // 텍스처의 일부만 쓰일 때 좌표를 그 영역으로 줄이고, 가장자리 반 텍셀 안으로 묶는다.
+            // 흐림은 화면 가장자리 너머까지 읽으므로 이것이 없으면 유효 영역 밖의 쓰레기 색이 섞인다.
             float4 sgSceneColor(float2 uv)
             {
-                return float4(SAMPLE_TEXTURE2D_X_LOD(_CameraOpaqueTexture, sampler_CameraOpaqueTexture, UnityStereoTransformScreenSpaceTex(uv), 0).rgb, 1.0);
+                uv = ClampAndScaleUVForBilinear(UnityStereoTransformScreenSpaceTex(uv), _CameraOpaqueTexture_TexelSize.xy);
+                return float4(SAMPLE_TEXTURE2D_X_LOD(_CameraOpaqueTexture, sampler_CameraOpaqueTexture, uv, 0).rgb, 1.0);
             }
 
             // core.hlsl 이 받는 입력. 깊이 무대 형식 중 이 표본이 쓰는 것만 둔다.
@@ -184,14 +195,20 @@ Shader "ShaderGallery/UiBackdropBlur"
                 o.uv = TRANSFORM_TEX(v.uv, _MainTex);
 
                 // UI 공통: RectMask2D 의 Softness 클리핑 (UI/Default 와 같은 식).
+                // 캔버스의 정점은 오브젝트 공간이 곧 캔버스 공간이라 positionOS 를 _ClipRect 와 바로 비교한다.
+                // pixelSize 는 화면 한 픽셀이 캔버스 단위로 얼마인지다. Softness 가 0 이어도 1픽셀만큼은 부드럽게 자른다.
                 float2 pixelSize = o.positionCS.w;
                 pixelSize /= abs(mul((float2x2)UNITY_MATRIX_P, _ScreenParams.xy));
+                // RectMask2D 가 없을 때 _ClipRect 는 아주 큰 값이라 계산이 넘치지 않게 묶는다
                 float4 clampedRect = clamp(_ClipRect, -2e10, 2e10);
                 o.mask = float4(v.positionOS.xy * 2.0 - clampedRect.xy - clampedRect.zw,
                                 0.25 / (0.25 * float2(_UIMaskSoftnessX, _UIMaskSoftnessY) + abs(pixelSize.xy)));
 
                 // UI 공통: 정점 색에는 Image.color, CanvasGroup 의 alpha, Button 의 색 전환(Color Tint)이 곱해져 들어온다.
-                // core.hlsl 이 SgInput.color 로 받아 꼭 곱한다. 감마 정점 색 옵션이면 Linear 프로젝트에서 선형으로 바꾼다.
+                // core.hlsl 이 SgInput.color 로 받아 꼭 곱한다. 안 곱하면 페이드와 버튼 눌림 색이 무시된다.
+                // 캔버스의 Vertex Color Always In Gamma Color Space(캔버스 전체 옵션)를 켜면 정점 색이 sRGB 그대로 오므로
+                // Linear 프로젝트에서는 선형으로 바꾼다. Gamma 프로젝트는 원래 sRGB 로 계산하므로 그대로 둔다.
+                // (UI/Default 의 _TextureSampleAdd 는 Text 의 글꼴 텍스처(알파 전용)를 위한 값이라 옮기지 않았다.)
                 o.color = v.color;
                 #ifndef UNITY_COLORSPACE_GAMMA
                 if (_UIVertexColorAlwaysGammaSpace > 0.5)
@@ -217,12 +234,15 @@ Shader "ShaderGallery/UiBackdropBlur"
 
                 #ifdef UNITY_UI_CLIP_RECT
                 // UI 공통: RectMask2D 밖은 알파 0. 이것이 없으면 스크롤 목록 밖으로 그림이 샌다.
+                // 사각형 반 크기에서 가운데까지의 거리를 빼면 안쪽이 양수다. Softness 폭으로 나눠 0~1 로 만든다.
+                // (step 두 번으로 자르는 옛 UnityGet2DClipping 은 Softness 를 무시한다.)
                 float2 m = saturate((_ClipRect.zw - _ClipRect.xy - abs(v.mask.xy)) * v.mask.zw);
                 c.a *= m.x * m.y;
                 #endif
 
                 #ifdef UNITY_UI_ALPHACLIP
-                // UI 공통: Mask 가 마스크 그래픽에서 이 키워드를 자동으로 켠다. 알파 0 인 모서리 바깥이 스텐실에 안 써지게 한다.
+                // UI 공통: UI/Default 와 같은 기준값. Mask 가 마스크 그래픽에서 이 키워드를 자동으로 켠다.
+                // 이 줄이 있어야 알파 0 인 모서리 바깥이 스텐실에 안 써지고 자식이 둥근 패널 모양대로 가려진다.
                 clip(c.a - 0.001);
                 #endif
 
