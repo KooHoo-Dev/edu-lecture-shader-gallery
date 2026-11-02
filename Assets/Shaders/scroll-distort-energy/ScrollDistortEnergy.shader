@@ -5,8 +5,10 @@ Shader "ShaderGallery/ScrollDistortEnergy"
     Properties
     {
         // 타일과 흐름은 core.hlsl 이 직접 계산하므로 _NoiseTex_ST(Tiling, Offset)는 쓰지 않는다. Inspector 에서 칸을 숨긴다.
-        // 텍스처가 비면 회색(0.5)이 들어가 무늬 없이 고른 빛과 왜곡 0 이 된다.
-        [NoScaleOffset] _NoiseTex ("노이즈 텍스처", 2D) = "gray" {}
+        // 노이즈는 sRGB 를 끈 데이터라 빈 칸 기본값도 선형 0.5 인 linearGrey 로 둔다.
+        // "gray" 는 sRGB 0.5 라 Linear 프로젝트에서 약 0.21 로 읽혀 희미한 통만 보인다.
+        // 칸이 비면 무늬 없이 고르게 빛나고 왜곡은 0 이 된다.
+        [NoScaleOffset] _NoiseTex ("노이즈 텍스처", 2D) = "linearGrey" {}
         _EnergyColor ("에너지 색", Color) = (0.161, 0.714, 1, 1)
         _Intensity ("밝기 (HDR)", Range(0, 6)) = 2.5
         _ScrollSpeed ("흐름 속도", Range(0, 3)) = 0.8
@@ -55,12 +57,16 @@ Shader "ShaderGallery/ScrollDistortEnergy"
             // core.hlsl 안에서 텍스처를 읽는 매크로. 웹에서는 texture() 로 바뀐다.
             #define SG_TEX(name, uv) SAMPLE_TEXTURE2D(name, sampler##name, uv)
 
-            // core.hlsl 이 받는 입력. 메시 무대의 공통 형식에서 이 효과가 쓰는 것만 둔다.
-            // 조명을 받지 않는 발광 효과라 법선, 광원 값은 넘기지 않는다.
+            // core.hlsl 이 받는 입력. 메시 무대의 공통 형식이다.
+            // 지금 core 는 uv, positionOS, time 만 쓰지만 프레넬 테두리 같은 변형을 core 에 넣어도 컴파일되게
+            // 위치, 법선, 시선 방향을 함께 넘긴다. 조명을 받지 않는 발광 효과라 광원 값은 넘기지 않는다.
             struct SgInput
             {
                 float2 uv;
                 float3 positionOS;
+                float3 positionWS;
+                float3 normalWS;
+                float3 viewWS;
                 float time;
             };
 
@@ -69,6 +75,7 @@ Shader "ShaderGallery/ScrollDistortEnergy"
             struct Attributes
             {
                 float4 positionOS : POSITION;
+                float3 normalOS : NORMAL;
                 float2 uv : TEXCOORD0;
                 UNITY_VERTEX_INPUT_INSTANCE_ID
             };
@@ -78,6 +85,8 @@ Shader "ShaderGallery/ScrollDistortEnergy"
                 float4 positionCS : SV_POSITION;
                 float2 uv : TEXCOORD0;
                 float3 positionOS : TEXCOORD1;
+                float3 positionWS : TEXCOORD2;
+                float3 normalWS : TEXCOORD3;
                 UNITY_VERTEX_INPUT_INSTANCE_ID
                 UNITY_VERTEX_OUTPUT_STEREO
             };
@@ -88,7 +97,9 @@ Shader "ShaderGallery/ScrollDistortEnergy"
                 UNITY_SETUP_INSTANCE_ID(v);
                 UNITY_TRANSFER_INSTANCE_ID(v, o);
                 UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
-                o.positionCS = TransformObjectToHClip(v.positionOS.xyz);
+                o.positionWS = TransformObjectToWorld(v.positionOS.xyz);
+                o.positionCS = TransformWorldToHClip(o.positionWS);
+                o.normalWS = TransformObjectToWorldNormal(v.normalOS);
                 o.positionOS = v.positionOS.xyz;
                 o.uv = v.uv;
                 return o;
@@ -102,6 +113,9 @@ Shader "ShaderGallery/ScrollDistortEnergy"
                 SgInput i;
                 i.uv = v.uv;
                 i.positionOS = v.positionOS;
+                i.positionWS = v.positionWS;
+                i.normalWS = normalize(v.normalWS);
+                i.viewWS = GetWorldSpaceNormalizeViewDir(v.positionWS);
                 i.time = _Time.y;
                 return sgEffect(i);
             }
