@@ -1,4 +1,4 @@
-// 체력 비율로 화면 비네트의 세기를 정하고, 피격 때 붉은 펄스를 한 번 재생한다. 플레이어나 HUD 관리 오브젝트에 붙인다.
+// 체력 비율로 화면 비네트의 세기를 정하고, 피격 때 가장자리 펄스를 한 번 재생한다. 플레이어나 HUD 관리 오브젝트에 붙인다.
 using System.Collections;
 using UnityEngine;
 
@@ -21,15 +21,18 @@ namespace ShaderGallery.Samples
 
         [Header("피격 펄스")]
         [SerializeField] float hitSeconds = 0.5f;
-        // 화면 넓은 면이 붉어지므로 1 초에 3 번을 넘지 않게 막는다.
+        // 화면 가장자리가 한순간 바뀌므로 1 초에 3 번을 넘지 않게 막는다 (모든 컨트롤러 합계).
         [SerializeField] float minInterval = 0.34f;
 
         [Header("접근성 (옵션 메뉴에서 끌 수 있게)")]
         [SerializeField] bool vignetteEnabled = true;
         [SerializeField] bool hitPulseEnabled = true;
 
+        // 화면 머티리얼은 하나라 마지막 펄스 시각도 모든 컨트롤러가 함께 쓴다.
+        // 분할 화면, 추가 씬, 씬 재로드 직후처럼 컨트롤러가 둘이 되어도 합쳐서 초당 3 회를 넘지 않는다.
+        static float lastPulseTime = float.NegativeInfinity;
+
         float health = 1f;
-        float lastPulseTime = float.NegativeInfinity;
         bool saved;
         float originalIntensity;
         float originalLowHealth;
@@ -55,6 +58,14 @@ namespace ShaderGallery.Samples
                 hitPulseEnabled = value;
                 Apply();
             }
+        }
+
+        // 도메인 리로드를 끈 설정(Enter Play Mode Options)에서는 static 값이 이전 플레이에서 넘어온다.
+        // Time.unscaledTime 은 플레이마다 0 부터 다시 세므로 시작할 때 지워 둔다.
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetLimiter()
+        {
+            lastPulseTime = float.NegativeInfinity;
         }
 
         void OnEnable()
@@ -149,6 +160,7 @@ namespace ShaderGallery.Samples
         void OnDisable()
         {
             // lastPulseTime 은 지우지 않는다. 껐다 켜는 것으로 초당 3 회 제한을 피하지 못하게 한다.
+            // 여기서 되돌리는 값이 씬 전환 중 한 프레임 보일 수 있으므로 머티리얼 에셋의 세기는 평소 값으로 낮춰 둔다.
             StopAllCoroutines();
             if (!saved)
             {
