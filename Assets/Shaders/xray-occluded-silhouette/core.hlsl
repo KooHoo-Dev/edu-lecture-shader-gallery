@@ -24,9 +24,13 @@ float xrayRim(float3 normalWS, float3 viewWS)
 {
     float facing = saturate(dot(normalWS, viewWS));
     // 1 - facing 을 그대로 쓰면 둥근 몸에서 윤곽 바로 앞까지 거의 0 이라 테두리가 실처럼 가늘다.
-    // sqrt(1 - facing^2) 는 시선과 법선 사이 각의 sin 이라, 원통이나 구에서는 화면의 가운데(0)에서 윤곽(1)까지 거의 고르게 커진다.
+    // sqrt(1 - facing^2) 는 시선과 법선 사이 각의 sin 이라, 캡슐의 몸통(원통)과 둥근 끝(구)에서 화면의 가운데(0)에서 윤곽(1)까지 거의 고르게 커진다.
     // 그래서 폭은 '반지름 중 바깥 몇 할을 테두리로 칠할지' 처럼 읽힌다. 1 이면 가운데까지 부드럽게 번진다.
     float side = sqrt(saturate(1.0 - facing * facing));
+#ifdef SG_OFF
+    // 흔한 실수: 1 - facing 을 그대로 쓴다. 둥근 몸에서는 윤곽 바로 앞까지 0 에 가까워, 같은 폭 값에서도 테두리가 실처럼 가늘다.
+    side = 1.0 - facing;
+#endif
     return smoothstep(1.0 - _RimWidth, 1.0, side);
 }
 
@@ -36,12 +40,8 @@ float4 sgEffect(SgInput i)
     float3 flatColor = _SilhouetteColor.rgb;
     SG_STEP(1, flatColor);
 
-#ifdef SG_OFF
-    // 흔한 실수: 프레넬 없이 불투명 단색으로 덮는다. 벽에 사람 모양 구멍이 뚫린 것처럼 납작해 앞뒤와 형태가 읽히지 않는다.
-    return float4(flatColor, 1.0);
-#endif
-
     // 2. 프레넬 테두리: 윤곽일수록 1. 세기를 곱해 0~1 로 자른다.
+    //    효과 끄기(SG_OFF)는 xrayRim 안에서 흔한 실수인 1 - facing 으로 바뀌어 테두리만 가늘어진다.
     float edge = saturate(xrayRim(i.normalWS, i.viewWS) * _RimStrength);
     SG_STEP(2, float3(edge, edge, edge));
 
