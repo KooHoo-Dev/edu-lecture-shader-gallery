@@ -338,6 +338,14 @@ async function checkSpecimens(ids) {
       if (!f.endsWith('.meta') && !existsSync(join(folder, `${f}.meta`))) warn(`${id}/${f}: .meta 가 없다. node tools/unity.mjs ${id} 를 실행하면 생긴다`)
     }
     for (const texture of Object.values(meta.stage.textures ?? {})) if (!existsSync(join(folder, texture.file))) err(`${id}: 텍스처 ${texture.file} 이 없다`)
+    // 번쩍임 제한기는 실제 시간으로 세고 코드에서 하한을 고정한다 (가이드 7절)
+    if (meta.flashes) {
+      for (const cs of readdirSync(folder).filter(f => f.endsWith('.cs'))) {
+        const code = readFileSync(join(folder, cs), 'utf8')
+        if (!code.includes('unscaledTime')) warn(`${id}/${cs}: flashes 표본의 C# 제한기는 Time.unscaledTime 으로 센다`)
+        if (!/0\.34f/.test(code)) warn(`${id}/${cs}: flashes 표본의 C# 제한기는 Mathf.Max(minInterval, 0.34f) 처럼 하한을 코드에 고정한다`)
+      }
+    }
     const hasWebGlsl = existsSync(join(WEB, 'src', 'specimens', id, 'web.glsl'))
     if (meta.webGlslReason && !hasWebGlsl) err(`${id}: webGlslReason 이 있는데 web.glsl 이 없다`)
     if (!meta.webGlslReason && hasWebGlsl) err(`${id}: web.glsl 을 쓰면 meta.webGlslReason 에 사유를 적는다`)

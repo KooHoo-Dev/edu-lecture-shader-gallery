@@ -159,6 +159,7 @@ float effectNoise(float2 p)
 
 - 텍스처는 `SG_TEX(_MyTex, uv)` 로만 읽는다. `_MyTex_TexelSize` 도 쓸 수 있다. 래퍼에는 `Properties` 에 `_MyTex ("이름", 2D) = "white" {}`, 그 아래에 `TEXTURE2D(_MyTex); SAMPLER(sampler_MyTex);` 와 `#define SG_TEX(name, uv) SAMPLE_TEXTURE2D(name, sampler##name, uv)`, `CBUFFER` 안에 `float4 _MyTex_TexelSize;` 를 둔다. 텍스처 파일은 표본 폴더에 두고 `meta.stage.textures` 에 적는다. 텍스처는 `meta.params` 에 넣지 않는다. sRGB 를 끈 데이터 텍스처(`linear: true`)의 기본값은 `"gray"` 가 아니라 `"linearGrey"` 다. `"gray"` 는 sRGB 0.5 라 Linear 프로젝트에서 약 0.21 로 읽혀, 0.5 를 0 으로 쓰는 맵은 칸이 비었을 때 한쪽으로 쏠린다 (`tools/check.mjs` 가 잡는다). 임포트 설정은 촬영 도구가 맞춘다. PNG 는 프롬프트에 넣을 수 없어 Skill zip 으로 전달되므로 `unity.setup` 에 임포트 설정(sRGB, Wrap Mode, Filter Mode)을 적는다.
 - PNG 는 `tools/textures/<이름>.mjs` 에 무늬를 코드로 쓰고 `node tools/gen-texture.mjs <이름>` 으로 만든다. 모듈 형식은 `tools/gen-texture.mjs` 머리말에 있고, 노이즈 같은 공용 도구는 `tools/lib/texture-kit.mjs` 에 있다. 표본 잡은 자기 모듈 경로를 `writePaths` 에 넣고 직접 쓴다. PNG 는 HTML 에 그대로 들어가므로 128 정도로 작게 둔다. 만든 PNG 는 Read 로 열어 눈으로 본다.
+- 웹은 머티리얼의 Tiling, Offset(`_ST`)을 넘기지 않는다. 수강생이 다른 텍스처를 넣어 쓸 표본은 반복 횟수를 `#define` 이 아니라 range 값으로 노출한다. 구 UV 에 맞춘 비율은 큐브나 Plane 에서 늘어난다.
 - 스프라이트의 `_MainTex` 크기는 `_MainTex_TexelSize` 를 믿을 수 없다 (렌더러 단위로 넘어와 머티리얼 버퍼와 어긋난다. 실제로 촬영에서 틀린 값이 나왔다). `i.texelSize` 를 쓴다.
 - 정점을 움직이는 표본은 `core.hlsl` 에 다음 함수를 두고 `meta.stage.vertex = true` 로 한다. 메시와 깊이 무대에서 쓸 수 있다. 움직인 뒤의 오브젝트 공간 위치를 돌려준다.
 
@@ -185,6 +186,7 @@ float effectNoise(float2 p)
 - `depthDelta` = 카메라에서 씬 표면까지 거리 - 카메라에서 이 픽셀까지 거리 (미터). 물체가 닿는 곳에서 0 에 가까워진다.
 - 깊이 무대의 `color` 는 정점 색이다. 웹 무대는 항상 흰색(1)이고, 깊이 무대에 쓰는 UI 표본(`stage.ui`, 예: 배경 블러)의 Unity 래퍼는 Image 의 정점 색을 넣는다. 일반 깊이 표본은 쓰지 않는다.
 - `fullscreen` 의 `uv` 는 왼쪽 아래가 (0, 0) 이고 위쪽이 1 이다. 화면비 보정은 `float2(aspect, 1.0)` 을 곱한다. `texelSize` 는 화면 한 픽셀의 uv 크기다 (Unity 래퍼는 `_ScreenSize.zw`).
+- XR 에서 전체 화면 uv 의 (0.5, 0.5) 는 눈의 정면이 아니다. HMD 투영은 눈마다 비대칭이라 화면 중심을 쓰는 효과(비네트, 충격파 중심)는 두 눈에서 어긋날 수 있다. URP 내장 Vignette 는 투영 행렬로 이를 보정한다. XR 설명은 '실기기 미확인' 으로 쓰고 XRI 나 Volume 같은 보정된 대안을 먼저 권한다.
 - 전체 화면 무대의 `sgSceneDepth(uv)` 는 카메라에서 그 픽셀까지의 선형 거리(미터, 하늘은 먼 평면 100 근처), `sgSceneNormal(uv)` 는 월드 법선(하늘은 0)이다. 쓰면 `meta.requires` 에 `'depth'`, `'normals'` 를 넣고, 래퍼는 `DeclareDepthTexture.hlsl`, `DeclareNormalsTexture.hlsl` 을 include 한 뒤 core 앞에 다음을 둔다. 수강생은 Full Screen Pass 의 Requirements 에서 Depth, Normal 을 켠다 (촬영 도구도 같은 칸을 켠다. 웹과 Unity 를 법선 색과 깊이 줄무늬로 비교해 확인했다).
 
   ```hlsl
@@ -219,7 +221,7 @@ float effectNoise(float2 p)
 - 머티리얼 값은 전부 `CBUFFER_START(UnityPerMaterial)` 안에 둔다 (SRP Batcher). 텍스처 선언(`TEXTURE2D`, `SAMPLER`)은 밖에 둔다.
 - 샘플의 XR 매크로(`UNITY_VERTEX_INPUT_INSTANCE_ID` 등)와 `#pragma multi_compile_instancing` 을 지우지 않는다. 수업 XR 프로젝트에서 쓴다.
 - 메시 잘라 내기 표본은 `Forward`, `ShadowCaster`, `DepthOnly`, `DepthNormals` 네 패스를 모두 유지한다. 알파로 자르는 부분이 그림자와 깊이에 빠지면 사라진 자리에 그림자가 남는다. 투명 표본은 `Forward` 패스 하나면 된다.
-- 빛을 받는 메시 래퍼는 디졸브처럼 `GetMainLight(TransformWorldToShadowCoord(positionWS), positionWS, half4(1, 1, 1, 1))` 로 주 광원을 받는다. 그림자 좌표만 넘기는 형식은 그림자 거리 페이드와 Shadowmask 가 빠져 Max Distance 에서 그림자가 선을 긋고 끊긴다 (`tools/check.mjs` 가 잡는다).
+- 빛을 받는 메시 래퍼는 디졸브처럼 `GetMainLight(TransformWorldToShadowCoord(positionWS), positionWS, half4(1, 1, 1, 1))` 로 주 광원을 받는다. 그림자 좌표만 넘기는 형식은 그림자 거리 페이드와 Shadowmask 가 빠져 Max Distance 에서 그림자가 선을 긋고 끊긴다 (`tools/check.mjs` 가 잡는다). `distanceAttenuation` 은 곱하지 않으므로(디졸브 주석 참고) 광원의 Culling Mask 와 Rendering Layers 가 무시된다. 래퍼를 복사할 때 이 주석을 지우지 않고 `unity.pitfalls` 에 한 구절로 적는다.
 - 불투명, 잘라 내기 메시의 `Forward` 패스 태그는 `UniversalForwardOnly`, 노멀 패스 태그는 `DepthNormalsOnly` 다. `UniversalForward` 만 있으면 Deferred 렌더 경로에서 오류 없이 사라진다.
 - 스프라이트 표본은 `Universal2D` 와 `UniversalForward` 두 패스를 유지한다. 2D Renderer 는 `Universal2D` 와 `SRPDefaultUnlit` 만 그리고 Universal Renderer 는 `UniversalForward` 만 그린다. 둘 다 촬영으로 확인했다.
 - 메시, 깊이 표본의 패스는 2D Renderer 에서 그려지지 않는다 (`Universal2D`, `SRPDefaultUnlit` 만 그린다). 3D 프로젝트용이라고 `unity.pitfalls` 에 적는다. 예외로 외곽선 패스(`SRPDefaultUnlit`)는 그려지므로 외곽선 표본은 본체 없이 외곽선 색 덩어리만 보인다.
@@ -309,17 +311,17 @@ UGUI Image 에 쓰는 표본용이다. 미리보기와 촬영은 스프라이트
 | `presets` | 2~5개. 쓰임새 이름 (게임명 금지). `values` 에는 기본값과 다른 것만 |
 | `events` | 버튼으로 한 번 재생. C# 스크립트가 실제로 하는 일과 같게. `tracks` 의 `frames` 는 `[초, 값]` 목록. 트랙 값은 절대값이라 프리셋이나 슬라이더가 바꾸는 값을 움직이면 시작과 끝에서 튄다. 이벤트는 0 에서 올라갔다 0 으로 돌아오는 더하기용 전용 값(`_HitFlash`, `_Gust` 등)을 움직이고 셰이더가 기본 값에 더한다. C# 도 같은 값을 움직인다 |
 | `demo` | 사람이 없어도 핵심 상황이 돌게. `loops` 는 반복 트랙, `fire` 는 일정 간격 이벤트 |
-| `steps` | 2~5개. `n` 은 `SG_STEP` 번호. `body` 는 무엇을 보고 무엇을 이해해야 하는지 |
+| `steps` | 2~5개. `n` 은 `SG_STEP` 번호. `body` 는 무엇을 보고 무엇을 이해해야 하는지. 앱이 최종 화면을 따로 보여 주므로 마지막 단계가 최종 화면과 같으면 넣지 않는다 |
 | `offNote` | 효과를 끈 화면에서 무엇이 나쁜지 |
 | `mistakes` | 3~5개. 수강생이 실제로 겪을 증상을 제목으로, 원인과 해결을 본문으로. '문제 해결' 프롬프트에 그대로 들어간다 |
 | `unity.setup` | Unity 에 넣는 순서 2~7단계. 메뉴 이름을 정확히 |
 | `unity.verify` | 잘 되었는지 확인하는 한 문장. 값을 움직이면 무엇이 보여야 하는지 |
 | `unity.pitfalls` | 2~6개. 설정, 플랫폼, 렌더러 제약. 프롬프트에 들어간다 |
-| `unity.graph` | Shader Graph 에서 Custom Function 으로 쓰는 법 (선택) |
+| `unity.graph` | Shader Graph 로 옮기는 법 (선택). Custom Function 노드는 `void 이름_float(입력..., out 출력)` 형식의 함수만 받는다. `core.hlsl` 을 File 모드로 통째로 지정하면 `SgInput` 과 머티리얼 값 선언이 없어 컴파일되지 않으므로, 필요한 함수만 String 모드로 복사해 감싸는 법을 쓴다 |
 | `prompt.goal` | 프롬프트 첫 문장. 넣고 나면 무엇이 되는지 |
 | `prompt.adaptIdeas` | 2~6개. 수강생이 실제로 원할 만한 변형. 첫 번째가 프롬프트 예시로 들어간다 |
 | `captures` | 기본값 외에 더 찍을 상태. 표본당 3장 이내 (용량). 값이 다른 모습을 보여 주는 것만 |
-| `thumbnail` | 갤러리 썸네일로 쓸 `captures` 의 이름 (선택). 기본은 기본값 촬영. 쉬는 시간이 있는 주기 효과처럼 Unity 시간에 따라 효과가 안 보이는 순간에 찍힐 수 있으면, 시간과 상관없이 효과가 보이는 촬영(이벤트 값을 고정한 상태 등)을 고른다 |
+| `thumbnail` | 갤러리 썸네일로 쓸 `captures` 의 이름 (선택). 기본은 기본값 촬영. 쉬는 시간이 있는 주기 효과처럼 Unity 시간에 따라 효과가 안 보이는 순간에 찍힐 수 있으면, 시간과 상관없이 효과가 보이는 촬영(이벤트 값을 고정한 상태 등)을 고른다. 무대에서 기본값 효과가 약하게 보여 다른 촬영이 효과를 더 잘 보여 줄 때도 쓴다 |
 | `inspiredBy` | 확인된 대표작만. `원제 (연도)` 형식, 빌린 축 최대 2개. 근거가 없으면 빈 배열 |
 | `original` | 무엇을 새로 만들었는지 |
 | `references` | 1~6개. 원리의 출처. `shader-selection.md` 의 URL 을 우선 쓴다 |
@@ -337,7 +339,8 @@ UGUI Image 에 쓰는 표본용이다. 미리보기와 촬영은 스프라이트
 - `Shader.PropertyToID` 로 ID 를 캐시한다.
 - 물체 하나에 쓰는 값은 `renderer.material` 복사본에 넣고 `OnDestroy` 에서 지운다. MaterialPropertyBlock 은 쓰지 않는다 (SRP Batcher 에서 빠진다).
 - UGUI Image 는 다르다. `Image.material` 은 복사본을 만들지 않으므로 `new Material(...)` 로 직접 만들어 넣고 `OnDestroy` 에서 지운다. 복사본은 처음 쓸 때 만든다 (꺼진 채 시작한 UI 에 `Awake` 전에 값을 넣어도 되게). Mask 안에서는 Unity 가 스텐실용 복사본(`materialForRendering`)을 따로 쓰므로 그쪽에도 값을 넣되, Image 가 꺼져 있을 때는 `materialForRendering` 을 건드리지 않는다 (지운 복사본이 다시 생겨 샌다).
-- 머티리얼 에셋을 직접 고치면(전체 화면 표본) `OnDisable` 에서 원래 값으로 되돌린다.
+- 머티리얼 에셋을 직접 고치면(전체 화면 표본) `OnDisable` 에서 원래 값으로 되돌린다. 머티리얼 기본값이 썸네일용으로 진하면 Scene 뷰와 컨트롤러가 없는 씬에도 그대로 걸리므로, `unity.setup` 에 평소 값으로 낮춰 두는 단계를 넣는다.
+- 화면 머티리얼 하나를 여러 컴포넌트가 함께 고치는 효과는 번쩍임 제한기의 마지막 시각을 `static` 으로 둔다. 분할 화면, 추가 씬, 씬 재로드 직후처럼 컨트롤러가 둘이 되어도 합쳐서 초당 3회를 넘지 않게 한다. 도메인 리로드를 끄는 설정에 대비해 `[RuntimeInitializeOnLoadMethod]` 로 초기화한다.
 - 머티리얼 기본값은 썸네일을 위한 값일 수 있다. 연출을 시작하기 전의 값은 `Awake` 에서 넣는다 (`DissolveController` 참고).
 - `DontDestroyOnLoad` 오브젝트는 씬을 오갈 때 복사본이 쌓이지 않게 인스턴스를 하나만 남긴다 (`ScreenTransitionController` 참고).
 - 코루틴은 `OnDisable` 에서 `StopAllCoroutines` 하고 상태 변수를 초기화한다.
@@ -353,7 +356,8 @@ UGUI Image 에 쓰는 표본용이다. 미리보기와 촬영은 스프라이트
 - 넓은 면이 번쩍이는 효과는 `flashes: true` 로 두고, C# 에도 초당 3회 제한을 넣는다 (`ForceFieldPulse` 참고). 반복 맥동은 2Hz 이하.
   - C# 제한은 실제 시간(`Time.unscaledTime`)으로 세고, 코드에서 하한을 고정하며(`Mathf.Max(minInterval, 0.34f)`), `OnDisable` 에서 마지막 시각을 지우지 않는다. 껐다 켜거나 Inspector 값을 낮춰 제한을 피할 수 없게 한다.
   - 셰이더의 `_Time` 은 Play 중 배속(`Time.timeScale`)을 따른다. 셰이더 안의 깜빡임은 배속 2 면 두 배가 된다. 배속이 있는 게임에서 끄라는 점을 `unity.pitfalls` 에 적는다.
-  - 셰이더 깜빡임과 C# 이벤트 번쩍임은 합쳐서 초당 3회 이하가 되게 한다.
+  - 셰이더 깜빡임과 C# 이벤트 번쩍임은 합쳐서 초당 3회 이하가 되게 한다. 밝기 변화가 작은(상대 밝기 10% 미만) 1Hz 이하의 느린 맥동은 번쩍임으로 세지 않는다.
+  - 포화된 빨강: 선형 RGB 에서 R / (R + G + B) ≥ 0.8 이고 (R − G − B) × 320 > 20 이면 포화된 빨강이다 (WCAG 2.2 의 red flash 정의). 피격처럼 이 색을 쓰는 연출은 화면 가장자리 띠에 머물게 하고, 넓게 덮을 때는 어둡고 채도 낮은 색으로 바꾼다.
   - 움직이는 줄무늬가 한 점을 지나는 빈도(속도 / 간격)는 3Hz 이하를 권한다. 포화된 빨강을 넓게 깜빡이지 않는다.
   - 시간만 쓰는 깜빡임은 같은 머티리얼을 쓰는 물체가 모두 같은 순간에 번쩍인다. 면적이 커지므로 물체마다 시간을 어긋나게 하는 방법을 해설에 적는다.
 

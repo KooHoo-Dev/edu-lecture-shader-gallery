@@ -78,7 +78,7 @@ export const meta: SpecimenMeta = {
       '머리에 고정된 전체 화면 효과라 XR 에서는 권장하지 않는다.',
       'Screen Space - Overlay Canvas 는 이 패스가 끝난 뒤에 그려져 덮이지 않는다. UI 까지 덮으려면 Canvas 를 Screen Space - Camera 로 바꾼다.',
     ],
-    graph: 'Shader Graph 에서는 Fullscreen 타깃을 쓰고 URP Sample Buffer 노드(BlitSource)가 `sgSource` 역할을 한다. 순서 값은 Custom Function 으로 `transitionOrder` 를 불러 쓴다.',
+    graph: 'Shader Graph 에서는 Fullscreen 타깃을 쓰고 URP Sample Buffer 노드(BlitSource)가 `sgSource` 역할을 한다. 순서 값은 `core.hlsl` 의 `transitionOrder` 함수를 Custom Function 노드의 String 모드에 복사하고 `void TransitionOrder_float(float2 uv, float aspect, out float order)` 로 감싸 쓴다 (`core.hlsl` 을 File 모드로 통째로 지정하면 `SgInput` 과 속성 선언이 없어 컴파일되지 않는다). 함수 안에서 쓰는 `_Pattern`, `_Cells` 는 같은 이름의 그래프 속성으로 만든다.',
   },
   prompt: {
     goal: '씬이 바뀔 때 화면을 패턴으로 덮었다가 걷는 전환 효과를 넣는다. 내장 Full Screen Pass Renderer Feature 에 머티리얼로 연결하고 C# 코루틴으로 진행값을 움직인다.',
