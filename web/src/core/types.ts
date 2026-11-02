@@ -137,6 +137,11 @@ export interface SpecimenStage {
    * 웹은 같은 물체를 뒷면만 한 번 더 그린다. 래퍼의 두 번째 패스(Cull Front, SRPDefaultUnlit)에 해당한다
    */
   outline?: boolean
+  /**
+   * UGUI Image 에 쓰는 UI 셰이더면 true (sprite 무대). 래퍼는 Unity UI 셰이더 구조(Stencil, RectMask2D 클리핑, 정점 색)를 따르고
+   * Universal2D, UniversalForward 대신 LightMode 없는 패스 하나를 쓴다. 미리보기는 스프라이트 무대 그대로다
+   */
+  ui?: boolean
   /** 표본 폴더에 둔 텍스처. sprite 무대에서 _MainTex 를 적지 않으면 앱이 스테이지 스프라이트를 넣는다 */
   textures?: Record<string, StageTexture>
 }

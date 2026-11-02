@@ -147,7 +147,22 @@ function checkWrapper(id, name, text, meta) {
     if (Boolean(meta.stage.doubleSided) !== /Cull\s+Off/.test(code) && kind !== 'sprite') err(`${where}: Cull Off 와 stage.doubleSided 가 맞지 않다`)
   }
   if (kind === 'mesh' && blend === 'cutout' && /"LightMode"\s*=\s*"UniversalForward"/.test(code)) err(`${where}: 불투명·잘라 내기 메시는 Deferred 에서도 그려지도록 UniversalForwardOnly 를 쓴다`)
-  if (kind === 'sprite' && !(code.includes('"Universal2D"') && code.includes('"UniversalForward"'))) err(`${where}: 스프라이트는 Universal2D 와 UniversalForward 패스가 모두 있어야 한다`)
+  if (meta.stage.ui) {
+    // UGUI 의 UI 셰이더 구조. Overlay 캔버스는 첫 패스를 쓰고, Camera·World 캔버스는 URP 가 SRPDefaultUnlit 으로 그린다
+    if (kind !== 'sprite') err(`${where}: stage.ui 는 sprite 무대에서만 쓴다`)
+    if (/"LightMode"/.test(code)) err(`${where}: UI 셰이더는 LightMode 태그 없는 패스 하나를 쓴다`)
+    for (const [pattern, what] of [
+      [/_StencilComp/, 'Stencil 속성(_StencilComp 등)과 Stencil 블록'],
+      [/_ClipRect/, 'RectMask2D 의 _ClipRect'],
+      [/UNITY_UI_CLIP_RECT/, 'multi_compile_local _ UNITY_UI_CLIP_RECT'],
+      [/unity_GUIZTestMode/, 'ZTest [unity_GUIZTestMode]'],
+      [/ColorMask\s+\[_ColorMask\]/, 'ColorMask [_ColorMask]'],
+    ]) {
+      if (!pattern.test(code)) err(`${where}: UI 셰이더에 ${what} 가 없다`)
+    }
+  } else if (kind === 'sprite' && !(code.includes('"Universal2D"') && code.includes('"UniversalForward"'))) {
+    err(`${where}: 스프라이트는 Universal2D 와 UniversalForward 패스가 모두 있어야 한다`)
+  }
   if (kind === 'depth' && !code.includes('DeclareDepthTexture.hlsl')) err(`${where}: 깊이 무대는 DeclareDepthTexture.hlsl 을 include 한다`)
   if (kind === 'fullscreen' && !code.includes('Blit.hlsl')) err(`${where}: 전체 화면 무대는 Blit.hlsl 을 include 한다`)
   return code

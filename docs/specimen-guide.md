@@ -158,7 +158,7 @@ float effectNoise(float2 p)
 ### 3-4. 텍스처와 정점 변형
 
 - 텍스처는 `SG_TEX(_MyTex, uv)` 로만 읽는다. `_MyTex_TexelSize` 도 쓸 수 있다. 래퍼에는 `Properties` 에 `_MyTex ("이름", 2D) = "white" {}`, 그 아래에 `TEXTURE2D(_MyTex); SAMPLER(sampler_MyTex);` 와 `#define SG_TEX(name, uv) SAMPLE_TEXTURE2D(name, sampler##name, uv)`, `CBUFFER` 안에 `float4 _MyTex_TexelSize;` 를 둔다. 텍스처 파일은 표본 폴더에 두고 `meta.stage.textures` 에 적는다. 텍스처는 `meta.params` 에 넣지 않는다. 임포트 설정은 촬영 도구가 맞춘다. PNG 는 프롬프트에 넣을 수 없어 Skill zip 으로 전달되므로 `unity.setup` 에 임포트 설정(sRGB, Wrap Mode, Filter Mode)을 적는다.
-- PNG 는 `tools/gen-texture.mjs` 에 무늬를 코드로 넣어 만든다 (`node tools/gen-texture.mjs <이름>`). PNG 는 HTML 에 그대로 들어가므로 128 정도로 작게 둔다. 무늬 추가는 구독 세션이 하고, 잡의 워커는 그 명령을 실행만 한다.
+- PNG 는 `tools/textures/<이름>.mjs` 에 무늬를 코드로 쓰고 `node tools/gen-texture.mjs <이름>` 으로 만든다. 모듈 형식은 `tools/gen-texture.mjs` 머리말에 있고, 노이즈 같은 공용 도구는 `tools/lib/texture-kit.mjs` 에 있다. 표본 잡은 자기 모듈 경로를 `writePaths` 에 넣고 직접 쓴다. PNG 는 HTML 에 그대로 들어가므로 128 정도로 작게 둔다. 만든 PNG 는 Read 로 열어 눈으로 본다.
 - 스프라이트의 `_MainTex` 크기는 `_MainTex_TexelSize` 를 믿을 수 없다 (렌더러 단위로 넘어와 머티리얼 버퍼와 어긋난다. 실제로 촬영에서 틀린 값이 나왔다). `i.texelSize` 를 쓴다.
 - 정점을 움직이는 표본은 `core.hlsl` 에 다음 함수를 두고 `meta.stage.vertex = true` 로 한다. 메시와 깊이 무대에서 쓸 수 있다. 움직인 뒤의 오브젝트 공간 위치를 돌려준다.
 
@@ -217,6 +217,16 @@ float effectNoise(float2 p)
   ```
 
 - 전체 화면 표본은 C# 렌더러 기능을 새로 만들지 않는다. 내장 Full Screen Pass Renderer Feature 에 머티리얼을 넣는 방식만 쓴다. 2D Renderer 에서도 동작한다 (촬영으로 확인).
+
+### UI 래퍼 (`stage.ui`)
+
+UGUI Image 에 쓰는 표본용이다. 미리보기와 촬영은 스프라이트 무대 그대로지만 래퍼는 Unity 의 UI 셰이더 구조를 따른다. 기준 샘플이 아직 없으므로 첫 UI 표본(`ui-sdf-shape`)이 틀을 정하고 다음 UI 표본은 그 래퍼를 복사한다.
+
+- 패스는 `LightMode` 태그 없이 하나다. Screen Space - Overlay 캔버스는 첫 패스를 쓰고, Camera·World Space 캔버스와 2D Renderer 는 이것을 `SRPDefaultUnlit` 으로 그린다.
+- Unity 내장 UI/Default 셰이더의 구조를 HLSLPROGRAM 과 URP include 로 옮긴다: `[PerRendererData] _MainTex`, Stencil 속성(`_StencilComp`, `_Stencil`, `_StencilOp`, `_StencilWriteMask`, `_StencilReadMask`)과 Stencil 블록, `ColorMask [_ColorMask]`, `ZTest [unity_GUIZTestMode]`, `ZWrite Off`, `Cull Off`, 정점 색 곱, `#pragma multi_compile_local _ UNITY_UI_CLIP_RECT` 와 `_ClipRect` 클리핑, `UNITY_UI_ALPHACLIP`. `UnityUI.cginc` 는 쓸 수 없으므로 `UnityGet2DClipping` 은 래퍼에 직접 옮긴다 (`step` 두 번으로 사각형 안쪽을 구하는 몇 줄).
+- Stencil 속성이 없으면 Mask 안에 넣었을 때 Unity 가 경고하고 가려지지 않는다. RectMask2D 클리핑이 없으면 스크롤 목록 밖으로 그림이 샌다. 둘 다 `unity.pitfalls` 에 증상으로 적는다.
+- 혼합은 `blend: 'alpha'` 다. Unity 에서 Image 에 머티리얼을 넣는 절차(Material 칸, 텍스처는 Image 의 Source Image)를 `unity.setup` 에 적는다.
+- `tools/check.mjs` 가 위 항목과 `LightMode` 가 없는지를 확인한다.
 
 ### 외곽선 패스 (`stage.outline`)
 
