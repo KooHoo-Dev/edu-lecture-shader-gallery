@@ -5,8 +5,8 @@
 #define SG_STEP(n, rgb)
 #endif
 
-// 돌 텍스처 반복 횟수 (u, v). 구의 u 는 둘레, v 는 위아래라 2:1 로 두면 적도에서 칸이 정사각형에 가깝다.
-#define SURFACE_TILING float2(6.0, 3.0)
+// 돌 텍스처 반복 횟수는 머티리얼 값 _TilingU, _TilingV 로 받는다. 메시마다 UV 가 덮는 실제 가로세로 길이가 달라
+// 구(둘레:위아래 = 2:1)에 맞춘 6, 3 을 큐브 면이나 Plane 에 그대로 쓰면 벽돌이 세로로 늘어난다.
 // 노이즈가 경계를 흔드는 폭. 마스크 값(법선 y, -1~1)에 더해지는 크기다.
 #define SURFACE_NOISE_AMOUNT 0.6
 // 눈 반짝임 알갱이의 촘촘함 (오브젝트 공간 1 단위에 들어가는 칸 수).
@@ -64,6 +64,7 @@ float4 sgEffect(SgInput i)
     float3 h = normalize(i.lightDirWS + i.viewWS);
     float ndotl = dot(n, i.lightDirWS);
     // 이벤트(소나기, 눈발)는 전용 값 _Storm 을 0 에서 올렸다 0 으로 내린다. 조절 값 _Coverage 에 더해 어느 양에서도 더 덮인다.
+    // 날씨에 따른 느린 변화는 C# SetCoverage 가 _Coverage 자체를 옮긴다. 두 값은 따로 움직이고 여기서 더해진다.
     float coverage = saturate(_Coverage + _Storm * 0.4);
 
     // 1. 윗면 마스크: 월드 법선의 y 는 위를 볼수록 1, 옆이면 0, 아래면 -1 이다. 물체가 돌아도 늘 하늘 쪽이 덮인다.
@@ -78,7 +79,7 @@ float4 sgEffect(SgInput i)
     SG_STEP(2, float3(mask, mask, mask));
 
     // 마른 돌: 텍스처는 색이라 sRGB 로 읽어 선형 값으로 계산한다. 마른 돌은 거칠어 하이라이트가 넓고 약하다.
-    float3 albedo = SG_TEX(_StoneTex, i.uv * SURFACE_TILING).rgb;
+    float3 albedo = SG_TEX(_StoneTex, i.uv * float2(_TilingU, _TilingV)).rgb;
     float3 dry = albedo * i.lighting + i.lightColor * surfaceSpecular(n, h, ndotl, 12.0) * 0.04;
 
     // 3. 덮는 재질. 모드 0 은 젖음, 1 은 눈이다. 이 단계는 마스크 없이 표면 전체에 재질을 씌운 모습이다.
@@ -110,13 +111,13 @@ float4 sgEffect(SgInput i)
     // 흔한 실수: 오브젝트 공간 법선으로 위쪽을 고른다. 마스크가 물체에 붙어 물체가 돌거나 기울면 덮인 자리가 옆과 아래로 돌아간다.
     // 이 무대는 Y 축으로만 돌아 normalOS.y 가 normalWS.y 와 같아서 그대로 쓰면 차이가 안 보인다.
     // 그래서 이 공을 Z 축으로 90도 눕혀 놓은 물체로 친다. 눕힌 물체의 normalOS.y 는 처음에 월드 -X(화면 왼쪽)를 가리키고 물체와 함께 돈다.
+    // i.normalOS 는 이 웹 전용 분기에서만 쓴다. Unity 래퍼의 SgInput 에는 없다 (SG_OFF 는 Unity 에서 컴파일되지 않는다).
     float wrongUp = -i.normalOS.x;
     float wrongMask = surfaceCoverMask(wrongUp + noiseOffset, coverage);
     return float4(lerp(dry, cover, wrongMask), 1.0);
 #endif
 
-    // 4. 최종: 마른 돌과 덮는 재질을 2단계 마스크로 섞는다. 불투명 표본이라 알파는 항상 1 이다.
+    // 최종: 마른 돌과 덮는 재질을 2단계 마스크로 섞는다. 불투명 표본이라 알파는 항상 1 이다.
     float3 color = lerp(dry, cover, mask);
-    SG_STEP(4, color);
     return float4(color, 1.0);
 }

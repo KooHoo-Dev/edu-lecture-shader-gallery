@@ -4,8 +4,12 @@ Shader "ShaderGallery/SurfaceWetSnow"
 {
     Properties
     {
-        // 반복 횟수는 core.hlsl 의 SURFACE_TILING 으로 정하므로 _StoneTex_ST(Tiling, Offset)는 쓰지 않는다. Inspector 에서 칸을 숨긴다.
+        // 반복 횟수는 아래 _TilingU, _TilingV 로 정하므로 _StoneTex_ST(Tiling, Offset)는 쓰지 않는다. Inspector 에서 칸을 숨긴다.
         [NoScaleOffset] _StoneTex ("바탕 텍스처", 2D) = "white" {}
+        // 기본 6, 3 은 구 UV(둘레:위아래 = 2:1)에 맞춘 값이다. U:V 를 UV 가 덮는 가로:세로 길이 비와 같게 둔다.
+        // 같은 벽돌 크기(약 0.5 유닛)로 맞추려면 큐브, Quad 는 2, 2, 한 변 10 인 Plane 은 20, 20 이다.
+        _TilingU ("텍스처 반복 U", Range(1, 20)) = 6
+        _TilingV ("텍스처 반복 V", Range(1, 20)) = 3
         [Enum(Wet, 0, Snow, 1)] _Mode ("모드", Float) = 1
         _Coverage ("덮는 양", Range(0, 1)) = 0.5
         _Softness ("경계 부드러움", Range(0.01, 0.5)) = 0.08
@@ -32,6 +36,8 @@ Shader "ShaderGallery/SurfaceWetSnow"
         // SRP Batcher 호환: 머티리얼 값은 모두 이 버퍼 안에 둔다.
         CBUFFER_START(UnityPerMaterial)
             float4 _StoneTex_TexelSize;
+            float _TilingU;
+            float _TilingV;
             float _Mode;
             float _Coverage;
             float _Softness;
@@ -45,13 +51,12 @@ Shader "ShaderGallery/SurfaceWetSnow"
         // core.hlsl 안에서 텍스처를 읽는 매크로. 웹에서는 texture() 로 바뀐다.
         #define SG_TEX(name, uv) SAMPLE_TEXTURE2D(name, sampler##name, uv)
 
-        // core.hlsl 이 받는 입력. 메시 무대의 공통 형식에 positionWS, normalOS 를 더했다 (효과 끄기의 오브젝트 공간 실수 재현용).
+        // core.hlsl 이 받는 입력. 메시 무대의 공통 형식이다.
+        // core 의 효과 끄기 분기(SG_OFF)가 쓰는 normalOS 는 웹 미리보기 전용이라 넣지 않았다. Unity 에서는 그 분기가 컴파일되지 않는다.
         struct SgInput
         {
             float2 uv;
             float3 positionOS;
-            float3 positionWS;
-            float3 normalOS;
             float3 normalWS;
             float3 viewWS;
             float3 lightDirWS;
@@ -77,7 +82,6 @@ Shader "ShaderGallery/SurfaceWetSnow"
             float3 positionOS : TEXCOORD1;
             float3 positionWS : TEXCOORD2;
             float3 normalWS : TEXCOORD3;
-            float3 normalOS : TEXCOORD4;
             UNITY_VERTEX_INPUT_INSTANCE_ID
             UNITY_VERTEX_OUTPUT_STEREO
         };
@@ -91,7 +95,6 @@ Shader "ShaderGallery/SurfaceWetSnow"
             o.positionWS = TransformObjectToWorld(v.positionOS.xyz);
             o.positionCS = TransformWorldToHClip(o.positionWS);
             o.normalWS = TransformObjectToWorldNormal(v.normalOS);
-            o.normalOS = v.normalOS;
             o.positionOS = v.positionOS.xyz;
             o.uv = v.uv;
             return o;
@@ -102,9 +105,7 @@ Shader "ShaderGallery/SurfaceWetSnow"
             SgInput i;
             i.uv = v.uv;
             i.positionOS = v.positionOS;
-            i.positionWS = v.positionWS;
             // 보간된 법선은 길이가 1 보다 짧아지므로 다시 정규화한다. 윗면 마스크가 삼각형 가운데서 흐려지지 않는다.
-            i.normalOS = normalize(v.normalOS);
             i.normalWS = normalize(v.normalWS);
             i.viewWS = GetWorldSpaceNormalizeViewDir(v.positionWS);
             i.lightDirWS = lightDir;
@@ -140,6 +141,8 @@ Shader "ShaderGallery/SurfaceWetSnow"
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(v);
                 float3 normalWS = normalize(v.normalWS);
                 // 위치를 넘기는 형식이라야 그림자가 Max Distance 근처에서 서서히 사라진다.
+                // distanceAttenuation(광원 Culling Mask)은 곱하지 않는다. 갤러리 촬영 씬에서 0 으로 들어와 직사광이 사라졌다.
+                // 그래서 광원의 Culling Mask 와 Rendering Layers 가 이 셰이더에는 걸리지 않는다.
                 Light light = GetMainLight(TransformWorldToShadowCoord(v.positionWS), v.positionWS, half4(1, 1, 1, 1));
                 // 그림자 감쇠를 빛 색에 미리 곱해 넘긴다. core 의 하이라이트도 그림자 안에서는 사라진다.
                 float3 lightColor = light.color * light.shadowAttenuation;
