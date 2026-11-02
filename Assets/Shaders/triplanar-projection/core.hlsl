@@ -42,8 +42,7 @@ float4 sgEffect(SgInput i)
     float3 albedo = (texX * w.x + texY * w.y + texZ * w.z) * _Tint.rgb;
     SG_STEP(3, albedo);
 
-    // 4. 최종: 조명을 곱한다. 텍스처는 색이므로 sRGB 로 읽어 선형 값으로 계산한다.
+    // 최종: 조명을 곱한다. 텍스처는 색이므로 sRGB 로 읽어 선형 값으로 계산한다.
     float3 color = albedo * i.lighting;
-    SG_STEP(4, color);
     return float4(color, 1.0);
 }

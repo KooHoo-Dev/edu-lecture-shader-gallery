@@ -4,7 +4,8 @@ Shader "ShaderGallery/TriplanarProjection"
 {
     Properties
     {
-        _TileTex ("타일 텍스처", 2D) = "white" {}
+        // 투영 좌표를 타일 크기로 나눠 쓰므로 _TileTex_ST(Tiling, Offset)는 쓰지 않는다. Inspector 에서 칸을 숨긴다.
+        [NoScaleOffset] _TileTex ("타일 텍스처", 2D) = "white" {}
         [Enum(World, 0, Object, 1)] _Space ("투영 공간", Float) = 0
         _TileSize ("타일 크기 (m)", Range(0.25, 4)) = 1
         _BlendSharpness ("섞임 날카로움", Range(1, 16)) = 8
