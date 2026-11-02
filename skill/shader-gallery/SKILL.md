@@ -1,6 +1,6 @@
 ---
 name: shader-gallery
-description: "Unity URP 에 게임 셰이더 효과를 넣거나 변형하거나 고칠 때 쓴다. Unity 6.3 LTS, URP 17.3, HLSL 코드 셰이더 기준의 검증된 샘플과 설정 순서가 들어 있다. 포함된 효과: 디졸브(Dissolve Edge Glow), 역장 교차(Force Field Intersection), 스프라이트 외곽선 + 피격 번쩍임(Sprite Outline & Hit Flash), 화면 전환 와이프(Screen Transition Wipe). 비슷한 효과를 새로 만들 때도 기준 코드로 삼는다."
+description: "Unity URP 에 게임 셰이더 효과를 넣거나 변형하거나 고칠 때 쓴다. Unity 6.3 LTS, URP 17.3, HLSL 코드 셰이더 기준의 검증된 샘플과 설정 순서가 들어 있다. 포함된 효과: 프레넬 림 빛(Fresnel Rim Glow), 디졸브(Dissolve Edge Glow), 역장 교차(Force Field Intersection), 스프라이트 외곽선 + 피격 번쩍임(Sprite Outline & Hit Flash), 화면 전환 와이프(Screen Transition Wipe). 비슷한 효과를 새로 만들 때도 기준 코드로 삼는다."
 license: MIT
 compatibility: Unity 6.3 LTS (6000.3), Universal Render Pipeline 17.3
 metadata:
@@ -16,6 +16,7 @@ metadata:
 
 | ID | 효과 | 무대 | 설명 |
 |---|---|---|---|
+| `fresnel-rim-glow` | 프레넬 림 빛 | 메시 | 비스듬히 보이는 가장자리만 밝힌다 |
 | `dissolve-edge-glow` | 디졸브 | 메시 | 노이즈와 임계값으로 물체를 태워 없앤다. 사망, 소환, 텔레포트 연출의 기본 |
 | `force-field-intersection` | 역장 교차 | 깊이 사용 | 투명한 보호막이 다른 물체와 닿는 선을 깊이 비교로 밝힌다 |
 | `sprite-outline-hit-flash` | 스프라이트 외곽선 + 피격 번쩍임 | 스프라이트 | 이웃 픽셀 알파로 외곽선을 그리고, 맞은 순간 단색으로 번쩍였다 돌아온다 |
