@@ -1,0 +1,26 @@
+# Unity
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+/[Mm]emoryCaptures/
+/[Rr]ecordings/
+*.csproj
+*.sln
+*.suo
+*.user
+*.pidb
+*.unityproj
+.vs/
+.idea/
+
+# Web
+node_modules/
+web/dist/
+
+# 작업 산출물
+_shots/
+*.log
