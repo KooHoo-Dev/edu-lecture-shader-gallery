@@ -10,6 +10,8 @@ Shader "ShaderGallery/WindSwayFoliage"
         _Gustiness ("돌풍 변화", Range(0, 1)) = 0.7
         _WindSpeed ("바람 속도", Range(0, 3)) = 1
         _Flutter ("잎 떨림", Range(0, 0.15)) = 0.04
+        // WindGust.cs 가 0 에서 올렸다 0 으로 내리는 돌풍 값. 셰이더가 바람 세기에 더한다.
+        _Gust ("돌풍", Range(0, 1)) = 0
         _RootColor ("뿌리 색", Color) = (0.18, 0.357, 0.137, 1)
         _TipColor ("끝 색", Color) = (0.769, 0.851, 0.416, 1)
     }
@@ -30,6 +32,7 @@ Shader "ShaderGallery/WindSwayFoliage"
             float _Gustiness;
             float _WindSpeed;
             float _Flutter;
+            float _Gust;
             float4 _RootColor;
             float4 _TipColor;
         CBUFFER_END
