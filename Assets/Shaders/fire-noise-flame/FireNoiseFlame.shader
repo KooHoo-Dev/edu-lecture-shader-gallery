@@ -66,11 +66,14 @@ Shader "ShaderGallery/FireNoiseFlame"
             #define SG_TEX(name, uv) SAMPLE_TEXTURE2D(name, sampler##name, uv)
 
             // core.hlsl 이 받는 입력. 메시 무대의 공통 형식이다.
-            // 지금 core 는 uv 와 time 만 쓰지만 프레넬이나 높이 페이드 같은 변형을 core 에 넣어도 컴파일되게
+            // 지금 core 는 uv, color, time 만 쓰지만 프레넬이나 높이 페이드 같은 변형을 core 에 넣어도 컴파일되게
             // 위치, 법선, 시선 방향을 함께 넘긴다. 조명을 받지 않는 발광 효과라 광원 값은 넘기지 않는다.
+            // color 는 정점 색이다. Particle System 의 Start Color 와 Color over Lifetime 이 이 값으로 들어오고,
+            // 기본 Quad 는 흰색(1)이라 그대로 그려진다.
             struct SgInput
             {
                 float2 uv;
+                float4 color;
                 float3 positionOS;
                 float3 positionWS;
                 float3 normalWS;
@@ -85,6 +88,7 @@ Shader "ShaderGallery/FireNoiseFlame"
                 float4 positionOS : POSITION;
                 float3 normalOS : NORMAL;
                 float2 uv : TEXCOORD0;
+                float4 color : COLOR;
                 UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
@@ -95,6 +99,7 @@ Shader "ShaderGallery/FireNoiseFlame"
                 float3 positionOS : TEXCOORD1;
                 float3 positionWS : TEXCOORD2;
                 float3 normalWS : TEXCOORD3;
+                float4 color : TEXCOORD4;
                 UNITY_VERTEX_INPUT_INSTANCE_ID
                 UNITY_VERTEX_OUTPUT_STEREO
             };
@@ -110,6 +115,7 @@ Shader "ShaderGallery/FireNoiseFlame"
                 o.normalWS = TransformObjectToWorldNormal(v.normalOS);
                 o.positionOS = v.positionOS.xyz;
                 o.uv = v.uv;
+                o.color = v.color;
                 return o;
             }
 
@@ -120,6 +126,7 @@ Shader "ShaderGallery/FireNoiseFlame"
 
                 SgInput i;
                 i.uv = v.uv;
+                i.color = v.color;
                 i.positionOS = v.positionOS;
                 i.positionWS = v.positionWS;
                 i.normalWS = normalize(v.normalWS);
