@@ -175,15 +175,22 @@ export interface ProgramSources {
 
 export const defaultBlend = (meta: SpecimenMeta) => meta.stage.blend ?? (meta.stage.kind === 'mesh' ? 'cutout' : 'alpha')
 
-/** outline 은 외곽선 패스(stage.outline). SG_OUTLINE 블록의 sgVertex 로 항상 정점을 밀고 불투명으로 그린다 */
-export function buildProgram(meta: SpecimenMeta, core: string, off: boolean, outline = false): ProgramSources {
+/**
+ * 한 물체를 여러 번 그릴 때의 패스. outline 은 외곽선 패스(stage.outline): SG_OUTLINE 블록의 sgVertex 로 항상 정점을 밀고
+ * 불투명으로 그린다. occluded 는 가려진 부분 패스(stage.occluded): 본체와 같은 정점으로 알파 혼합한다
+ */
+export type StagePass = 'body' | 'outline' | 'occluded'
+
+export function buildProgram(meta: SpecimenMeta, core: string, off: boolean, pass: StagePass = 'body'): ProgramSources {
   const kind = meta.stage.kind
   const body = stripComments(core)
-  const defines = `${off ? '#define SG_OFF\n' : ''}${outline ? '#define SG_OUTLINE\n' : ''}`
+  const passDefine = pass === 'outline' ? '#define SG_OUTLINE\n' : pass === 'occluded' ? '#define SG_OCCLUDED\n' : ''
+  const defines = `${off ? '#define SG_OFF\n' : ''}${passDefine}`
   const common = `${COMPAT}${defines}${uniformDeclarations(meta)}\n${INPUT[kind]}\n`
-  const fragment = `${common}${body}\n${FRAGMENT_MAIN[kind](outline || defaultBlend(meta) === 'cutout')}\n`
+  const clip = pass === 'outline' || (pass === 'body' && defaultBlend(meta) === 'cutout')
+  const fragment = `${common}${body}\n${FRAGMENT_MAIN[kind](clip)}\n`
   if (kind === 'fullscreen') return { vertex: FULLSCREEN_VERTEX, fragment }
-  const displace = outline || Boolean(meta.stage.vertex)
+  const displace = pass === 'outline' || Boolean(meta.stage.vertex)
   const vertexHead = displace ? `#define SG_VERTEX_STAGE\n${common}uniform float uTime;\n${body}\n` : 'precision highp float;\n'
   return { vertex: `${vertexHead}${WORLD_VERTEX(displace)}\n`, fragment }
 }

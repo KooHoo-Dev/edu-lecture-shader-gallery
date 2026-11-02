@@ -179,6 +179,10 @@ namespace ShaderGallery.EditorTools
                     AddFloor(stage);
                     AddProps(stage);
                     PlaceEffectMesh(stage, specimen.mesh, material, true);
+                    if (specimen.occluder)
+                    {
+                        AddWall(stage);
+                    }
                     break;
                 case "fullscreen":
                     BuildPerspective(stage);
@@ -190,6 +194,10 @@ namespace ShaderGallery.EditorTools
                     BuildPerspective(stage);
                     AddFloor(stage);
                     PlaceEffectMesh(stage, specimen.mesh, material, false);
+                    if (specimen.occluder)
+                    {
+                        AddWall(stage);
+                    }
                     break;
             }
 
@@ -233,7 +241,7 @@ namespace ShaderGallery.EditorTools
             switch (mesh)
             {
                 case "capsule":
-                    go = AddMesh(stage, "New-Capsule.fbx", material, new Vector3(0f, depth ? 0.6f : 1f, 0f), depth ? 1.4f : 1f);
+                    go = AddMesh(stage, "New-Capsule.fbx", material, new Vector3(0f, depth ? 0.6f : 0.8f, 0f), depth ? 1.4f : 0.8f);
                     break;
                 case "cylinder":
                     go = AddMesh(stage, "New-Cylinder.fbx", material, new Vector3(0f, depth ? 0.6f : 0.8f, 0f), depth ? 1.4f : 0.8f);
@@ -294,6 +302,13 @@ namespace ShaderGallery.EditorTools
             GameObject box = AddMesh(stage, "Cube.fbx", LitMaterial(stage, PropColor), new Vector3(0.95f, 0.4f, 0.3f), 0.8f);
             box.transform.rotation = Quaternion.Euler(0f, 28f, 0f);
             AddMesh(stage, "New-Sphere.fbx", LitMaterial(stage, PropColor2), new Vector3(-1.1f, 0.45f, 0.5f), 0.9f);
+        }
+
+        // stage.occluded 의 벽. 카메라와 물체 사이에서 물체의 왼쪽 아래를 가린다. web/src/stage/layout.ts 의 wall 과 같은 값.
+        static void AddWall(Stage stage)
+        {
+            GameObject wall = AddMesh(stage, "Cube.fbx", LitMaterial(stage, PropColor), new Vector3(-0.525f, 0.55f, -0.9f), 1f);
+            wall.transform.localScale = new Vector3(1.15f, 1.1f, 0.1f);
         }
 
         static Material LitMaterial(Stage stage, Color color)

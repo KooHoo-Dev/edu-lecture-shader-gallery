@@ -46,6 +46,8 @@ namespace ShaderGallery.EditorTools
         public string shader;
         public string stage;
         public string mesh;
+        // stage.occluded: 물체 앞에 벽을 세운다
+        public bool occluder;
         public List<SgTextureValue> textures = new List<SgTextureValue>();
         public List<SgCaptureState> states = new List<SgCaptureState>();
     }

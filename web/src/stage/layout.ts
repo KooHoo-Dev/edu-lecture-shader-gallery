@@ -25,8 +25,8 @@ export const LAYOUT = {
   /** mesh 무대의 물체 배치. SgCapture.PlaceEffectMesh 와 같은 값 */
   meshPlacement: {
     sphere: { position: [0, 0.85, 0], scale: 1.5, shadow: 0.75 },
-    capsule: { position: [0, 1, 0], scale: 1, shadow: 0.5 },
-    // 높이 2 라 크기 1 이면 윗끝이 화면 밖으로 나간다
+    // 캡슐과 원통은 높이 2 라 크기 1 이면 윗끝이 화면 밖으로 나간다
+    capsule: { position: [0, 0.8, 0], scale: 0.8, shadow: 0.4 },
     cylinder: { position: [0, 0.8, 0], scale: 0.8, shadow: 0.4 },
     cube: { position: [0, 0.75, 0], scale: 1.2, shadow: 0.7 },
     quad: { position: [0, 0.85, 0], scale: 1.6, shadow: 0.1 },
@@ -43,6 +43,11 @@ export const LAYOUT = {
     plane: { position: [0, 0.3, 0], scale: 0.35 },
     grass: { position: [0, 0, 0], scale: 1.4 },
   },
+  /**
+   * stage.occluded 의 벽 (Unity 큐브를 늘린 것). 카메라와 물체 사이에서 물체의 왼쪽 아래를 가린다.
+   * 카메라에 더 가까워 화면에서는 크기보다 넓게 가린다. SgCapture.AddWall 과 같은 값
+   */
+  wall: { position: [-0.525, 0.55, -0.9], size: [1.15, 1.1, 0.1] },
   fullscreenBall: { position: [0, 0.75, 0], scale: 1.5 },
   box: { position: [0.95, 0.4, 0.3], scale: 0.8, rotationYDeg: 28 },
   ball: { position: [-1.1, 0.45, 0.5], scale: 0.9 },

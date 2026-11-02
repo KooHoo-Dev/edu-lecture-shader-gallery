@@ -49,7 +49,7 @@ export async function buildJob(root, ids, { outDir, capture }) {
       repeat: Boolean(t.repeat),
       point: Boolean(t.point),
     }))
-    specimens.push({ id, shader: `Assets/Shaders/${id}/${meta.shaderFile}`, stage: meta.stage.kind, mesh: meta.stage.mesh ?? 'sphere', textures, states })
+    specimens.push({ id, shader: `Assets/Shaders/${id}/${meta.shaderFile}`, stage: meta.stage.kind, mesh: meta.stage.mesh ?? 'sphere', occluder: Boolean(meta.stage.occluded), textures, states })
   }
   return { outDir: outDir.replaceAll('\\', '/'), width: 1280, height: 720, capture, specimens }
 }

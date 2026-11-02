@@ -239,6 +239,18 @@ UGUI Image 에 쓰는 표본용이다. 미리보기와 촬영은 스프라이트
 - 지금 미리보기와 촬영은 정사각형 스프라이트 하나라 4:1 같은 Image 비율, Mask, RectMask2D, Overlay 캔버스를 화면으로 확인하지 못한다. 이 부분은 글로 정확히 쓰고 Unity 에서 확인하지 못했다고 보고한다.
 - `tools/check.mjs` 가 위 항목과 `LightMode` 가 없는지를 확인한다.
 
+### 가려진 부분 패스 (`stage.occluded`)
+
+벽 뒤에 가려진 부분만 덧그리는 표본용이다 (투시, 아군 표시). mesh, depth 무대에서만 쓴다. 무대가 카메라와 물체 사이에 벽을 세워 물체의 왼쪽 아래를 가린다. `mesh: 'capsule'` 이 캐릭터 대신으로 알맞다.
+
+- `core.hlsl` 은 `#ifdef SG_OCCLUDED` 블록에서 가려진 부분의 색과 알파를 정한다. 단계 번호와 `SG_OFF` 는 두 패스에 함께 걸린다.
+- 래퍼는 본체 패스들에 더해 `Tags { "LightMode" = "SRPDefaultUnlit" }`, `ZTest Greater`, `ZWrite Off`, `Blend SrcAlpha OneMinusSrcAlpha` 패스를 하나 둔다. 정점은 본체와 같고 `core.hlsl` 앞에 `#define SG_OCCLUDED` 를 둔다. core 를 패스마다 include 하는 방식은 외곽선 패스와 같다.
+- Unity 는 같은 물체의 `SRPDefaultUnlit` 패스를 `UniversalForwardOnly` 본체보다 먼저 그린다 (2026-11-02 촬영으로 확인). 그래서 본체 깊이가 아직 없을 때 실루엣이 그려져 팔이 몸을 가리는 식의 자기 겹침이 생기지 않는다. 벽보다 늦게 그려지도록 본체는 잘라 내기 표본처럼 `"Queue" = "AlphaTest"` 에 둔다. 웹도 벽, 실루엣, 본체 순서로 그린다.
+- 같은 LightMode 태그를 두 패스가 쓰면 URP 는 첫 패스만 그리므로 `stage.outline` 과 함께 쓸 수 없다.
+- `unity.pitfalls` 에 적을 것: Depth Priming 이나 깊이 프리패스가 돌면 본체 깊이가 먼저 쓰여 실루엣이 사라지거나 자기 몸 위에 겹칠 수 있다 (외곽선 패스와 같은 이유). 실루엣은 깊이 버퍼만 비교하므로 Depth Texture 설정은 필요 없다.
+- 머티리얼 하나로 끝나는 이 방식 대신 Universal Renderer 의 Render Objects 기능(레이어 마스크, Depth Test Greater, Override Material)으로 같은 효과를 내는 방법이 Unity 공식 예제에 있다. 캐릭터가 여럿이거나 팀마다 색이 다를 때의 변형으로 해설이나 `adaptIdeas` 에 적는다. 직접 쓰는 C# 렌더러 기능은 만들지 않는다.
+- `meta.stage.occluded: true` 로 적는다. `tools/check.mjs` 가 블록, `#define`, 렌더 상태, 태그를 확인하고 실루엣 프로그램도 WebGL 로 컴파일한다.
+
 ### 외곽선 패스 (`stage.outline`)
 
 껍데기 외곽선처럼 같은 물체를 한 번 더 그리는 표본용이다. mesh, depth 무대에서만 쓴다.
@@ -380,7 +392,7 @@ node tools/check.mjs
 | 필요한 것 | 해당 표본 | 상태 |
 |---|---|---|
 | 웹에서 한 물체를 패스 두 개로 그리기 (`Cull Front`) | `inverted-hull-outline` | 지원. 4절 "외곽선 패스" |
-| 웹에서 `ZTest Greater` 로 가려진 부분만 그리기 | `xray-occluded-silhouette` | 앱 확장 필요 |
+| 웹에서 `ZTest Greater` 로 가려진 부분만 그리기 | `xray-occluded-silhouette` | 지원. 4절 "가려진 부분 패스" |
 | 전체 화면 무대에서 깊이, 법선 읽기 | `depth-normal-edge-outline` | 앱 확장 필요 |
 | 촘촘한 수면 메시 (`plane` 은 정점 간격 1) | `water-depth-foam` 의 파도 | 파도가 거칠면 요청 |
 | UGUI Canvas 무대 | `ui-*` | 스프라이트 무대로 대체. `_MainTex` 만 바꾼다 |

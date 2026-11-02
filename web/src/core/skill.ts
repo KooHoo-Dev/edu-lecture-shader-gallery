@@ -86,7 +86,7 @@ function skillMarkdown(name: string, specimens: SkillSource[], version: string):
     '## 파일을 다룰 때',
     '',
     '- `SG_STEP(...)` 줄과 `#ifdef SG_OFF` 블록은 웹 갤러리의 단계 보기와 효과 끄기에 쓰는 표시다. Unity 에서는 아무 일도 하지 않으므로 그대로 두어도 되고 지워도 된다.',
-    '- `SG_OUTLINE` 은 다르다. 외곽선이 있는 효과에서 Unity 가 실제로 쓰는 스위치다. 외곽선 패스의 `#define SG_OUTLINE` 과 패스마다 하는 `core.hlsl` include 를 지우거나 합치지 않는다.',
+    '- `SG_OUTLINE`, `SG_OCCLUDED` 는 다르다. 외곽선이나 가려진 실루엣이 있는 효과에서 Unity 가 실제로 쓰는 스위치다. 두 번째 패스의 `#define` 과 패스마다 하는 `core.hlsl` include 를 지우거나 합치지 않는다.',
     '- 표에 없는 효과는 가장 비슷한 효과의 `.shader` 를 틀로 삼아 새로 만든다.',
     '',
   ].join('\n')

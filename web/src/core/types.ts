@@ -139,6 +139,12 @@ export interface SpecimenStage {
    */
   outline?: boolean
   /**
+   * 가려진 부분 패스가 있으면 true (mesh, depth 무대). 무대가 물체 앞에 벽을 세우고, 같은 물체를 `ZTest Greater` 로 한 번 더 그린다.
+   * core.hlsl 의 `#ifdef SG_OCCLUDED` 블록이 그 패스의 색을 정한다. 래퍼의 두 번째 패스(SRPDefaultUnlit, ZTest Greater)에 해당한다.
+   * outline 과 함께 쓸 수 없다 (같은 LightMode 태그를 두 패스가 쓰면 URP 는 첫 패스만 그린다)
+   */
+  occluded?: boolean
+  /**
    * UGUI Image 에 쓰는 UI 셰이더면 true (sprite 무대). 래퍼는 Unity UI 셰이더 구조(Stencil, RectMask2D 클리핑, 정점 색)를 따르고
    * Universal2D, UniversalForward 대신 LightMode 없는 패스 하나를 쓴다. 미리보기는 스프라이트 무대 그대로다
    */

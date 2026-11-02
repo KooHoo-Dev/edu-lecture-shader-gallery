@@ -78,9 +78,12 @@ function numbered(lines: string[]): string {
   return lines.map((line, i) => `${i + 1}. ${line}`).join('\n')
 }
 
-/** 표본별로 더하는 지킬 것. 외곽선 표본의 SG_OUTLINE 은 갤러리 표시가 아니라 Unity 에서 쓰는 스위치다 */
+/** 표본별로 더하는 지킬 것. 두 번째 패스의 SG_OUTLINE, SG_OCCLUDED 는 갤러리 표시가 아니라 Unity 에서 쓰는 스위치다 */
 function rules(meta: SpecimenMeta): string {
-  const extra = meta.stage.outline ? ['- `SG_OUTLINE` 은 Unity 에서도 쓰는 스위치다. 외곽선 패스의 `#define SG_OUTLINE` 과 패스마다 하는 `core.hlsl` include 를 지우거나 합치지 않는다.'] : []
+  const extra = [
+    ...(meta.stage.outline ? ['- `SG_OUTLINE` 은 Unity 에서도 쓰는 스위치다. 외곽선 패스의 `#define SG_OUTLINE` 과 패스마다 하는 `core.hlsl` include 를 지우거나 합치지 않는다.'] : []),
+    ...(meta.stage.occluded ? ['- `SG_OCCLUDED` 는 Unity 에서도 쓰는 스위치다. 가려진 부분 패스(`ZTest Greater`)의 `#define SG_OCCLUDED` 와 패스마다 하는 `core.hlsl` include 를 지우거나 합치지 않는다.'] : []),
+  ]
   return [FIXED_RULES, ...extra].join('\n')
 }
 

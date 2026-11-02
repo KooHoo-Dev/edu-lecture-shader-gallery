@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { requestFlash } from '../core/flash'
 import { STAGE_SPRITE_URL } from './assets'
 import type { Ease, ParamDef, ParamValues, Specimen, Track } from '../core/types'
-import { buildProgram, defaultBlend, LIT_FRAGMENT, LIT_VERTEX, PRESENT_FRAGMENT, PRESENT_VERTEX, SHADOW_PLAIN_FRAGMENT, textureNames } from './glsl'
+import { buildProgram, defaultBlend, type StagePass, LIT_FRAGMENT, LIT_VERTEX, PRESENT_FRAGMENT, PRESENT_VERTEX, SHADOW_PLAIN_FRAGMENT, textureNames } from './glsl'
 import { grassGeometry } from './grass'
 import { hexToLinear, LAYOUT, linear3, toThree } from './layout'
 
@@ -105,9 +105,14 @@ class ShaderStage {
   private scene = new THREE.Scene()
   private effect: THREE.Mesh | null = null
   private materials: (THREE.RawShaderMaterial | null)[] = [null, null]
-  /** stage.outline: 같은 메시를 뒷면만 그리는 자식. 래퍼의 Cull Front 패스에 해당한다 */
-  private outline: THREE.Mesh | null = null
-  private outlineMaterials: (THREE.RawShaderMaterial | null)[] = [null, null]
+  /**
+   * 같은 메시를 한 번 더 그리는 자식. stage.outline 이면 뒷면만 그리고(래퍼의 Cull Front 패스),
+   * stage.occluded 면 벽에 가려진 부분만 그린다(래퍼의 ZTest Greater 패스)
+   */
+  private second: THREE.Mesh | null = null
+  private secondMaterials: (THREE.RawShaderMaterial | null)[] = [null, null]
+  /** stage.occluded 무대의 벽 */
+  private wall: THREE.Mesh | null = null
   private litMaterials: THREE.RawShaderMaterial[] = []
   private textures = new Map<string, THREE.Texture>()
 
@@ -347,7 +352,8 @@ class ShaderStage {
       mesh.scale.setScalar(place.scale)
       this.scene.add(mesh)
       this.effect = mesh
-      this.addOutline(mesh)
+      this.addSecondPass(mesh)
+      this.addWall()
       if (cutout) this.aimShadowMask(floor, mesh, specimen)
     } else if (kind === 'depth') {
       this.addFloor(this.propShadows())
@@ -359,7 +365,8 @@ class ShaderStage {
       mesh.renderOrder = 10
       this.scene.add(mesh)
       this.effect = mesh
-      this.addOutline(mesh)
+      this.addSecondPass(mesh)
+      this.addWall()
     } else if (kind === 'sprite') {
       const mesh = new THREE.Mesh(new THREE.PlaneGeometry(LAYOUT.sprite.height, LAYOUT.sprite.height), material)
       this.scene.add(mesh)
@@ -375,22 +382,43 @@ class ShaderStage {
     }
   }
 
-  /** 자식으로 두어 위치, 크기, 회전을 그대로 따라간다. 지오메트리도 같이 쓴다 */
-  private addOutline(mesh: THREE.Mesh) {
-    if (!this.specimen!.meta.stage.outline) return
-    const outline = new THREE.Mesh(mesh.geometry, this.effectMaterial(false, true))
-    outline.renderOrder = mesh.renderOrder
-    mesh.add(outline)
-    this.outline = outline
+  private secondPass(): StagePass | null {
+    const stage = this.specimen!.meta.stage
+    return stage.outline ? 'outline' : stage.occluded ? 'occluded' : null
   }
 
-  private effectMaterial(off: boolean, outline = false): THREE.RawShaderMaterial {
-    const slots = outline ? this.outlineMaterials : this.materials
+  /** 자식으로 두어 위치, 크기, 회전을 그대로 따라간다. 지오메트리도 같이 쓴다 */
+  private addSecondPass(mesh: THREE.Mesh) {
+    const pass = this.secondPass()
+    if (!pass) return
+    const second = new THREE.Mesh(mesh.geometry, this.effectMaterial(false, pass))
+    second.renderOrder = mesh.renderOrder
+    if (pass === 'occluded') {
+      // Unity 는 같은 물체의 SRPDefaultUnlit 패스를 본체보다 먼저 그린다 (촬영으로 확인). 본체 깊이가 아직 없을 때 그려야
+      // 자기 몸에 가려진 부분이 실루엣으로 덮이지 않는다. 벽과 바닥(renderOrder 0)은 그보다 먼저 그린다
+      second.renderOrder = mesh.renderOrder + 1
+      mesh.renderOrder += 2
+    }
+    mesh.add(second)
+    this.second = second
+  }
+
+  /** stage.occluded: 물체 앞을 일부 가리는 벽. SgCapture.AddWall 과 같은 배치 */
+  private addWall() {
+    if (!this.specimen!.meta.stage.occluded) return
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(...LAYOUT.wall.size), this.makeLit(LAYOUT.propColor))
+    wall.position.set(...toThree(LAYOUT.wall.position))
+    this.scene.add(wall)
+    this.wall = wall
+  }
+
+  private effectMaterial(off: boolean, pass: StagePass = 'body'): THREE.RawShaderMaterial {
+    const slots = pass === 'body' ? this.materials : this.secondMaterials
     const slot = off ? 1 : 0
     const existing = slots[slot]
     if (existing) return existing
     const { meta, core } = this.specimen!
-    const sources = buildProgram(meta, core, off, outline)
+    const sources = buildProgram(meta, core, off, pass)
     const uniforms: Record<string, THREE.IUniform> = {
       _SgStep: { value: 0 },
       uTime: { value: 0 },
@@ -415,13 +443,21 @@ class ShaderStage {
       vertexShader: sources.vertex,
       fragmentShader: sources.fragment,
       uniforms,
-      side: outline ? THREE.BackSide : meta.stage.kind === 'sprite' || meta.stage.doubleSided ? THREE.DoubleSide : THREE.FrontSide,
+      side: pass === 'outline' ? THREE.BackSide : meta.stage.kind === 'sprite' || meta.stage.doubleSided ? THREE.DoubleSide : THREE.FrontSide,
     })
     const blend = defaultBlend(meta)
     if (meta.stage.kind === 'fullscreen') {
       material.depthTest = false
       material.depthWrite = false
-    } else if (blend !== 'cutout' && !outline) {
+    } else if (pass === 'occluded') {
+      // 래퍼의 ZTest Greater, ZWrite Off, Blend SrcAlpha OneMinusSrcAlpha. 불투명 목록에 두어 renderOrder 로 순서를 정한다
+      // (three.js 는 transparent 가 false 여도 CustomBlending 은 적용한다)
+      material.depthFunc = THREE.GreaterDepth
+      material.depthWrite = false
+      material.blending = THREE.CustomBlending
+      material.blendSrc = THREE.SrcAlphaFactor
+      material.blendDst = THREE.OneMinusSrcAlphaFactor
+    } else if (blend !== 'cutout' && pass === 'body') {
       material.transparent = true
       material.depthWrite = false
       material.blending = blend === 'additive' ? THREE.CustomBlending : THREE.NormalBlending
@@ -441,7 +477,7 @@ class ShaderStage {
     const url = specimen.textureUrls[name] ?? STAGE_SPRITE_URL
     const key = `${url}|${config?.linear ?? false}|${config?.repeat ?? false}|${config?.point ?? false}`
     const setTexelSize = (image: { width: number; height: number }) => {
-      for (const material of [...this.materials, ...this.outlineMaterials]) material?.uniforms[`${name}_TexelSize`]?.value.set(1 / image.width, 1 / image.height, image.width, image.height)
+      for (const material of [...this.materials, ...this.secondMaterials]) material?.uniforms[`${name}_TexelSize`]?.value.set(1 / image.width, 1 / image.height, image.width, image.height)
       // 스프라이트는 높이 2 유닛에 맞춘다. 정사각형이 아니면 Unity 와 같이 폭이 늘어난다
       if (name === '_MainTex' && specimen.meta.stage.kind === 'sprite') this.effect?.scale.set(image.width / image.height, 1, 1)
       this.dirty = true
@@ -465,13 +501,14 @@ class ShaderStage {
       if (object instanceof THREE.Mesh && object.geometry !== this.triangle) object.geometry.dispose()
     })
     this.scene.clear()
-    for (const material of [...this.materials, ...this.outlineMaterials]) material?.dispose()
+    for (const material of [...this.materials, ...this.secondMaterials]) material?.dispose()
     this.materials = [null, null]
-    this.outlineMaterials = [null, null]
+    this.secondMaterials = [null, null]
     for (const material of this.litMaterials) material.dispose()
     this.litMaterials = []
     this.effect = null
-    this.outline = null
+    this.second = null
+    this.wall = null
     this.maskFloor = null
   }
 
@@ -603,13 +640,15 @@ class ShaderStage {
     material.uniforms._SgStep.value = 0
     effect.material = this.settings.off ? this.shadowPlain : material
     floor.visible = false
-    // Unity 의 외곽선 패스(SRPDefaultUnlit)는 그림자를 드리우지 않는다
-    if (this.outline) this.outline.visible = false
+    // Unity 의 두 번째 패스(SRPDefaultUnlit)는 그림자를 드리우지 않는다. 벽은 마스크 범위를 넘어 잘리므로 빼고 그린다
+    if (this.second) this.second.visible = false
+    if (this.wall) this.wall.visible = false
     renderer.setClearColor(0x000000, 0)
     renderer.setRenderTarget(this.shadowMask)
     renderer.render(this.scene, this.shadowCamera)
     floor.visible = true
-    if (this.outline) this.outline.visible = true
+    if (this.second) this.second.visible = true
+    if (this.wall) this.wall.visible = true
     effect.material = material
     material.uniforms._SgStep.value = this.settings.step
   }
@@ -655,14 +694,16 @@ class ShaderStage {
     const kind = this.specimen.meta.stage.kind
     const material = this.effectMaterial(this.settings.off)
     if (this.effect.material !== material) this.effect.material = material
-    if (this.outline) {
-      const outlineMaterial = this.effectMaterial(this.settings.off, true)
-      if (this.outline.material !== outlineMaterial) this.outline.material = outlineMaterial
-      this.applyUniforms(material, outlineMaterial)
+    const stepping = this.settings.step > 0
+    const pass = this.second && this.secondPass()
+    if (this.second && pass) {
+      const secondMaterial = this.effectMaterial(this.settings.off, pass)
+      if (this.second.material !== secondMaterial) this.second.material = secondMaterial
+      if (pass === 'occluded') secondMaterial.blending = stepping ? THREE.NoBlending : THREE.CustomBlending
+      this.applyUniforms(material, secondMaterial)
     } else {
       this.applyUniforms(material)
     }
-    const stepping = this.settings.step > 0
     const blend = defaultBlend(this.specimen.meta)
     if (kind !== 'fullscreen' && blend !== 'cutout') {
       // 단계 보기에서는 뒤 배경과 섞이지 않게 값을 그대로 보여 준다.

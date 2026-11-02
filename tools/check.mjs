@@ -217,6 +217,20 @@ function checkMeta(id, meta, core, wrapper) {
   } else if (/\bSG_OUTLINE\b/.test(core)) {
     err(`${where}: core.hlsl 에 SG_OUTLINE 이 있으면 stage.outline 을 true 로 둔다`)
   }
+  // 가려진 부분 패스. 벽 뒤에 있는 부분만 ZTest Greater 로 덧그린다 (가이드 4절)
+  if (meta.stage.occluded) {
+    const shader = `${id}/${meta.shaderFile}`
+    if (outline) err(`${where}: stage.outline 과 stage.occluded 는 둘 다 SRPDefaultUnlit 패스라 함께 쓸 수 없다`)
+    if (!/#\s*if(def)?\s+(defined\s*\(\s*)?SG_OCCLUDED\b/.test(core)) err(`${where}: stage.occluded 면 core.hlsl 에 #ifdef SG_OCCLUDED 블록이 있어야 한다`)
+    if (!/#define\s+SG_OCCLUDED\b/.test(wrapper)) err(`${shader}: 가려진 부분 패스에서 core.hlsl 앞에 #define SG_OCCLUDED 를 둔다`)
+    if (!/ZTest\s+Greater\b/.test(wrapper)) err(`${shader}: 가려진 부분 패스는 ZTest Greater 다`)
+    if (!/ZWrite\s+Off/.test(wrapper)) err(`${shader}: 가려진 부분 패스는 ZWrite Off 다`)
+    if (!/Blend\s+SrcAlpha\s+OneMinusSrcAlpha/.test(wrapper)) err(`${shader}: 가려진 부분 패스는 웹과 같게 Blend SrcAlpha OneMinusSrcAlpha 로 섞는다`)
+    if (!/"LightMode"\s*=\s*"SRPDefaultUnlit"/.test(wrapper)) err(`${shader}: 가려진 부분 패스의 LightMode 는 SRPDefaultUnlit 이다`)
+    if (!['mesh', 'depth'].includes(meta.stage.kind)) err(`${where}: stage.occluded 는 mesh, depth 무대에서만 쓴다`)
+  } else if (/\bSG_OCCLUDED\b/.test(core)) {
+    err(`${where}: core.hlsl 에 SG_OCCLUDED 가 있으면 stage.occluded 를 true 로 둔다`)
+  }
   if (/\bsgSceneColor\s*\(/.test(core) && !meta.requires?.includes('opaque')) err(`${where}: 씬 색상을 쓰면 requires 에 'opaque' 를 넣는다`)
   if (/\bdepthDelta\b/.test(core) && !meta.requires?.includes('depth')) err(`${where}: 깊이를 쓰면 requires 에 'depth' 를 넣는다`)
   for (const m of core.matchAll(/\bSG_TEX\s*\(\s*(\w+)/g)) if (!textures.has(m[1])) err(`${where}: 텍스처 ${m[1]} 이 stage.textures 에 없다`)
