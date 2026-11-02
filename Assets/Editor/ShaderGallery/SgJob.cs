@@ -48,6 +48,8 @@ namespace ShaderGallery.EditorTools
         public string mesh;
         // stage.occluded: 물체 앞에 벽을 세운다
         public bool occluder;
+        // stage.backlit: 해를 카메라 맞은편 낮은 곳에 둔다
+        public bool backlit;
         // meta.requires: depth, opaque, normals
         public List<string> requires = new List<string>();
         public List<SgTextureValue> textures = new List<SgTextureValue>();

@@ -14,6 +14,11 @@ export const LAYOUT = {
   ambient: [0.34, 0.38, 0.46],
   /** Quaternion.Euler(50, -30, 0) 의 반대 방향: 표면에서 광원 쪽 */
   lightDirUnity: [0.3214, 0.766, -0.5567],
+  /**
+   * stage.backlit 의 해. Quaternion.Euler(15, 180, 0) 의 반대 방향: 카메라 맞은편 낮은 곳.
+   * 수면의 해 반짝임 길이 화면 가운데 아래로 생긴다. SgCapture.BacklightEuler 와 같다
+   */
+  backlightDirUnity: [0, 0.2588, 0.9659],
   lightIntensity: 1.2,
   camera: { position: [0, 1.3, -3.6], target: [0, 0.75, 0], fov: 40, near: 0.1, far: 100 },
   sprite: { orthographicSize: 1.5, height: 2, cameraZ: -5 },

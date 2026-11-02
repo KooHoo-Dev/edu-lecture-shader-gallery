@@ -24,6 +24,8 @@ namespace ShaderGallery.EditorTools
         static readonly Color PropColor2 = new Color(0.34f, 0.5f, 0.66f, 1f);
         static readonly Color Ambient = new Color(0.34f, 0.38f, 0.46f, 1f);
         static readonly Vector3 LightEuler = new Vector3(50f, -30f, 0f);
+        // stage.backlit: 카메라 맞은편 낮은 해. 웹 layout.ts 의 backlightDirUnity 와 같다.
+        static readonly Vector3 BacklightEuler = new Vector3(15f, 180f, 0f);
 
         class Stage
         {
@@ -174,7 +176,7 @@ namespace ShaderGallery.EditorTools
             light.color = Color.white;
             light.intensity = 1.2f;
             light.shadows = LightShadows.Soft;
-            lightObject.transform.rotation = Quaternion.Euler(LightEuler);
+            lightObject.transform.rotation = Quaternion.Euler(specimen.backlit ? BacklightEuler : LightEuler);
 
             switch (specimen.stage)
             {

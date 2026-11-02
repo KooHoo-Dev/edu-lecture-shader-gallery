@@ -148,6 +148,11 @@ export interface SpecimenStage {
    */
   occluded?: boolean
   /**
+   * 해를 카메라 맞은편 낮은 곳(높이 15도)에 둔다 (mesh, depth 무대). 수면처럼 해 반짝임이 효과의 핵심인 표본용이다.
+   * 기본 해는 카메라 뒤 위쪽이라 평평한 면의 반사광이 카메라로 오지 않는다. 바닥은 비스듬히 받아 어두워진다
+   */
+  backlit?: boolean
+  /**
    * UGUI Image 에 쓰는 UI 셰이더면 true (sprite 무대). 래퍼는 Unity UI 셰이더 구조(Stencil, RectMask2D 클리핑, 정점 색)를 따르고
    * Universal2D, UniversalForward 대신 LightMode 없는 패스 하나를 쓴다. 미리보기는 스프라이트 무대 그대로다
    */

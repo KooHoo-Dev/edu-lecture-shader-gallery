@@ -108,6 +108,8 @@ class ShaderStage {
   private visible = true
 
   private scene = new THREE.Scene()
+  /** stage.backlit: 해가 카메라 맞은편 낮은 곳에 있다 */
+  private backlit = false
   private effect: THREE.Mesh | null = null
   private materials: (THREE.RawShaderMaterial | null)[] = [null, null]
   /**
@@ -276,7 +278,7 @@ class ShaderStage {
   }
 
   private lightDir() {
-    return new THREE.Vector3(...toThree(LAYOUT.lightDirUnity)).normalize()
+    return new THREE.Vector3(...toThree(this.backlit ? LAYOUT.backlightDirUnity : LAYOUT.lightDirUnity)).normalize()
   }
 
   private addFloor(shadowCasters: { position: readonly number[]; radius: number }[]) {
@@ -346,6 +348,8 @@ class ShaderStage {
   private build(specimen: Specimen) {
     this.disposeScene()
     this.scene = new THREE.Scene()
+    // 머티리얼을 만들기 전에 정한다. 바닥, 효과, 그림자 마스크가 모두 lightDir() 을 읽는다
+    this.backlit = Boolean(specimen.meta.stage.backlit)
     const kind = specimen.meta.stage.kind
     const material = this.effectMaterial(false)
 

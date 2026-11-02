@@ -160,6 +160,7 @@ float effectNoise(float2 p)
 - 텍스처는 `SG_TEX(_MyTex, uv)` 로만 읽는다. `_MyTex_TexelSize` 도 쓸 수 있다. 래퍼에는 `Properties` 에 `_MyTex ("이름", 2D) = "white" {}`, 그 아래에 `TEXTURE2D(_MyTex); SAMPLER(sampler_MyTex);` 와 `#define SG_TEX(name, uv) SAMPLE_TEXTURE2D(name, sampler##name, uv)`, `CBUFFER` 안에 `float4 _MyTex_TexelSize;` 를 둔다. 텍스처 파일은 표본 폴더에 두고 `meta.stage.textures` 에 적는다. 텍스처는 `meta.params` 에 넣지 않는다. sRGB 를 끈 데이터 텍스처(`linear: true`)의 기본값은 `"gray"` 가 아니라 `"linearGrey"` 다. `"gray"` 는 sRGB 0.5 라 Linear 프로젝트에서 약 0.21 로 읽혀, 0.5 를 0 으로 쓰는 맵은 칸이 비었을 때 한쪽으로 쏠린다 (`tools/check.mjs` 가 잡는다). 임포트 설정은 촬영 도구가 맞춘다. PNG 는 프롬프트에 넣을 수 없어 Skill zip 으로 전달되므로 `unity.setup` 에 임포트 설정(sRGB, Wrap Mode, Filter Mode)을 적는다.
 - PNG 는 `tools/textures/<이름>.mjs` 에 무늬를 코드로 쓰고 `node tools/gen-texture.mjs <이름>` 으로 만든다. 모듈 형식은 `tools/gen-texture.mjs` 머리말에 있고, 노이즈 같은 공용 도구는 `tools/lib/texture-kit.mjs` 에 있다. 표본 잡은 자기 모듈 경로를 `writePaths` 에 넣고 직접 쓴다. PNG 는 HTML 에 그대로 들어가므로 128 정도로 작게 둔다. 만든 PNG 는 Read 로 열어 눈으로 본다.
 - 데이터 텍스처(`linear`)와 포인트 텍스처는 Unity 기본 압축(BC, ASTC)에서 값이 바뀐다. 촬영 도구는 압축하지 않고, '그대로 넣기' 프롬프트도 Compression None 단계를 자동으로 넣는다.
+- 흐르는 무늬의 화면 속도는 오프셋 속도를 반복 횟수로 나눈 값이다. `uv * 2 + t * 1.3` 은 `uv + t * 0.6` 과 화면에서 거의 같은 빠르기로 흐른다. 크기가 다른 층을 다른 빠르기로 흘리려면 오프셋 속도를 반복 횟수만큼 곱해 두고 주석에 화면 속도를 적는다. 움직임을 말하는 단계 본문("재생하면 끓듯이")은 정지 화면으로 확인되지 않으므로 `t=` 를 0.5 초 간격으로 두 번 찍어 비교한다.
 - 웹은 머티리얼의 Tiling, Offset(`_ST`)을 넘기지 않는다. 수강생이 다른 텍스처를 넣어 쓸 표본은 반복 횟수를 `#define` 이 아니라 range 값으로 노출한다. 구 UV 에 맞춘 비율은 큐브나 Plane 에서 늘어난다.
 - 스프라이트의 `_MainTex` 크기는 `_MainTex_TexelSize` 를 믿을 수 없다 (렌더러 단위로 넘어와 머티리얼 버퍼와 어긋난다. 실제로 촬영에서 틀린 값이 나왔다). `i.texelSize` 를 쓴다.
 - 정점을 움직이는 표본은 `core.hlsl` 에 다음 함수를 두고 `meta.stage.vertex = true` 로 한다. 메시와 깊이 무대에서 쓸 수 있다. 움직인 뒤의 오브젝트 공간 위치를 돌려준다.
@@ -176,7 +177,7 @@ float effectNoise(float2 p)
 
 | 무대 (`stage.kind`) | 무대 내용 | `SgInput` 필드 | 쓰는 함수 | 기준 샘플 |
 |---|---|---|---|---|
-| `mesh` | 바닥과 물체 하나 (`stage.mesh`). Y 30도에서 시작해 천천히 돈다 (`quad`, `plane`, `grass`, `grid` 는 돌지 않는다) | `uv positionOS positionWS normalOS normalWS viewWS lightDirWS lightColor lighting time` | | 디졸브 |
+| `mesh` | 바닥과 물체 하나 (`stage.mesh`). Y 30도에서 시작해 천천히 돈다 (`quad`, `plane`, `grass`, `grid` 는 돌지 않는다) | `uv color positionOS positionWS normalOS normalWS viewWS lightDirWS lightColor lighting time` | | 디졸브 |
 | `sprite` | 정사영 카메라, 드론 스프라이트(또는 `stage.textures._MainTex`), 2유닛 높이 | `uv color texelSize time` | `SG_TEX(_MainTex, uv)` | 스프라이트 |
 | `depth` | 바닥, 상자, 공, 그 위를 덮는 물체 (`stage.mesh`). `plane` 이면 소품을 가르는 수면 높이에 놓인다 | `uv color positionOS positionWS normalOS normalWS viewWS cameraRightWS cameraUpWS screenUV depthDelta time` | `sgSceneColor(uv)`, `sgSceneDepth(uv)` | 역장 |
 | `fullscreen` | 바닥, 상자, 공을 그린 화면 전체 | `uv aspect texelSize time` | `sgSource(uv)`, `sgSceneDepth(uv)`, `sgSceneNormal(uv)` | 전환 |
@@ -186,6 +187,8 @@ float effectNoise(float2 p)
 - `positionWS`, `normalOS` 는 삼평면 투영처럼 월드와 오브젝트 공간을 고르는 표본용이다. 기준 샘플 래퍼에는 없으므로, 쓰는 표본은 래퍼의 `SgInput` 과 `Varyings` 에 넣고 정점에서 `normalOS` 를 넘긴다. 메시 무대는 돌기 때문에 월드 공간 무늬는 물체 위를 흐르고 오브젝트 공간 무늬는 물체에 붙는다.
 - `depthDelta` = 씬 표면의 눈 깊이 - 이 픽셀의 눈 깊이 (미터). 눈 깊이는 카메라 정면 축 방향의 거리다 (시선 길이에 화면 중심에서 벗어난 각의 cos 을 곱한 값). 물체가 닿는 곳에서 0 에 가까워진다. 수직 깊이가 아니라 보는 각도에 따라 같은 물가에서도 값이 달라진다.
 - 깊이 무대의 `color` 는 정점 색이다. 웹 무대는 항상 흰색(1)이고, 깊이 무대에 쓰는 UI 표본(`stage.ui`, 예: 배경 블러)의 Unity 래퍼는 Image 의 정점 색을 넣는다. 일반 깊이 표본은 쓰지 않는다.
+- 메시 무대의 `color` 도 정점 색이다 (2026-11-03 추가). 웹은 항상 흰색이다. Particle System 의 Renderer 머티리얼로 쓰일 표본(불꽃, 연기)은 래퍼의 `Attributes` 에 `float4 color : COLOR` 를 두고 `i.color` 로 넘겨, core 에서 색과 알파에 곱한다. 그래야 Start Color 와 Color over Lifetime 이 먹고 파티클이 서서히 나타나고 사라진다. 쓰지 않는 표본은 `i.color = 1` 로 채우거나 필드를 두지 않아도 된다 (웹의 필드는 쓰지 않으면 무시된다).
+- `stage.backlit: true` 면 해가 카메라 맞은편 낮은 곳(높이 15도, `Quaternion.Euler(15, 180, 0)`)에 있다 (mesh, depth 무대). 기본 해는 카메라 뒤 위쪽이라 평평한 면의 반사광이 카메라로 오지 않는다. 수면처럼 해 반짝임이 핵심인 표본만 쓴다. 바닥은 해를 비스듬히 받아 어두워지고, 소품 그림자는 카메라 쪽으로 길게 늘어진다.
 - `fullscreen` 의 `uv` 는 왼쪽 아래가 (0, 0) 이고 위쪽이 1 이다. 화면비 보정은 `float2(aspect, 1.0)` 을 곱한다. `texelSize` 는 화면 한 픽셀의 uv 크기다 (Unity 래퍼는 `_ScreenSize.zw`).
 - XR 에서 전체 화면 uv 의 (0.5, 0.5) 는 눈의 정면이 아니다. HMD 투영은 눈마다 비대칭이라 화면 중심을 쓰는 효과(비네트, 충격파 중심)는 두 눈에서 어긋날 수 있다. URP 내장 Vignette 는 투영 행렬로 이를 보정한다. XR 설명은 '실기기 미확인' 으로 쓰고 XRI 나 Volume 같은 보정된 대안을 먼저 권한다.
 - 전체 화면 무대의 `sgSceneDepth(uv)` 는 그 픽셀의 눈 깊이(카메라 정면 축 방향 거리, 미터, 하늘은 먼 평면 100 근처), `sgSceneNormal(uv)` 는 월드 법선(하늘은 0)이다. 쓰면 `meta.requires` 에 `'depth'`, `'normals'` 를 넣고, 래퍼는 `DeclareDepthTexture.hlsl`, `DeclareNormalsTexture.hlsl` 을 include 한 뒤 core 앞에 다음을 둔다. 수강생은 Full Screen Pass 의 Requirements 에서 Depth, Normal 을 켠다 (촬영 도구도 같은 칸을 켠다. 웹과 Unity 를 법선 색과 깊이 줄무늬로 비교해 확인했다).
@@ -221,6 +224,8 @@ float effectNoise(float2 p)
 **잘라 내기 메시의 그림자.** `mesh` 무대의 `cutout` 표본은 앱이 광원 쪽에서 `sgEffect` 를 한 번 더 돌려 그 알파로 바닥 그림자를 만든다 (Unity 의 `ShadowCaster` 패스에 해당). 구멍, 시간에 따른 변화, 정점 변형까지 따라오므로 표본이 따로 할 일은 없다. 단계 보기에서도 그림자는 최종 알파를 쓴다. 효과 끄기에서는 잘라 내기를 무시한 온전한 그림자가 나온다. 그림자 패스를 자르지 않는 흔한 실수이므로, 표본의 `SG_OFF` 와 `offNote` 는 이 모습과 어울리게 쓴다. `node tools/check.mjs <id>` 가 첫 자동 데모 트랙(없으면 첫 이벤트 트랙)을 양 끝으로 움직여, 평소에는 그림자가 따라 변하고 효과 끄기에서는 변하지 않는지 잰다. 알파를 자르지 않는 표본(마지막 `return` 의 알파가 `1.0`)은 값 변화 검사를 건너뛴다. `depth`, `fullscreen` 무대의 소품 그림자는 단순 근사이고, 투명 표본은 그림자를 만들지 않는 것이 맞다.
 
 불투명 표본은 `blend: 'cutout'` 으로 두고 항상 알파 1.0 을 돌려준다. 투명 메시는 샘플이 없다. 역장의 래퍼에서 깊이 관련 줄을 빼고 `SgInput` 을 메시 형식으로 바꾼 뒤, `"LightMode" = "UniversalForward"` 패스 하나로 쓴다. 웹 쪽 입력은 `stage.kind` 를 따르므로 `kind: 'mesh'` 와 `blend` 를 함께 적는다. 양면을 그리면 래퍼에 `Cull Off`, 메타에 `stage.doubleSided: true` 를 둔다. 단계 보기는 혼합 없이 값을 그대로 보여 주고 그동안만 깊이를 써서 앞면이 보인다. 웹 무대는 투명 메시에 바닥 그림자를 그리지 않는다.
+
+빛과 그림자를 받는 투명 메시(`GetMainLight(shadowCoord, ...)` 를 쓰는 수면 등)는 include 앞에 `#define _SURFACE_TYPE_TRANSPARENT 1` 을 둔다. URP Lit 의 투명과 같이 화면 공간 그림자 대신 그림자 맵을 직접 읽는다 (`water-wave-surface` 가 첫 선례). `ZWrite Off` 인 투명 메시는 한 메시 안에서 삼각형을 그리는 순서가 곧 앞뒤가 된다. 정점을 밀어 스스로 겹치는 메시(파도 마루가 뒤쪽 골을 가림)는 보는 방향에 따라 뒤쪽이 앞에 그려질 수 있으므로, 증상과 대처(변위 낮추기, `ZWrite On`)를 `unity.pitfalls` 에 적는다. `grid` 와 기본 Plane 은 +Z 쪽 행부터 그려 무대 카메라에서는 문제가 없다.
 
 **안개.** 샘플 래퍼는 아직 안개를 처리하지 않는다. Fog 를 켠 씬에서 먼 물체가 그대로 보이므로, 넓은 공간에 쓰일 표본은 `unity.pitfalls` 에 적고 변형 예시로 처리 방법을 안내한다: 불투명과 알파 혼합은 `MixFog(color, fogFactor)`, 더하기 혼합은 안개 색 대신 0 으로 사라져야 하므로 `MixFogColor(color, half3(0, 0, 0), fogFactor)`. 둘 다 `#pragma multi_compile_fog` 와 정점의 `ComputeFogFactor(positionCS.z)` 가 필요하다.
 
@@ -426,7 +431,9 @@ node tools/check.mjs
 | 웹에서 한 물체를 패스 두 개로 그리기 (`Cull Front`) | `inverted-hull-outline` | 지원. 4절 "외곽선 패스" |
 | 웹에서 `ZTest Greater` 로 가려진 부분만 그리기 | `xray-occluded-silhouette` | 지원. 4절 "가려진 부분 패스" |
 | 전체 화면 무대에서 깊이, 법선 읽기 | `depth-normal-edge-outline` | 지원. 4절 `sgSceneDepth`, `sgSceneNormal` |
-| 촘촘한 수면 메시 (`plane` 은 정점 간격 1) | `water-depth-foam` 의 파도 | 파도가 거칠면 요청 |
+| 촘촘한 수면 메시 (`plane` 은 정점 간격 1) | `water-wave-surface` | 지원. 4절 `grid` |
+| 해 반짝임이 보이는 역광 | `water-wave-surface` | 지원. 4절 `stage.backlit` |
+| 메시 무대의 정점 색 (파티클 색) | `fire-noise-flame` | 지원. 4절 메시 무대의 `color` |
 | UGUI Canvas 무대 | `ui-*` | 스프라이트 무대로 대체. `_MainTex` 만 바꾼다 |
 
 공통 문법으로 도저히 안 되는 효과는 `web/src/specimens/<id>/web.glsl` 에 같은 `sgEffect` 를 GLSL 로 따로 쓰고 `meta.webGlslReason` 에 사유를 적는다. Unity 쪽은 여전히 `core.hlsl` 을 쓴다. 양쪽이 갈릴 위험이 있으므로 마지막 수단이다.
@@ -439,5 +446,5 @@ node tools/check.mjs
 - 브라우저 패널이 화면에 안 보이면 rAF 가 0 이다. 애니메이션 확인은 `live.mjs` 로 한다.
 - `_Time` 은 편집 모드에서 제어할 수 없어 시간을 쓰는 표본의 스크린샷은 찍을 때마다 조금 다르다. 시간과 상관없이 기본값 화면이 의미 있게 보이도록 만든다.
 - URP 의 `_Time` 은 Play 중에는 `Time.time` 이라 `Time.timeScale` 을 따른다 (0 이면 멈춘다). 편집 모드에서만 실제 시간으로 흐른다. 일시정지 중에도 흘러야 하는 값은 C# 에서 `Time.unscaledDeltaTime` 을 쌓아 넘긴다.
-- 시간이나 카메라 위치로 계속 커지는 오프셋은 float 정밀도가 떨어져 오래 켜 두면 떨린다. 셰이더나 C# 에서 한 주기로 감싼다 (`frac`, `Mathf.Repeat`). 텍스처 주기가 1 이고 화면 전체에 같은 값(`_Time.y * 속도`)이면 `frac` 으로 감싸도 결과와 미분이 같다.
+- 시간이나 카메라 위치로 계속 커지는 오프셋은 float 정밀도가 떨어져 오래 켜 두면 떨린다. 셰이더나 C# 에서 한 주기로 감싼다 (`frac`, `Mathf.Repeat`). 텍스처 주기가 1 이고 화면 전체에 같은 값(`_Time.y * 속도`)이면 `frac` 으로 감싸도 결과와 미분이 같다. 다만 셰이더의 `frac(_Time.y * 속도)` 는 큰 값을 UV 에 더할 때 생기는 손실만 막고, `_Time.y` 자체가 커져 잃은 정밀도는 되돌리지 못한다. 그것은 C# 에서 감싸 쌓은 값(`Mathf.Repeat`)을 넘겨야 해결된다.
 - `_Time.y * 속도` 로 흐르는 무늬는 실행 중에 속도를 바꾸면 그동안 흐른 시간에 변화량이 곱해져 한 번에 튄다. 속도를 연출로 바꾸는 표본은 C# 에서 오프셋을 쌓아 넘기는 방법을 해설이나 `mistakes` 에 적는다.

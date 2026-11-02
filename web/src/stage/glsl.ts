@@ -24,7 +24,7 @@ uniform int _SgStep;
 `
 
 const INPUT: Record<StageKind, string> = {
-  mesh: `struct SgInput { float2 uv; float3 positionOS; float3 positionWS; float3 normalOS; float3 normalWS; float3 viewWS; float3 lightDirWS; float3 lightColor; float3 lighting; float time; };`,
+  mesh: `struct SgInput { float2 uv; float4 color; float3 positionOS; float3 positionWS; float3 normalOS; float3 normalWS; float3 viewWS; float3 lightDirWS; float3 lightColor; float3 lighting; float time; };`,
   sprite: `struct SgInput { float2 uv; float4 color; float2 texelSize; float time; };`,
   depth: `uniform sampler2D _SgSceneDepth;
 uniform sampler2D _SgSceneColor;
@@ -74,6 +74,8 @@ void main() {
   i.lightDirWS = SG_FLIP(uLightDir);
   i.lightColor = uLightColor;
   i.lighting = uLightColor * saturate(dot(i.normalWS, i.lightDirWS)) + uAmbient;
+  // 정점 색. 웹 무대 메시는 정점 색이 없어 흰색이다 (Unity 래퍼는 파티클의 Color over Lifetime 등을 넣는다)
+  i.color = vec4(1.0);
   i.time = uTime;
   vec4 c = sgEffect(i);
   ${writeColor(cutout)}
