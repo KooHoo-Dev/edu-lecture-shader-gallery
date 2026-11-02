@@ -140,7 +140,9 @@ function checkWrapper(id, name, text, meta) {
   const blend = meta.stage.blend ?? (kind === 'mesh' ? 'cutout' : 'alpha')
   if (kind !== 'fullscreen') {
     if (blend === 'additive' && !/Blend\s+SrcAlpha\s+One\b/.test(code)) err(`${where}: stage.blend 가 additive 인데 Blend SrcAlpha One 이 없다`)
-    if (blend === 'alpha' && !/Blend\s+SrcAlpha\s+OneMinusSrcAlpha/.test(code)) err(`${where}: stage.blend 가 alpha 인데 Blend SrcAlpha OneMinusSrcAlpha 가 없다`)
+    // UI 셰이더는 Unity UI/Default 처럼 미리 곱한 알파(Blend One OneMinusSrcAlpha)도 받는다
+    const alphaBlend = meta.stage.ui ? /Blend\s+(SrcAlpha|One)\s+OneMinusSrcAlpha/ : /Blend\s+SrcAlpha\s+OneMinusSrcAlpha/
+    if (blend === 'alpha' && !alphaBlend.test(code)) err(`${where}: stage.blend 가 alpha 인데 Blend SrcAlpha OneMinusSrcAlpha 가 없다`)
     if (blend === 'cutout' && !/\bclip\s*\(/.test(code)) err(`${where}: stage.blend 가 cutout 인데 clip 이 없다`)
     if (blend !== 'cutout' && !/ZWrite\s+Off/.test(code)) err(`${where}: 투명 혼합인데 ZWrite Off 가 없다`)
     if (blend !== 'cutout' && kind !== 'sprite' && !/"Queue"\s*=\s*"Transparent"/.test(code)) err(`${where}: 투명 혼합인데 "Queue" = "Transparent" 가 없다`)
@@ -149,12 +151,17 @@ function checkWrapper(id, name, text, meta) {
   if (kind === 'mesh' && blend === 'cutout' && /"LightMode"\s*=\s*"UniversalForward"/.test(code)) err(`${where}: 불투명·잘라 내기 메시는 Deferred 에서도 그려지도록 UniversalForwardOnly 를 쓴다`)
   if (meta.stage.ui) {
     // UGUI 의 UI 셰이더 구조. Overlay 캔버스는 첫 패스를 쓰고, Camera·World 캔버스는 URP 가 SRPDefaultUnlit 으로 그린다
-    if (kind !== 'sprite') err(`${where}: stage.ui 는 sprite 무대에서만 쓴다`)
+    // 미리보기는 스프라이트 무대지만, 씬 색상을 읽는 UI(배경 흐림)는 깊이 무대를 쓴다
+    if (kind !== 'sprite' && kind !== 'depth') err(`${where}: stage.ui 는 sprite, depth 무대에서만 쓴다`)
     if (/"LightMode"/.test(code)) err(`${where}: UI 셰이더는 LightMode 태그 없는 패스 하나를 쓴다`)
     for (const [pattern, what] of [
-      [/_StencilComp/, 'Stencil 속성(_StencilComp 등)과 Stencil 블록'],
+      [/\[PerRendererData\]\s*_MainTex/, '[PerRendererData] _MainTex'],
+      [/_StencilComp/, 'Stencil 속성(_StencilComp 등)'],
+      [/_StencilReadMask/, '_StencilReadMask'],
+      [/Stencil\s*\{/, 'Stencil 블록'],
       [/_ClipRect/, 'RectMask2D 의 _ClipRect'],
       [/UNITY_UI_CLIP_RECT/, 'multi_compile_local _ UNITY_UI_CLIP_RECT'],
+      [/UNITY_UI_ALPHACLIP/, 'multi_compile_local _ UNITY_UI_ALPHACLIP (Mask 가 켠다)'],
       [/unity_GUIZTestMode/, 'ZTest [unity_GUIZTestMode]'],
       [/ColorMask\s+\[_ColorMask\]/, 'ColorMask [_ColorMask]'],
     ]) {

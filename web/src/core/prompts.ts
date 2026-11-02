@@ -35,6 +35,12 @@ const KIND_STEPS: Record<StageKind, string[]> = {
   ],
 }
 
+/** stage.ui 표본은 SpriteRenderer 가 아니라 UGUI Image 에 넣는다 */
+const UI_STEPS = [
+  '이 셰이더로 머티리얼을 만들어 Canvas 아래 Image 의 Material 칸에 넣는다. 텍스처는 Image 의 Source Image 로 정한다.',
+  '여러 Image 가 값을 따로 가지려면 Image 마다 머티리얼 복사본을 쓴다 (Image.material 에 넣는다고 복사본이 생기지는 않는다).',
+]
+
 /** URP Asset 에서 켜야 하는 설정 */
 const REQUIRE_STEPS: Record<Requirement, string> = {
   depth: '사용 중인 URP Asset 의 Depth Texture 를 켠다. 품질 단계마다 URP Asset 이 다르면 모두 켠다. 카메라의 Depth Texture 가 Off 이면 Use Pipeline Settings 로 바꾼다.',
@@ -85,7 +91,7 @@ export function buildPrompt(kind: PromptKind, source: PromptSource, values: Para
   const code = codeSection(source, values)
 
   if (kind === 'direct') {
-    const steps = [`아래 파일을 \`Assets/Shaders/${meta.id}/\` 에 그대로 만든다. 코드는 바꾸지 않는다.`, ...textureSteps(meta), ...(meta.requires ?? []).map(r => REQUIRE_STEPS[r]), ...KIND_STEPS[meta.stage.kind], '머티리얼 값을 아래 표대로 맞춘다.', `확인: ${meta.unity.verify}`]
+    const steps = [`아래 파일을 \`Assets/Shaders/${meta.id}/\` 에 그대로 만든다. 코드는 바꾸지 않는다.`, ...textureSteps(meta), ...(meta.requires ?? []).map(r => REQUIRE_STEPS[r]), ...(meta.stage.ui ? UI_STEPS : KIND_STEPS[meta.stage.kind]), '머티리얼 값을 아래 표대로 맞춘다.', `확인: ${meta.unity.verify}`]
     return [
       `# Unity 셰이더 추가: ${meta.title}`,
       head,

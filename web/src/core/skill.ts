@@ -26,7 +26,7 @@ function guide(meta: SpecimenMeta, files: SpecimenFile[], textures: string[]): s
   return [
     `# ${meta.title} (${meta.titleEn})`,
     meta.oneLiner,
-    `무대 종류: ${KIND_NAMES[meta.stage.kind]}. 난이도 ${meta.difficulty}/3. 기법: ${meta.tags.join(', ')}.`,
+    `무대 종류: ${meta.stage.ui ? 'UI (UGUI Image)' : KIND_NAMES[meta.stage.kind]}. 난이도 ${meta.difficulty}/3. 기법: ${meta.tags.join(', ')}.`,
     `## 파일\n${list([...files.map(f => f.name), ...textures].map(name => `\`${name}\``))}\n\n모두 프로젝트의 \`Assets/Shaders/${meta.id}/\` 에 복사한다.`,
     ...(meta.requires?.length ? [`## URP 설정\n사용 중인 URP Asset 에서 켠다: ${meta.requires.map(r => (r === 'depth' ? 'Depth Texture' : 'Opaque Texture')).join(', ')}.`] : []),
     `## 넣는 순서\n${meta.unity.setup.map((s, i) => `${i + 1}. ${s}`).join('\n')}`,

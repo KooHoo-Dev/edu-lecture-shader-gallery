@@ -227,7 +227,12 @@ UGUI Image 에 쓰는 표본용이다. 미리보기와 촬영은 스프라이트
 - 패스는 `LightMode` 태그 없이 하나다. Screen Space - Overlay 캔버스는 첫 패스를 쓰고, Camera·World Space 캔버스와 2D Renderer 는 이것을 `SRPDefaultUnlit` 으로 그린다.
 - Unity 내장 UI/Default 셰이더의 구조를 HLSLPROGRAM 과 URP include 로 옮긴다: `[PerRendererData] _MainTex`, Stencil 속성(`_StencilComp`, `_Stencil`, `_StencilOp`, `_StencilWriteMask`, `_StencilReadMask`)과 Stencil 블록, `ColorMask [_ColorMask]`, `ZTest [unity_GUIZTestMode]`, `ZWrite Off`, `Cull Off`, 정점 색 곱, `#pragma multi_compile_local _ UNITY_UI_CLIP_RECT` 와 `_ClipRect` 클리핑, `UNITY_UI_ALPHACLIP`. `UnityUI.cginc` 는 쓸 수 없으므로 `UnityGet2DClipping` 은 래퍼에 직접 옮긴다 (`step` 두 번으로 사각형 안쪽을 구하는 몇 줄).
 - Stencil 속성이 없으면 Mask 안에 넣었을 때 Unity 가 경고하고 가려지지 않는다. RectMask2D 클리핑이 없으면 스크롤 목록 밖으로 그림이 샌다. 둘 다 `unity.pitfalls` 에 증상으로 적는다.
-- 혼합은 `blend: 'alpha'` 다. Unity 에서 Image 에 머티리얼을 넣는 절차(Material 칸, 텍스처는 Image 의 Source Image)를 `unity.setup` 에 적는다.
+- 혼합은 `blend: 'alpha'` 다. 직선 알파(`Blend SrcAlpha OneMinusSrcAlpha`)와 Unity UI/Default 같은 미리 곱한 알파(`Blend One OneMinusSrcAlpha` + `rgb *= a`) 모두 된다. Unity 에서 Image 에 머티리얼을 넣는 절차(Material 칸, 텍스처는 Image 의 Source Image)를 `unity.setup` 에 적는다. '그대로 넣기' 프롬프트는 `stage.ui` 이면 Image 에 넣는 단계를 자동으로 쓴다.
+- Mask 는 마스크 그래픽의 머티리얼 복사본에 `UNITY_UI_ALPHACLIP` 을 자동으로 켠다. 그래서 알파 클립 코드가 있어야 도형 모양대로 가려지고, 없으면 사각형으로 가려진다.
+- CanvasGroup 의 alpha 와 Button 의 색 전환은 정점 색으로 들어온다. core 가 `i.color` 를 꼭 곱한다.
+- 캔버스의 Vertex Color Always In Gamma Color Space 를 켜면 정점 색이 sRGB 그대로 들어온다. `_UIVertexColorAlwaysGammaSpace` 를 `CBUFFER` 밖에 선언하고, Linear 프로젝트(`#ifndef UNITY_COLORSPACE_GAMMA`)에서 값이 1 이면 정점 색을 선형으로 바꾼다.
+- 최근 UI/Default 는 RectMask2D 의 Softness(`_UIMaskSoftnessX`, `_UIMaskSoftnessY`)로 가장자리를 부드럽게 자른다. `step` 두 번으로 자르면 Softness 가 무시된다. 쓸 수 있으면 Softness 식으로 옮긴다.
+- 지금 미리보기와 촬영은 정사각형 스프라이트 하나라 4:1 같은 Image 비율, Mask, RectMask2D, Overlay 캔버스를 화면으로 확인하지 못한다. 이 부분은 글로 정확히 쓰고 Unity 에서 확인하지 못했다고 보고한다.
 - `tools/check.mjs` 가 위 항목과 `LightMode` 가 없는지를 확인한다.
 
 ### 외곽선 패스 (`stage.outline`)
@@ -307,6 +312,7 @@ UGUI Image 에 쓰는 표본용이다. 미리보기와 촬영은 스프라이트
 - `namespace ShaderGallery.Samples`. 파일 첫 줄에 무엇을 하는지 한국어 주석.
 - `Shader.PropertyToID` 로 ID 를 캐시한다.
 - 물체 하나에 쓰는 값은 `renderer.material` 복사본에 넣고 `OnDestroy` 에서 지운다. MaterialPropertyBlock 은 쓰지 않는다 (SRP Batcher 에서 빠진다).
+- UGUI Image 는 다르다. `Image.material` 은 복사본을 만들지 않으므로 `new Material(...)` 로 직접 만들어 넣고 `OnDestroy` 에서 지운다. 복사본은 처음 쓸 때 만든다 (꺼진 채 시작한 UI 에 `Awake` 전에 값을 넣어도 되게). Mask 안에서는 Unity 가 스텐실용 복사본(`materialForRendering`)을 따로 쓰므로 그쪽에도 값을 넣되, Image 가 꺼져 있을 때는 `materialForRendering` 을 건드리지 않는다 (지운 복사본이 다시 생겨 샌다).
 - 머티리얼 에셋을 직접 고치면(전체 화면 표본) `OnDisable` 에서 원래 값으로 되돌린다.
 - 머티리얼 기본값은 썸네일을 위한 값일 수 있다. 연출을 시작하기 전의 값은 `Awake` 에서 넣는다 (`DissolveController` 참고).
 - `DontDestroyOnLoad` 오브젝트는 씬을 오갈 때 복사본이 쌓이지 않게 인스턴스를 하나만 남긴다 (`ScreenTransitionController` 참고).

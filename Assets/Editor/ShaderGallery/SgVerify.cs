@@ -31,6 +31,10 @@ namespace ShaderGallery.EditorTools
             // Forward 전용 노멀 패스. Deferred 의 정확한 G-buffer 노멀과 렌더링 레이어를 켜면 쓰인다.
             new[] { "_GBUFFER_NORMALS_OCT" },
             new[] { "_WRITE_RENDERING_LAYERS" },
+            // UI 셰이더. RectMask2D 가 클리핑을, Mask 가 알파 클립을 켠다. 둘 다 켜지는 경우도 있다.
+            new[] { "UNITY_UI_CLIP_RECT" },
+            new[] { "UNITY_UI_ALPHACLIP" },
+            new[] { "UNITY_UI_CLIP_RECT", "UNITY_UI_ALPHACLIP" },
         };
 
         public static void RunBatch()
