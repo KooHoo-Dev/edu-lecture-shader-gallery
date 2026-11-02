@@ -1,0 +1,365 @@
+// Shader Gallery 검사 (Node 만 사용).
+//   node tools/check.mjs            # 규격 검사. web/dist 가 있으면 용량, 오프라인 실행, WebGL 컴파일까지
+//   node tools/check.mjs <id> ...   # 지정한 표본의 규격만 검사하고 dist 검사는 건너뜀
+//   node tools/check.mjs --links    # + 출처 링크 생존 확인 (인터넷 필요)
+//
+// 검사 항목 (자세한 규칙은 docs/specimen-guide.md)
+//   1. 폴더: kebab-case ID, meta.ts, core.hlsl, .shader 존재, .meta 존재, meta.id 와 폴더명 일치
+//   2. core.hlsl 공통 문법: 금지 문법, Unity·웹 예약어, include 금지
+//   3. .shader: HLSLPROGRAM, CBUFFER, 금지 API, core.hlsl include
+//   4. 메타와 셰이더 일치: 속성 이름과 기본값, CBUFFER, SG_STEP 번호, SG_OFF 분기, 이벤트 트랙
+//   5. 글: 개수 규칙, 게임명이 ID·제목에 없는지, inspiredBy 형식
+//   6. import 대소문자 (Windows 에서 통과해도 Linux CI 에서 깨진다)
+//   7. dist 용량 예산, 외부 참조, 네트워크 차단 오프라인 실행, WebGL2 컴파일 로그, Skill 최신 여부
+
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { dirname, join, parse, relative, resolve } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+import { gzipSync } from 'node:zlib'
+import { propertyPattern, hexToProperty } from '../web/src/core/codegen.ts'
+import { findChrome, withChrome } from './lib/chrome.mjs'
+import { loadMeta, specimenIds } from './unity-job.mjs'
+import { skillEntries } from './build-skill.mjs'
+
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const WEB = join(ROOT, 'web')
+const SHADERS = join(ROOT, 'Assets', 'Shaders')
+const DIST = join(WEB, 'dist', 'index.html')
+const BUDGET = 5 * 1024 * 1024
+const BUDGET_GZIP = 1.5 * 1024 * 1024
+const KEBAB = /^[a-z0-9]+(-[a-z0-9]+)*$/
+const STAGE_KINDS = ['mesh', 'sprite', 'depth', 'fullscreen']
+
+const errors = []
+const warnings = []
+const err = message => errors.push(message)
+const warn = message => warnings.push(message)
+
+/** core.hlsl 에서 양쪽 동작이 갈려 금지한 문법. 컴파일은 통과해도 결과가 달라지는 것들이다 */
+const FORBIDDEN = [
+  [/\bmul\s*\(/, 'mul 금지: 행렬 곱은 래퍼에서 하거나 2D 회전 헬퍼를 쓴다'],
+  [/\b(float|int)\dx\d\b/, '행렬 타입 금지: GLSL 과 행렬 순서가 다르다'],
+  [/\bfmod\s*\(/, 'fmod 금지: 음수에서 mod 와 결과가 다르다. x - y * floor(x / y) 로 쓴다'],
+  [/\bmod\s*\(/, 'mod 금지: HLSL 에 없다. x - y * floor(x / y) 로 쓴다'],
+  [/[^=!<>\s]\s*%\s*[^=\s]|\s%\s/, '% 금지: 정수 전용이고 음수 결과가 다르다'],
+  [/\bstatic\b/, 'static 금지: 상수는 #define 으로 쓴다'],
+  [/^const\s+float/, '전역 const 대신 #define 을 쓴다 (HLSL 은 static 이 필요하다)'],
+  [/\(\s*float[234]?\s*\)/, 'C 형변환 금지: float(x) 로 쓴다'],
+  [/\b\d+\.\d*f\b/, '숫자 뒤 f 금지'],
+  [/\bfloat[234]\s*\(\s*[-\d.]+\s*\)/, 'float3(1.0) 금지: HLSL 에서 오류. float3(1.0, 1.0, 1.0) 으로 쓴다'],
+  [/\bhalf[234]?\b|\bfixed[234]?\b/, 'half, fixed 금지: float 만 쓴다'],
+  [/\b(any|all)\s*\(/, 'any, all 금지: 인자 형식이 다르다'],
+  [/\b(texture|tex2D|sampler2D|SAMPLE_TEXTURE2D|TEXTURE2D)\b/, '텍스처는 SG_TEX(이름, uv) 로만 읽는다'],
+  [/\bclip\s*\(|\bdiscard\b/, 'clip, discard 금지: 알파를 돌려주면 래퍼가 처리한다'],
+  [/\b_Time\b|\bunity_|\b_WorldSpaceCameraPos\b|\bUNITY_/, 'Unity 전용 값 금지: SgInput 으로 받는다'],
+  [/^\s*#\s*(include|pragma)\b/m, '#include, #pragma 금지: 래퍼가 맡는다'],
+]
+
+/** HLSL 이나 GLSL 한쪽에서만 예약된 이름. 변수·함수 이름으로 쓰면 다른 쪽에서 깨진다 */
+const RESERVED = ['input', 'output', 'common', 'partition', 'active', 'filter', 'sample', 'texture', 'flat', 'smooth', 'centroid', 'noperspective', 'line', 'point', 'triangle', 'pass', 'technique', 'register', 'packoffset', 'linear', 'string', 'vector', 'matrix', 'dword', 'shared', 'snorm', 'unorm', 'groupshared', 'precision', 'highp', 'mediump', 'lowp', 'attribute', 'varying', 'class', 'template', 'this', 'namespace', 'union', 'enum', 'typedef', 'long', 'short', 'double', 'superp', 'interface', 'external', 'uniform', 'buffer', 'sampler', 'mix', 'fract', 'dFdx', 'dFdy', 'ddx_fine', 'ddy_fine', 'vec2', 'vec3', 'vec4']
+
+function stripComments(text) {
+  return text.replace(/\/\*[\s\S]*?\*\//g, m => m.replace(/[^\n]/g, '')).replace(/\/\/.*$/gm, '')
+}
+
+function checkCore(id, text) {
+  const code = stripComments(text.replace(/\r\n/g, '\n'))
+  const lines = code.split('\n')
+  for (const [pattern, message] of FORBIDDEN) {
+    const line = lines.findIndex(l => pattern.test(l))
+    if (line >= 0) err(`${id}/core.hlsl:${line + 1}: ${message}`)
+    else if (pattern.flags.includes('m') && pattern.test(code)) err(`${id}/core.hlsl: ${message}`)
+  }
+  const declared = new Set()
+  for (const m of code.matchAll(/\b(?:float[234]?|int|bool|void)\s+([A-Za-z_]\w*)/g)) declared.add(m[1])
+  for (const name of RESERVED) if (declared.has(name)) err(`${id}/core.hlsl: '${name}' 은 HLSL 이나 GLSL 예약어라 이름으로 못 쓴다`)
+  if (!/\bfloat4\s+sgEffect\s*\(\s*SgInput\s+i\s*\)/.test(code)) err(`${id}/core.hlsl: float4 sgEffect(SgInput i) 가 없다`)
+  if (!/#ifndef SG_STEP[\s\S]*?#define SG_STEP\(n, rgb\)[\s\S]*?#endif/.test(code)) err(`${id}/core.hlsl: 파일 첫머리의 SG_STEP 빈 정의가 없다`)
+  if (!/#ifdef SG_OFF[\s\S]*?#endif/.test(code)) err(`${id}/core.hlsl: #ifdef SG_OFF 분기가 없다`)
+  return code
+}
+
+function checkWrapper(id, name, text, meta) {
+  const code = stripComments(text.replace(/\r\n/g, '\n'))
+  const where = `${id}/${name}`
+  for (const [pattern, message] of [
+    [/\bCGPROGRAM\b|\bCGINCLUDE\b/, 'CGPROGRAM 금지'],
+    [/UnityCG\.cginc/, 'UnityCG.cginc 금지'],
+    [/#pragma\s+surface\b/, 'Surface Shader 금지'],
+    [/\bcmd\.Blit\b/, '구버전 Blit 금지'],
+  ]) {
+    if (pattern.test(code)) err(`${where}: ${message}`)
+  }
+  if (!code.includes('HLSLPROGRAM')) err(`${where}: HLSLPROGRAM 이 없다`)
+  if (!code.includes('"RenderPipeline" = "UniversalPipeline"')) err(`${where}: SubShader 태그에 "RenderPipeline" = "UniversalPipeline" 이 없다`)
+  if (!code.includes('CBUFFER_START(UnityPerMaterial)')) err(`${where}: CBUFFER_START(UnityPerMaterial) 이 없다`)
+  if (!code.includes('#include "core.hlsl"')) err(`${where}: #include "core.hlsl" 이 없다`)
+  if (!new RegExp(`Shader\\s+"ShaderGallery/${name.replace('.shader', '')}"`).test(code)) err(`${where}: 셰이더 이름은 "ShaderGallery/${name.replace('.shader', '')}" 이어야 한다`)
+
+  const cbuffer = /CBUFFER_START\(UnityPerMaterial\)([\s\S]*?)CBUFFER_END/.exec(code)?.[1] ?? ''
+  for (const def of meta.params) {
+    const m = propertyPattern(def.key).exec(text.replace(/\r\n/g, '\n'))
+    if (!m) {
+      err(`${where}: Properties 에 ${def.key} 가 없다`)
+      continue
+    }
+    if (!new RegExp(`\\b${def.key}\\b`).test(cbuffer)) err(`${where}: CBUFFER 에 ${def.key} 가 없다`)
+    const actual = m[2].replace(/\s+/g, '')
+    if (def.type === 'range' && Number(actual) !== def.default) err(`${where}: ${def.key} 기본값이 다르다 (.shader ${actual}, meta ${def.default})`)
+    if (def.type === 'toggle' && Number(actual) !== (def.default ? 1 : 0)) err(`${where}: ${def.key} 기본값이 다르다`)
+    if (def.type === 'select' && actual !== def.default) err(`${where}: ${def.key} 기본값이 다르다 (.shader ${actual}, meta ${def.default})`)
+    if (def.type === 'color') {
+      const parse = s => s.replace(/[()]/g, '').split(',').slice(0, 3).map(Number)
+      const a = parse(actual)
+      const b = parse(hexToProperty(def.default))
+      // 16진수 한 칸(1/255)보다 큰 차이만 잡는다
+      if (a.some((v, i) => Math.abs(v - b[i]) > 0.006)) err(`${where}: ${def.key} 기본값이 다르다 (.shader ${actual}, meta ${def.default} = ${hexToProperty(def.default)})`)
+    }
+  }
+  return { code, cbuffer }
+}
+
+function checkMeta(id, meta, core, wrapper) {
+  const where = `${id}/meta.ts`
+  if (meta.id !== id) err(`${where}: meta.id(${meta.id})가 폴더명과 다르다`)
+  if (!STAGE_KINDS.includes(meta.stage.kind)) err(`${where}: stage.kind 가 잘못됐다`)
+  if (!meta.params.length) err(`${where}: params 가 없다`)
+  for (const def of meta.params) if (!/^_[A-Z]\w*$/.test(def.key)) err(`${where}: 속성 이름 ${def.key} 는 _PascalCase 여야 한다`)
+  const keys = new Set(meta.params.map(p => p.key))
+
+  // 코어에서 쓰는 머티리얼 값은 메타에 있어야 웹 유니폼이 만들어진다
+  const textures = new Set([...Object.keys(meta.stage.textures ?? {}), '_MainTex'])
+  for (const m of core.matchAll(/\b_[A-Z]\w*/g)) {
+    const name = m[0]
+    if (name.endsWith('_TexelSize') && textures.has(name.replace('_TexelSize', ''))) continue
+    if (!keys.has(name) && !textures.has(name)) err(`${id}/core.hlsl: ${name} 가 meta.params 에 없다`)
+  }
+
+  // 메타의 값이 코어나 래퍼에서 실제로 쓰이는지
+  for (const key of keys) if (!core.includes(key) && !wrapper.includes(`${key};`)) warn(`${where}: ${key} 를 core.hlsl 이 쓰지 않는다`)
+
+  // 단계 보기 번호와 SG_STEP 번호
+  const coreSteps = [...core.matchAll(/\bSG_STEP\(\s*(\d+)\s*,/g)].map(m => Number(m[1]))
+  const metaSteps = meta.steps.map(s => s.n)
+  for (const n of metaSteps) if (!coreSteps.includes(n)) err(`${where}: 단계 ${n} 에 해당하는 SG_STEP 이 core.hlsl 에 없다`)
+  for (const n of coreSteps) if (!metaSteps.includes(n)) err(`${where}: SG_STEP(${n}) 설명이 meta.steps 에 없다`)
+  if (meta.steps.length < 2 || meta.steps.length > 5) err(`${where}: steps 는 2~5개 (${meta.steps.length}개)`)
+
+  // 트랙은 range 값만 움직인다
+  const ranges = new Set(meta.params.filter(p => p.type === 'range').map(p => p.key))
+  const tracks = [...meta.events.flatMap(e => e.tracks), ...(meta.demo?.loops ?? [])]
+  for (const t of tracks) if (!ranges.has(t.key)) err(`${where}: 트랙 ${t.key} 는 range 속성이 아니다`)
+  for (const f of meta.demo?.fire ?? []) if (!meta.events.some(e => e.id === f.event)) err(`${where}: demo.fire 의 ${f.event} 이벤트가 없다`)
+  if (!meta.demo?.loops?.length && !meta.demo?.fire?.length) warn(`${where}: 자동 데모가 없다`)
+
+  for (const preset of meta.presets) {
+    for (const key of Object.keys(preset.values)) if (!keys.has(key)) err(`${where}: 프리셋 ${preset.id} 의 ${key} 가 params 에 없다`)
+    if (!KEBAB.test(preset.id)) err(`${where}: 프리셋 ID ${preset.id} 는 kebab-case 여야 한다`)
+  }
+  for (const capture of meta.captures ?? []) {
+    for (const key of Object.keys(capture.values)) if (!keys.has(key)) err(`${where}: 촬영 상태 ${capture.name} 의 ${key} 가 params 에 없다`)
+  }
+
+  const count = (list, min, max, label) => {
+    if (list.length < min || list.length > max) err(`${where}: ${label} 는 ${min}~${max}개 (${list.length}개)`)
+  }
+  count(meta.goals, 3, 4, 'goals')
+  count(meta.mistakes, 3, 5, 'mistakes')
+  count(meta.presets, 2, 5, 'presets')
+  count(meta.unity.setup, 2, 7, 'unity.setup')
+  count(meta.unity.pitfalls, 2, 6, 'unity.pitfalls')
+  count(meta.prompt.adaptIdeas, 2, 6, 'prompt.adaptIdeas')
+  count(meta.references, 1, 6, 'references')
+  for (const item of meta.inspiredBy) {
+    if (item.borrowed.length > 2) err(`${where}: inspiredBy 의 빌린 축은 최대 2개`)
+    if (!/\(\d{4}\)$/.test(item.title)) err(`${where}: inspiredBy.title 은 "원제 (연도)" 형식`)
+  }
+  for (const item of meta.inspiredBy) {
+    const name = item.title.replace(/\s*\(\d{4}\)$/, '').toLowerCase()
+    if (meta.title.toLowerCase().includes(name) || id.includes(name.replaceAll(' ', '-'))) err(`${where}: 제목·ID 에 게임명 금지`)
+  }
+  if (meta.flashes && !meta.events.length) warn(`${where}: flashes 인데 이벤트가 없다`)
+}
+
+function checkSpecimens(ids) {
+  const titles = []
+  return Promise.all(
+    ids.map(async id => {
+      if (!KEBAB.test(id)) err(`${id}: 폴더 이름은 kebab-case`)
+      const folder = join(SHADERS, id)
+      if (!existsSync(folder)) {
+        err(`${id}: Assets/Shaders/${id} 폴더가 없다`)
+        return
+      }
+      const meta = await loadMeta(ROOT, id)
+      titles.push([id, meta.title])
+      const corePath = join(folder, 'core.hlsl')
+      const shaderPath = join(folder, meta.shaderFile)
+      if (!existsSync(corePath)) return err(`${id}: core.hlsl 이 없다`)
+      if (!existsSync(shaderPath)) return err(`${id}: ${meta.shaderFile} 이 없다`)
+      for (const f of readdirSync(folder)) {
+        if (f.endsWith('.meta')) continue
+        if (!existsSync(join(folder, `${f}.meta`))) warn(`${id}/${f}: .meta 가 없다. node tools/unity.mjs ${id} 를 실행하면 생긴다`)
+      }
+      for (const texture of Object.values(meta.stage.textures ?? {})) if (!existsSync(join(folder, texture.file))) err(`${id}: 텍스처 ${texture.file} 이 없다`)
+      if (meta.webGlslReason) {
+        if (!existsSync(join(WEB, 'src', 'specimens', id, 'web.glsl'))) err(`${id}: webGlslReason 이 있는데 web.glsl 이 없다`)
+      } else if (existsSync(join(WEB, 'src', 'specimens', id, 'web.glsl'))) {
+        err(`${id}: web.glsl 을 쓰면 meta.webGlslReason 에 사유를 적는다`)
+      }
+      const core = checkCore(id, readFileSync(corePath, 'utf8'))
+      const { code } = checkWrapper(id, meta.shaderFile, readFileSync(shaderPath, 'utf8'), meta)
+      checkMeta(id, meta, core, code)
+      if (!existsSync(join(WEB, 'src', 'shots', id, 'default.webp'))) warn(`${id}: Unity 스크린샷이 없다. node tools/unity.mjs ${id} 뒤 node tools/shots.mjs ${id}`)
+    }),
+  ).then(() => titles)
+}
+
+const IMPORT_RE = /(?:import|export)[^'"\n]*?from\s*['"](\.[^'"]+)['"]|import\(\s*['"](\.[^'"]+)['"]/g
+const EXTS = ['', '.ts', '.tsx', '.js', '.css', '/index.ts', '/index.tsx']
+
+function exactExists(path) {
+  if (!existsSync(path)) return false
+  let cur = parse(resolve(path)).root
+  for (const part of relative(cur, resolve(path)).split(/[\\/]/)) {
+    if (!readdirSync(cur).includes(part)) return false
+    cur = join(cur, part)
+  }
+  return true
+}
+
+function checkImportCase(dir = join(WEB, 'src')) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const path = join(dir, entry.name)
+    if (entry.isDirectory()) {
+      checkImportCase(path)
+    } else if (/\.tsx?$/.test(entry.name)) {
+      const text = stripComments(readFileSync(path, 'utf8'))
+      for (const m of text.matchAll(IMPORT_RE)) {
+        const spec = (m[1] ?? m[2]).split('?')[0]
+        const base = resolve(dirname(path), spec)
+        if (!EXTS.some(ext => exactExists(base + ext))) err(`import 경로 대소문자 또는 존재 불일치: ${relative(ROOT, path)} -> ${spec}`)
+      }
+    }
+  }
+}
+
+async function checkDist(titles) {
+  if (!existsSync(DIST)) {
+    warn('web/dist/index.html 이 없다. web 에서 npm run build 후 다시 실행하면 용량, 오프라인, 컴파일 검사를 한다')
+    return
+  }
+  const raw = readFileSync(DIST)
+  for (const [label, size, budget] of [
+    ['원본', raw.length, BUDGET],
+    ['gzip', gzipSync(raw, { level: 6 }).length, BUDGET_GZIP],
+  ]) {
+    console.log(`  dist ${label}: ${(size / 1024).toFixed(0)} KB (예산 ${(budget / 1024).toFixed(0)} KB, ${Math.round((size / budget) * 100)}%)`)
+    if (size > budget) err(`용량 예산 초과(${label})`)
+    else if (size > budget * 0.9) warn(`용량 예산 90% 넘음(${label})`)
+  }
+  const html = raw.toString('utf8')
+  for (const [pattern, what] of [
+    [/<script[^>]+src=["']https?:/i, '외부 스크립트'],
+    [/<link[^>]+href=["']https?:[^>]*stylesheet|<link[^>]+stylesheet[^>]+href=["']https?:/i, '외부 스타일시트'],
+    [/@import\s+url\(["']?https?:/i, '외부 CSS @import'],
+  ]) {
+    if (pattern.test(html)) err(`dist 에 ${what} 참조가 있다 (오프라인 실행 불가)`)
+  }
+
+  if (!findChrome()) {
+    warn('Chrome 을 찾지 못해 오프라인·컴파일 검사를 건너뜀')
+    return
+  }
+  // 네트워크를 완전히 막고 file:// 로 연다
+  await withChrome(
+    async page => {
+      const url = pathToFileURL(DIST).href
+      await page.goto(`${url}#/`)
+      await page.sleep(1500)
+      const text = await page.evaluate('document.body.innerText')
+      const missing = titles.filter(([, title]) => !text.includes(title)).map(([id]) => id)
+      if (missing.length) err(`오프라인(file://, 네트워크 차단)에서 보이지 않는 표본: ${missing.join(', ')}`)
+      else console.log(`  오프라인 실행: 표본 ${titles.length}개 모두 표시됨`)
+
+      const results = await page.evaluate('window.__sgCompileAll()')
+      const failed = results.filter(r => r.errors.length)
+      for (const r of failed) err(`WebGL 컴파일 실패 ${r.id} (${r.variant}): ${r.errors.join(' / ')}`)
+      console.log(`  WebGL2 컴파일: ${results.length - failed.length}/${results.length} 통과`)
+
+      for (const [id] of titles) {
+        await page.goto(`${url}#/s/${id}?auto=0`)
+        await page.sleep(900)
+        const state = await page.evaluate('window.__sgStage()')
+        if (state?.error) err(`무대 셰이더 오류 ${id}: ${state.error}`)
+        else if (!state?.frames) err(`무대가 그리지 않음: ${id}`)
+      }
+      if (page.logs.length) warn(`페이지 오류 로그 ${page.logs.length}개: ${page.logs.slice(0, 3).join(' / ').slice(0, 400)}`)
+    },
+    { extraArgs: ['--host-resolver-rules=MAP * ~NOTFOUND'] },
+  )
+}
+
+async function checkSkill() {
+  const skillDir = join(ROOT, 'skill')
+  const entries = await skillEntries()
+  for (const entry of entries) {
+    const path = join(skillDir, entry.path)
+    if (!existsSync(path)) {
+      err(`Skill 이 최신이 아니다: ${entry.path} 없음. node tools/build-skill.mjs`)
+      return
+    }
+    if (readFileSync(path, 'utf8').replace(/\r\n/g, '\n') !== entry.content) {
+      err(`Skill 이 최신이 아니다: ${entry.path}. node tools/build-skill.mjs`)
+      return
+    }
+  }
+  console.log(`  Skill: 파일 ${entries.length}개 최신`)
+}
+
+async function checkLinks(ids) {
+  const urls = new Set()
+  for (const id of ids) for (const r of (await loadMeta(ROOT, id)).references) urls.add(r.url)
+  let bad = 0
+  for (const url of urls) {
+    try {
+      const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (ShaderGallery link check)' }, signal: AbortSignal.timeout(15000) })
+      if (r.status >= 400) throw new Error(String(r.status))
+    } catch (e) {
+      bad++
+      warn(`링크 확인 필요: ${e.message} ${url}`)
+    }
+  }
+  console.log(`  링크 ${urls.size}개 확인, 문제 ${bad}개`)
+}
+
+async function main() {
+  const args = process.argv.slice(2)
+  const only = args.filter(a => !a.startsWith('--'))
+  const all = specimenIds(ROOT)
+  const ids = only.length ? only : all
+  console.log('Shader Gallery 검사')
+  const titles = await checkSpecimens(ids)
+  console.log(`  표본 ${titles.length}개`)
+  for (const folder of readdirSync(SHADERS)) {
+    if (statSync(join(SHADERS, folder)).isDirectory() && !all.includes(folder)) err(`Assets/Shaders/${folder} 에 해당하는 meta.ts 가 없다`)
+  }
+  checkImportCase()
+  if (!only.length) {
+    await checkSkill()
+    await checkDist(titles)
+  }
+  if (args.includes('--links')) await checkLinks(ids)
+  for (const w of warnings) console.log(`  [경고] ${w}`)
+  for (const e of errors) console.log(`  [오류] ${e}`)
+  console.log(errors.length ? `실패: 오류 ${errors.length}개` : '통과')
+  return errors.length ? 1 : 0
+}
+
+main().then(
+  code => process.exit(code),
+  e => {
+    console.log('실패:', e.stack ?? e.message)
+    process.exit(2)
+  },
+)
