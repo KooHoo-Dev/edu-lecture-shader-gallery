@@ -15,7 +15,7 @@
 // 결과: _shots/unity/result.json 과 _shots/unity/<id>/<상태>.png. 오류가 있으면 종료 코드 1.
 
 import { spawn, spawnSync } from 'node:child_process'
-import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { closeSync, copyFileSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { basename, dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -50,7 +50,17 @@ function bridgeAlive() {
   return existsSync(heartbeat) && Date.now() - statSync(heartbeat).mtimeMs < HEARTBEAT_FRESH_MS
 }
 
-const editorOpen = () => existsSync(join(ROOT, 'Temp', 'UnityLockfile'))
+// 열린 에디터는 UnityLockfile 을 잠가 둔다. 비정상 종료로 남은 파일은 열리므로 에디터가 없는 것으로 본다.
+function editorOpen() {
+  const lock = join(ROOT, 'Temp', 'UnityLockfile')
+  if (!existsSync(lock)) return false
+  try {
+    closeSync(openSync(lock, 'r+'))
+    return false
+  } catch {
+    return true
+  }
+}
 
 async function runEditor(jobPath) {
   const id = String(Date.now())
