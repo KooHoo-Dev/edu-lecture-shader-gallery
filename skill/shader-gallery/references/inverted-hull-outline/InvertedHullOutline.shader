@@ -123,7 +123,8 @@ Shader "ShaderGallery/InvertedHullOutline"
                 UNITY_SETUP_INSTANCE_ID(v);
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(v);
                 float3 normalWS = normalize(v.normalWS);
-                Light light = GetMainLight(TransformWorldToShadowCoord(v.positionWS));
+                // 위치를 넘기는 형식이라야 그림자가 Max Distance 근처에서 서서히 사라진다.
+                Light light = GetMainLight(TransformWorldToShadowCoord(v.positionWS), v.positionWS, half4(1, 1, 1, 1));
                 float3 lightColor = light.color * light.shadowAttenuation;
                 float3 lighting = lightColor * saturate(dot(normalWS, light.direction)) + SampleSH(normalWS);
 

@@ -121,11 +121,10 @@ Shader "ShaderGallery/ToonRampLit"
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(v);
                 float3 normalWS = normalize(v.normalWS);
                 // 위치를 넘기는 형식이라야 그림자가 Max Distance 근처에서 서서히 사라진다.
-                // distanceAttenuation 은 광원의 Culling Mask 에서 빠진 물체면 0 이다.
+                // distanceAttenuation(광원 Culling Mask)은 곱하지 않는다. 갤러리 촬영 씬에서 0 으로 들어와 직사광이 사라졌다.
                 Light light = GetMainLight(TransformWorldToShadowCoord(v.positionWS), v.positionWS, half4(1, 1, 1, 1));
-                // 거리 감쇠와 그림자 감쇠를 빛 색에 곱해 넘긴다. core.hlsl 이 이 값으로 받는 그림자를 띠에 함께 넣는다.
-                // Culling Mask 에서 빠진 물체는 0 이 되어 전체가 그늘 띠가 된다. 빛을 받지 않으니 맞는 모습이다.
-                float3 lightColor = light.color * light.distanceAttenuation * light.shadowAttenuation;
+                // 그림자 감쇠를 빛 색에 곱해 넘긴다. core.hlsl 이 이 값으로 받는 그림자를 띠에 함께 넣는다.
+                float3 lightColor = light.color * light.shadowAttenuation;
                 float3 lighting = lightColor * saturate(dot(normalWS, light.direction)) + SampleSH(normalWS);
 
                 float4 c = sgEffect(makeInput(v, light.direction, lightColor, lighting));

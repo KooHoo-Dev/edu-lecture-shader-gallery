@@ -1,6 +1,6 @@
 ---
 name: shader-gallery
-description: "Unity URP 에 게임 셰이더 효과를 넣거나 변형하거나 고칠 때 쓴다. Unity 6.3 LTS, URP 17.3, HLSL 코드 셰이더 기준의 검증된 샘플과 설정 순서가 들어 있다. 포함된 효과: 램프 툰 조명(Toon Ramp Lit), 프레넬 림 빛(Fresnel Rim Glow), 삼평면 투영(Triplanar Projection), 디졸브(Dissolve Edge Glow), 껍데기 외곽선(Inverted Hull Outline), 역장 교차(Force Field Intersection), 스프라이트 외곽선 + 피격 번쩍임(Sprite Outline & Hit Flash), 화면 전환 와이프(Screen Transition Wipe). 비슷한 효과를 새로 만들 때도 기준 코드로 삼는다."
+description: "Unity URP 에 게임 셰이더 효과를 넣거나 변형하거나 고칠 때 쓴다. Unity 6.3 LTS, URP 17.3, HLSL 코드 셰이더 기준의 검증된 샘플과 설정 순서가 들어 있다. 포함된 효과: 램프 툰 조명(Toon Ramp Lit), 프레넬 림 빛(Fresnel Rim Glow), 삼평면 투영(Triplanar Projection), 디졸브(Dissolve Edge Glow), 껍데기 외곽선(Inverted Hull Outline), 바람 흔들림(Wind Sway Foliage), 플로 맵 액체(Flow Map Liquid), 역장 교차(Force Field Intersection), 홀로그램(Hologram Scanline Glitch), 스크롤·왜곡 에너지(Scroll Distort Energy), 스프라이트 외곽선 + 피격 번쩍임(Sprite Outline & Hit Flash), 팔레트 스왑(Palette Swap (LUT)), 타일 스크롤 패럴랙스(Tiling Scroll Parallax), SDF 도형(UI SDF Shape), 화면 전환 와이프(Screen Transition Wipe). 비슷한 효과를 새로 만들 때도 기준 코드로 삼는다."
 license: MIT
 compatibility: Unity 6.3 LTS (6000.3), Universal Render Pipeline 17.3
 metadata:
@@ -21,8 +21,15 @@ metadata:
 | `triplanar-projection` | 삼평면 투영 | 메시 | UV 없이 세 축에서 텍스처를 투영한다 |
 | `dissolve-edge-glow` | 디졸브 | 메시 | 노이즈와 임계값으로 물체를 태워 없앤다. 사망, 소환, 텔레포트 연출의 기본 |
 | `inverted-hull-outline` | 껍데기 외곽선 | 메시 | 조금 키운 껍데기의 뒷면을 한 번 더 그려 외곽선을 만든다 |
+| `wind-sway-foliage` | 바람 흔들림 | 메시 | 정점을 높이에 따라 흔들어 바람을 만든다 |
+| `flow-map-liquid` | 플로 맵 액체 | 메시 | 방향 텍스처로 UV 를 흘려 액체를 만든다 |
 | `force-field-intersection` | 역장 교차 | 깊이 사용 | 투명한 보호막이 다른 물체와 닿는 선을 깊이 비교로 밝힌다 |
+| `hologram-scanline-glitch` | 홀로그램 | 메시 | 스캔라인과 글리치로 홀로그램을 만든다 |
+| `scroll-distort-energy` | 스크롤·왜곡 에너지 | 메시 | 흐르는 무늬를 겹쳐 레이저와 마법 기운을 만든다 |
 | `sprite-outline-hit-flash` | 스프라이트 외곽선 + 피격 번쩍임 | 스프라이트 | 이웃 픽셀 알파로 외곽선을 그리고, 맞은 순간 단색으로 번쩍였다 돌아온다 |
+| `palette-swap-lut` | 팔레트 스왑 | 스프라이트 | 이미지 한 장으로 색 변형을 만든다 |
+| `tiling-scroll-parallax` | 타일 스크롤 패럴랙스 | 스프라이트 | UV 오프셋으로 끝없는 배경을 스크롤한다 |
+| `ui-sdf-shape` | SDF 도형 | 스프라이트 | 거리장으로 해상도와 상관없이 매끈한 도형을 그린다 |
 | `screen-transition-wipe` | 화면 전환 와이프 | 전체 화면 | 진행값과 순서 값을 비교해 화면을 덮고 걷는다. 원, 대각선, 마름모 격자를 한 셰이더로 |
 
 ## 진행 순서
