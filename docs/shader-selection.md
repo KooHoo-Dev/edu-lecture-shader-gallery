@@ -231,7 +231,7 @@
 #### 17. palette-swap-lut — 팔레트 스왑 (★2, 2순위, 근거 강~중)
 - **설명**: 스프라이트의 인덱스(그레이 단계)를 한 줄짜리 팔레트 텍스처로 바꿔 캐릭터 색 변형과 팀 컬러를 이미지 한 장으로 만든다.
 - **왜 자주 쓰나**: 스왑 텍스처 튜토리얼, 1×256 팔레트와 반 텍셀 오프셋 포럼 글, 오픈 소스 팔레트맵, 유료 에셋이 있다. Little Nemo 제작기가 조명 분위기를 바꾸는 팔레트 스왑을 커스텀 스프라이트 셰이더로 지원한다고 쓴다. 출처: https://code.tutsplus.com/how-to-use-a-shader-to-dynamically-swap-a-sprites-colors--cms-25129t (△) · https://discussions.unity.com/t/palette-swapping-shader-for-single-channels/676602 (△) · https://diesoft.games/2022/06/13/nemo-art-pipeline.html (△)
-- **대표 게임 예**: Little Nemo and the Guardians of Slumberland(제작기로 확인).
+- **대표 게임 예**: Little Nemo and the Guardians of Slumberland(제작기로 확인). 제작사 DIE SOFT, PC 출시 2026 (2026-11-02 리뷰에서 기사로 확인).
 - **무대**: 스프라이트.
 - **URP 핵심 기법**: 포인트 필터, 반 텍셀 오프셋 샘플, 스프라이트와 팔레트의 sRGB 설정, 머티리얼별 팔레트 텍스처.
 - **수업 연계**: 2D 08 Merge Game(단계별 색), 99 Rockman(클래식 팔레트 연출).

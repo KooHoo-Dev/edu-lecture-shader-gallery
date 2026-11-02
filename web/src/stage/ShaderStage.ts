@@ -320,7 +320,8 @@ class ShaderStage {
     if (shape === 'quad') return new THREE.PlaneGeometry(1, 1, 32, 32)
     if (shape === 'plane') return new THREE.PlaneGeometry(10, 10, 64, 64).rotateX(-Math.PI / 2)
     if (shape === 'grass') return grassGeometry()
-    return new THREE.SphereGeometry(0.5, 96, 64)
+    // 정점을 미는 표본은 Unity 기본 구와 비슷한 밀도로 그려 Unity 에서 보일 계단을 미리보기도 보여 준다
+    return specimen.meta.stage.vertex ? new THREE.SphereGeometry(0.5, 24, 16) : new THREE.SphereGeometry(0.5, 96, 64)
   }
 
   private build(specimen: Specimen) {
@@ -332,7 +333,8 @@ class ShaderStage {
     if (kind === 'mesh') {
       const place = LAYOUT.meshPlacement[specimen.meta.stage.mesh ?? 'sphere']
       const cutout = defaultBlend(specimen.meta) === 'cutout'
-      const floor = this.addFloor(cutout ? [] : [{ position: place.position, radius: place.shadow }])
+      // 잘라 내기 메시는 그림자 마스크로 그린다. 투명 메시는 Unity 에서 그림자를 드리우지 않으므로 그리지 않는다
+      const floor = this.addFloor([])
       const mesh = new THREE.Mesh(this.effectGeometry(specimen), material)
       mesh.position.set(...toThree(place.position))
       mesh.scale.setScalar(place.scale)

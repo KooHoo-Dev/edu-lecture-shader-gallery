@@ -118,17 +118,24 @@ namespace ShaderGallery.EditorTools
         }
 
         // 표본 폴더의 텍스처를 메타 데이터에 적힌 설정으로 불러온다. 설정이 다르면 .meta 를 고친다.
+        // 데이터 텍스처(linear)와 포인트 텍스처(팔레트, 인덱스)는 압축하면 값이 바뀌므로 압축하지 않는다.
+        // 포인트 텍스처는 밉맵도 끈다. 작은 단계에서 이웃 칸이 섞이면 번호가 틀어진다.
         static Texture2D LoadTexture(SgTextureValue t)
         {
             var importer = (TextureImporter)AssetImporter.GetAtPath(t.path);
             bool srgb = !t.linear;
             TextureWrapMode wrap = t.repeat ? TextureWrapMode.Repeat : TextureWrapMode.Clamp;
             FilterMode filter = t.point ? FilterMode.Point : FilterMode.Bilinear;
-            if (importer.sRGBTexture != srgb || importer.wrapMode != wrap || importer.filterMode != filter)
+            TextureImporterCompression compression = t.linear || t.point ? TextureImporterCompression.Uncompressed : TextureImporterCompression.Compressed;
+            bool mipmaps = !t.point;
+            if (importer.sRGBTexture != srgb || importer.wrapMode != wrap || importer.filterMode != filter
+                || importer.textureCompression != compression || importer.mipmapEnabled != mipmaps)
             {
                 importer.sRGBTexture = srgb;
                 importer.wrapMode = wrap;
                 importer.filterMode = filter;
+                importer.textureCompression = compression;
+                importer.mipmapEnabled = mipmaps;
                 importer.SaveAndReimport();
             }
             return AssetDatabase.LoadAssetAtPath<Texture2D>(t.path);

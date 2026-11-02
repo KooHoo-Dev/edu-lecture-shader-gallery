@@ -279,6 +279,12 @@ async function checkSpecimens(ids) {
     }
     const meta = await loadMeta(ROOT, id)
     titles.push([id, meta.title])
+    // PNG 는 HTML 에 base64 로 들어가 1.33배가 된다 (가이드 7절)
+    for (const file of readdirSync(folder).filter(f => f.toLowerCase().endsWith('.png'))) {
+      const kb = statSync(join(folder, file)).size / 1024
+      if (kb > 48) err(`${id}/${file}: PNG 가 ${kb.toFixed(0)}KB 다. 48KB 이하로 줄인다`)
+      else if (kb > 32) warn(`${id}/${file}: PNG 가 ${kb.toFixed(0)}KB 다. 32KB 이하를 권한다`)
+    }
     const corePath = join(folder, 'core.hlsl')
     const shaderPath = join(folder, meta.shaderFile)
     if (!existsSync(corePath)) {

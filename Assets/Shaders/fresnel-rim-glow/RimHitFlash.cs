@@ -37,7 +37,8 @@ namespace ShaderGallery.Samples
             {
                 return;
             }
-            if (Time.unscaledTime - lastFlashTime < minInterval)
+            // Inspector 에서 minInterval 을 낮춰도 0.34 초 아래로는 내려가지 않는다.
+            if (Time.unscaledTime - lastFlashTime < Mathf.Max(minInterval, 0.34f))
             {
                 return;
             }
@@ -61,8 +62,8 @@ namespace ShaderGallery.Samples
         void OnDisable()
         {
             // 번쩍이던 중에 꺼져도 밝은 채로 남지 않게 되돌린다.
+            // lastFlashTime 은 지우지 않는다. 껐다 켜는 것으로 초당 3 회 제한을 피하지 못하게 한다.
             StopAllCoroutines();
-            lastFlashTime = float.NegativeInfinity;
             if (material != null)
             {
                 material.SetFloat(HitFlash, 0f);
