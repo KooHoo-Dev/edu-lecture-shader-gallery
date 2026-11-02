@@ -67,6 +67,13 @@ function paramToUniform(def: ParamDef, value: unknown): number | THREE.Vector4 {
  */
 const spins = (shape: string | undefined) => shape !== 'quad' && shape !== 'plane' && shape !== 'grass'
 
+/** Unity 기본 Plane 은 위에서 볼 때 UV 가 180도 돌아 있다 (u 는 -X, v 는 -Z 쪽으로 커진다). 같게 맞춘다 */
+function unityPlaneUv(geometry: THREE.BufferGeometry) {
+  const uv = geometry.getAttribute('uv')
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, 1 - uv.getX(i), 1 - uv.getY(i))
+  return geometry
+}
+
 class ShaderStage {
   readonly canvas: HTMLCanvasElement
   private renderer: THREE.WebGLRenderer
@@ -318,7 +325,7 @@ class ShaderStage {
     if (shape === 'capsule') return new THREE.CapsuleGeometry(0.5, 1, 16, 48)
     if (shape === 'cylinder') return new THREE.CylinderGeometry(0.5, 0.5, 2, 64, 24)
     if (shape === 'quad') return new THREE.PlaneGeometry(1, 1, 32, 32)
-    if (shape === 'plane') return new THREE.PlaneGeometry(10, 10, 64, 64).rotateX(-Math.PI / 2)
+    if (shape === 'plane') return unityPlaneUv(new THREE.PlaneGeometry(10, 10, 64, 64).rotateX(-Math.PI / 2))
     if (shape === 'grass') return grassGeometry()
     // 정점을 미는 표본은 Unity 기본 구와 비슷한 밀도로 그려 Unity 에서 보일 계단을 미리보기도 보여 준다
     return specimen.meta.stage.vertex ? new THREE.SphereGeometry(0.5, 24, 16) : new THREE.SphereGeometry(0.5, 96, 64)
@@ -658,8 +665,10 @@ class ShaderStage {
     const stepping = this.settings.step > 0
     const blend = defaultBlend(this.specimen.meta)
     if (kind !== 'fullscreen' && blend !== 'cutout') {
-      // 단계 보기에서는 뒤 배경과 섞이지 않게 값을 그대로 보여 준다
+      // 단계 보기에서는 뒤 배경과 섞이지 않게 값을 그대로 보여 준다.
+      // 섞지 않으면 양면 메시의 뒷면이 그리는 순서에 따라 앞면을 덮으므로, 그동안만 깊이를 써서 앞면을 남긴다
       material.blending = stepping ? THREE.NoBlending : blend === 'additive' ? THREE.CustomBlending : THREE.NormalBlending
+      material.depthWrite = stepping
     }
 
     if (this.maskFloor) {

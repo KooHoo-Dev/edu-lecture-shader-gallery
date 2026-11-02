@@ -149,6 +149,8 @@ function checkWrapper(id, name, text, meta) {
     if (Boolean(meta.stage.doubleSided) !== /Cull\s+Off/.test(code) && kind !== 'sprite') err(`${where}: Cull Off 와 stage.doubleSided 가 맞지 않다`)
   }
   if (kind === 'mesh' && blend === 'cutout' && /"LightMode"\s*=\s*"UniversalForward"/.test(code)) err(`${where}: 불투명·잘라 내기 메시는 Deferred 에서도 그려지도록 UniversalForwardOnly 를 쓴다`)
+  // 그림자 좌표만 넘기는 형식은 그림자 거리 페이드와 Shadowmask 를 빼먹어 Max Distance 에서 그림자가 선을 긋고 끊긴다
+  if (/GetMainLight\s*\(\s*TransformWorldToShadowCoord\s*\([^()]*\)\s*\)/.test(code)) err(`${where}: GetMainLight 는 디졸브처럼 (shadowCoord, positionWS, half4(1, 1, 1, 1)) 형식으로 부른다`)
   if (meta.stage.ui) {
     // UGUI 의 UI 셰이더 구조. Overlay 캔버스는 첫 패스를 쓰고, Camera·World 캔버스는 URP 가 SRPDefaultUnlit 으로 그린다
     // 미리보기는 스프라이트 무대지만, 씬 색상을 읽는 UI(배경 흐림)는 깊이 무대를 쓴다
@@ -218,6 +220,10 @@ function checkMeta(id, meta, core, wrapper) {
   if (/\bsgSceneColor\s*\(/.test(core) && !meta.requires?.includes('opaque')) err(`${where}: 씬 색상을 쓰면 requires 에 'opaque' 를 넣는다`)
   if (/\bdepthDelta\b/.test(core) && !meta.requires?.includes('depth')) err(`${where}: 깊이를 쓰면 requires 에 'depth' 를 넣는다`)
   for (const m of core.matchAll(/\bSG_TEX\s*\(\s*(\w+)/g)) if (!textures.has(m[1])) err(`${where}: 텍스처 ${m[1]} 이 stage.textures 에 없다`)
+  // 내장 "gray" 는 sRGB 0.5 라 Linear 프로젝트에서 약 0.21 로 읽힌다. 0.5 를 0 으로 쓰는 데이터 텍스처는 칸이 비면 한쪽으로 쏠린다
+  for (const [name, texture] of Object.entries(meta.stage.textures ?? {})) {
+    if (texture.linear && new RegExp(`\\b${name}\\s*\\(\\s*"[^"]*"\\s*,\\s*2D\\s*\\)\\s*=\\s*"gr[ae]y"`).test(wrapper)) err(`${id}/${meta.shaderFile}: ${name} 는 sRGB 를 끈 텍스처라 기본값을 "linearGrey" 로 둔다`)
+  }
 
   // 단계 보기 번호와 SG_STEP 번호
   const coreSteps = [...core.matchAll(/\bSG_STEP\(\s*(\d+)\s*,/g)].map(m => Number(m[1]))

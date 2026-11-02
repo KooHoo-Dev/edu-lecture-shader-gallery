@@ -157,7 +157,7 @@ float effectNoise(float2 p)
 
 ### 3-4. 텍스처와 정점 변형
 
-- 텍스처는 `SG_TEX(_MyTex, uv)` 로만 읽는다. `_MyTex_TexelSize` 도 쓸 수 있다. 래퍼에는 `Properties` 에 `_MyTex ("이름", 2D) = "white" {}`, 그 아래에 `TEXTURE2D(_MyTex); SAMPLER(sampler_MyTex);` 와 `#define SG_TEX(name, uv) SAMPLE_TEXTURE2D(name, sampler##name, uv)`, `CBUFFER` 안에 `float4 _MyTex_TexelSize;` 를 둔다. 텍스처 파일은 표본 폴더에 두고 `meta.stage.textures` 에 적는다. 텍스처는 `meta.params` 에 넣지 않는다. 임포트 설정은 촬영 도구가 맞춘다. PNG 는 프롬프트에 넣을 수 없어 Skill zip 으로 전달되므로 `unity.setup` 에 임포트 설정(sRGB, Wrap Mode, Filter Mode)을 적는다.
+- 텍스처는 `SG_TEX(_MyTex, uv)` 로만 읽는다. `_MyTex_TexelSize` 도 쓸 수 있다. 래퍼에는 `Properties` 에 `_MyTex ("이름", 2D) = "white" {}`, 그 아래에 `TEXTURE2D(_MyTex); SAMPLER(sampler_MyTex);` 와 `#define SG_TEX(name, uv) SAMPLE_TEXTURE2D(name, sampler##name, uv)`, `CBUFFER` 안에 `float4 _MyTex_TexelSize;` 를 둔다. 텍스처 파일은 표본 폴더에 두고 `meta.stage.textures` 에 적는다. 텍스처는 `meta.params` 에 넣지 않는다. sRGB 를 끈 데이터 텍스처(`linear: true`)의 기본값은 `"gray"` 가 아니라 `"linearGrey"` 다. `"gray"` 는 sRGB 0.5 라 Linear 프로젝트에서 약 0.21 로 읽혀, 0.5 를 0 으로 쓰는 맵은 칸이 비었을 때 한쪽으로 쏠린다 (`tools/check.mjs` 가 잡는다). 임포트 설정은 촬영 도구가 맞춘다. PNG 는 프롬프트에 넣을 수 없어 Skill zip 으로 전달되므로 `unity.setup` 에 임포트 설정(sRGB, Wrap Mode, Filter Mode)을 적는다.
 - PNG 는 `tools/textures/<이름>.mjs` 에 무늬를 코드로 쓰고 `node tools/gen-texture.mjs <이름>` 으로 만든다. 모듈 형식은 `tools/gen-texture.mjs` 머리말에 있고, 노이즈 같은 공용 도구는 `tools/lib/texture-kit.mjs` 에 있다. 표본 잡은 자기 모듈 경로를 `writePaths` 에 넣고 직접 쓴다. PNG 는 HTML 에 그대로 들어가므로 128 정도로 작게 둔다. 만든 PNG 는 Read 로 열어 눈으로 본다.
 - 스프라이트의 `_MainTex` 크기는 `_MainTex_TexelSize` 를 믿을 수 없다 (렌더러 단위로 넘어와 머티리얼 버퍼와 어긋난다. 실제로 촬영에서 틀린 값이 나왔다). `i.texelSize` 를 쓴다.
 - 정점을 움직이는 표본은 `core.hlsl` 에 다음 함수를 두고 `meta.stage.vertex = true` 로 한다. 메시와 깊이 무대에서 쓸 수 있다. 움직인 뒤의 오브젝트 공간 위치를 돌려준다.
@@ -185,6 +185,7 @@ float effectNoise(float2 p)
 - `depthDelta` = 카메라에서 씬 표면까지 거리 - 카메라에서 이 픽셀까지 거리 (미터). 물체가 닿는 곳에서 0 에 가까워진다.
 - `fullscreen` 의 `uv` 는 왼쪽 아래가 (0, 0) 이고 위쪽이 1 이다. 화면비 보정은 `float2(aspect, 1.0)` 을 곱한다.
 - `positionOS` 는 오브젝트 공간. `sphere` 반지름 0.5, `capsule`, `cylinder` 높이 2, `cube`, `quad` 한 변 1 (`quad` 는 카메라 쪽으로 서 있다), `plane` 은 XZ 로 누운 한 변 10 이다. `plane` 은 Unity 기본 메시라 정점 간격이 1 이다. 정점 변형은 그만큼 거칠다.
+- Unity 기본 Plane 은 위에서 볼 때 UV 가 180도 돌아 있다. u 는 −X(카메라에서 보면 왼쪽), v 는 −Z(카메라 쪽)로 커진다. 웹도 같게 맞췄다 (촬영으로 확인). 텍스처 위쪽으로 흐르게 그린 맵은 기본 Plane 에서 카메라 쪽으로 흐르므로, UV 방향이 중요한 표본은 이 점을 `unity.pitfalls` 에 단정해서 적는다 (Y 180도 회전이나 Quad 로 맞춘다).
 - 웹도 위치, 법선, 방향을 Unity 좌표로 넘긴다 (three.js 의 z 를 뒤집는다). 월드나 오브젝트 좌표로 만든 무늬와 방향(바람 방향 등)이 두 화면에서 같다. 웹 무대의 메시는 three.js 가 만든 것이라 정점 수가 Unity 기본 메시와 다르다. `cube` 와 `grass` 만 같다. 정점을 미는 표본은 Unity 의 정점 간격을 기준으로 정한다.
 - `grass` 는 앱이 웹과 Unity 에서 같은 계산으로 만드는 풀 다발이다 (`web/src/stage/grass.ts`, `SgGrass.cs`). 잎 36장, 높이 0.7~1.2, 잎마다 세로 5칸, 뿌리가 y = 0, `uv.y` 는 뿌리 0 에서 끝 1, 법선은 잎의 앞쪽. 잎은 얇은 판이라 래퍼의 모든 패스를 `Cull Off` 로 하고 `stage.doubleSided: true` 로 둔다. 돌지 않으므로 오브젝트 공간 방향이 월드 방향과 같다.
 - 스프라이트는 높이 2 유닛에 맞고 폭은 텍스처 비율을 따른다.
@@ -201,7 +202,9 @@ float effectNoise(float2 p)
 
 **잘라 내기 메시의 그림자.** `mesh` 무대의 `cutout` 표본은 앱이 광원 쪽에서 `sgEffect` 를 한 번 더 돌려 그 알파로 바닥 그림자를 만든다 (Unity 의 `ShadowCaster` 패스에 해당). 구멍, 시간에 따른 변화, 정점 변형까지 따라오므로 표본이 따로 할 일은 없다. 단계 보기에서도 그림자는 최종 알파를 쓴다. 효과 끄기에서는 잘라 내기를 무시한 온전한 그림자가 나온다. 그림자 패스를 자르지 않는 흔한 실수이므로, 표본의 `SG_OFF` 와 `offNote` 는 이 모습과 어울리게 쓴다. `node tools/check.mjs <id>` 가 첫 자동 데모 트랙(없으면 첫 이벤트 트랙)을 양 끝으로 움직여, 평소에는 그림자가 따라 변하고 효과 끄기에서는 변하지 않는지 잰다. 알파를 자르지 않는 표본(마지막 `return` 의 알파가 `1.0`)은 값 변화 검사를 건너뛴다. `depth`, `fullscreen` 무대의 소품 그림자는 단순 근사이고, 투명 표본은 그림자를 만들지 않는 것이 맞다.
 
-불투명 표본은 `blend: 'cutout'` 으로 두고 항상 알파 1.0 을 돌려준다. 투명 메시는 샘플이 없다. 역장의 래퍼에서 깊이 관련 줄을 빼고 `SgInput` 을 메시 형식으로 바꾼 뒤, `"LightMode" = "UniversalForward"` 패스 하나로 쓴다. 웹 쪽 입력은 `stage.kind` 를 따르므로 `kind: 'mesh'` 와 `blend` 를 함께 적는다. 양면을 그리면 래퍼에 `Cull Off`, 메타에 `stage.doubleSided: true` 를 둔다.
+불투명 표본은 `blend: 'cutout'` 으로 두고 항상 알파 1.0 을 돌려준다. 투명 메시는 샘플이 없다. 역장의 래퍼에서 깊이 관련 줄을 빼고 `SgInput` 을 메시 형식으로 바꾼 뒤, `"LightMode" = "UniversalForward"` 패스 하나로 쓴다. 웹 쪽 입력은 `stage.kind` 를 따르므로 `kind: 'mesh'` 와 `blend` 를 함께 적는다. 양면을 그리면 래퍼에 `Cull Off`, 메타에 `stage.doubleSided: true` 를 둔다. 단계 보기는 혼합 없이 값을 그대로 보여 주고 그동안만 깊이를 써서 앞면이 보인다. 웹 무대는 투명 메시에 바닥 그림자를 그리지 않는다.
+
+**안개.** 샘플 래퍼는 아직 안개를 처리하지 않는다. Fog 를 켠 씬에서 먼 물체가 그대로 보이므로, 넓은 공간에 쓰일 표본은 `unity.pitfalls` 에 적고 변형 예시로 처리 방법을 안내한다: 불투명과 알파 혼합은 `MixFog(color, fogFactor)`, 더하기 혼합은 안개 색 대신 0 으로 사라져야 하므로 `MixFogColor(color, half3(0, 0, 0), fogFactor)`. 둘 다 `#pragma multi_compile_fog` 와 정점의 `ComputeFogFactor(positionCS.z)` 가 필요하다.
 
 ### 래퍼 규칙
 
@@ -209,6 +212,7 @@ float effectNoise(float2 p)
 - 머티리얼 값은 전부 `CBUFFER_START(UnityPerMaterial)` 안에 둔다 (SRP Batcher). 텍스처 선언(`TEXTURE2D`, `SAMPLER`)은 밖에 둔다.
 - 샘플의 XR 매크로(`UNITY_VERTEX_INPUT_INSTANCE_ID` 등)와 `#pragma multi_compile_instancing` 을 지우지 않는다. 수업 XR 프로젝트에서 쓴다.
 - 메시 잘라 내기 표본은 `Forward`, `ShadowCaster`, `DepthOnly`, `DepthNormals` 네 패스를 모두 유지한다. 알파로 자르는 부분이 그림자와 깊이에 빠지면 사라진 자리에 그림자가 남는다. 투명 표본은 `Forward` 패스 하나면 된다.
+- 빛을 받는 메시 래퍼는 디졸브처럼 `GetMainLight(TransformWorldToShadowCoord(positionWS), positionWS, half4(1, 1, 1, 1))` 로 주 광원을 받는다. 그림자 좌표만 넘기는 형식은 그림자 거리 페이드와 Shadowmask 가 빠져 Max Distance 에서 그림자가 선을 긋고 끊긴다 (`tools/check.mjs` 가 잡는다).
 - 불투명, 잘라 내기 메시의 `Forward` 패스 태그는 `UniversalForwardOnly`, 노멀 패스 태그는 `DepthNormalsOnly` 다. `UniversalForward` 만 있으면 Deferred 렌더 경로에서 오류 없이 사라진다.
 - 스프라이트 표본은 `Universal2D` 와 `UniversalForward` 두 패스를 유지한다. 2D Renderer 는 `Universal2D` 와 `SRPDefaultUnlit` 만 그리고 Universal Renderer 는 `UniversalForward` 만 그린다. 둘 다 촬영으로 확인했다.
 - 메시, 깊이 표본의 패스는 2D Renderer 에서 그려지지 않는다 (`Universal2D`, `SRPDefaultUnlit` 만 그린다). 3D 프로젝트용이라고 `unity.pitfalls` 에 적는다. 예외로 외곽선 패스(`SRPDefaultUnlit`)는 그려지므로 외곽선 표본은 본체 없이 외곽선 색 덩어리만 보인다.
@@ -391,4 +395,5 @@ node tools/check.mjs
 - 브라우저 패널이 화면에 안 보이면 rAF 가 0 이다. 애니메이션 확인은 `live.mjs` 로 한다.
 - `_Time` 은 편집 모드에서 제어할 수 없어 시간을 쓰는 표본의 스크린샷은 찍을 때마다 조금 다르다. 시간과 상관없이 기본값 화면이 의미 있게 보이도록 만든다.
 - URP 의 `_Time` 은 Play 중에는 `Time.time` 이라 `Time.timeScale` 을 따른다 (0 이면 멈춘다). 편집 모드에서만 실제 시간으로 흐른다. 일시정지 중에도 흘러야 하는 값은 C# 에서 `Time.unscaledDeltaTime` 을 쌓아 넘긴다.
-- 시간이나 카메라 위치로 계속 커지는 오프셋은 float 정밀도가 떨어져 오래 켜 두면 떨린다. 셰이더나 C# 에서 한 주기로 감싼다 (`frac`, `Mathf.Repeat`).
+- 시간이나 카메라 위치로 계속 커지는 오프셋은 float 정밀도가 떨어져 오래 켜 두면 떨린다. 셰이더나 C# 에서 한 주기로 감싼다 (`frac`, `Mathf.Repeat`). 텍스처 주기가 1 이고 화면 전체에 같은 값(`_Time.y * 속도`)이면 `frac` 으로 감싸도 결과와 미분이 같다.
+- `_Time.y * 속도` 로 흐르는 무늬는 실행 중에 속도를 바꾸면 그동안 흐른 시간에 변화량이 곱해져 한 번에 튄다. 속도를 연출로 바꾸는 표본은 C# 에서 오프셋을 쌓아 넘기는 방법을 해설이나 `mistakes` 에 적는다.

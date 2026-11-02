@@ -236,7 +236,7 @@ namespace ShaderGallery.EditorTools
                     go = AddMesh(stage, "New-Capsule.fbx", material, new Vector3(0f, depth ? 0.6f : 1f, 0f), depth ? 1.4f : 1f);
                     break;
                 case "cylinder":
-                    go = AddMesh(stage, "New-Cylinder.fbx", material, new Vector3(0f, depth ? 0.6f : 1f, 0f), depth ? 1.4f : 1f);
+                    go = AddMesh(stage, "New-Cylinder.fbx", material, new Vector3(0f, depth ? 0.6f : 0.8f, 0f), depth ? 1.4f : 0.8f);
                     break;
                 case "cube":
                     go = AddMesh(stage, "Cube.fbx", material, new Vector3(0f, depth ? 0.5f : 0.75f, 0f), depth ? 1.6f : 1.2f);

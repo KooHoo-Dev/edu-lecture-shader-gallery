@@ -26,7 +26,8 @@ export const LAYOUT = {
   meshPlacement: {
     sphere: { position: [0, 0.85, 0], scale: 1.5, shadow: 0.75 },
     capsule: { position: [0, 1, 0], scale: 1, shadow: 0.5 },
-    cylinder: { position: [0, 1, 0], scale: 1, shadow: 0.5 },
+    // 높이 2 라 크기 1 이면 윗끝이 화면 밖으로 나간다
+    cylinder: { position: [0, 0.8, 0], scale: 0.8, shadow: 0.4 },
     cube: { position: [0, 0.75, 0], scale: 1.2, shadow: 0.7 },
     quad: { position: [0, 0.85, 0], scale: 1.6, shadow: 0.1 },
     plane: { position: [0, 0.5, 0], scale: 0.3, shadow: 0 },
