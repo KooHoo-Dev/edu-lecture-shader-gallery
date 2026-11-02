@@ -9,7 +9,7 @@
 
 ## 0. 요약
 
-7그룹 24개. 확정된 샘플 4개(S 표시)를 포함한다. 아래 ID는 확정된 영구 ID다. 공개 후에는 바꾸지 않는다.
+7그룹 26개. 확정된 샘플 4개(S 표시)를 포함한다. 아래 ID는 확정된 영구 ID다. 공개 후에는 바꾸지 않는다. 2026-11-03 에 Jay 요청으로 가장 기본이 되는 물과 불(25, 26번)을 더했다.
 
 | 그룹 | ID | 난이도 | 우선 | 근거 | 무대 |
 |---|---|---|---|---|---|
@@ -20,11 +20,13 @@
 | 상태 피드백 | `dissolve-edge-glow` **S** | ★2 | 1 | 강 | 메시 |
 | | `inverted-hull-outline` | ★2 | 2 | 중 | 메시 |
 | | `xray-occluded-silhouette` | ★2 | 1 | 강 | 깊이 사용 |
-| 자연 | `water-depth-foam` | ★3 | 1 | 강 | 깊이 사용 |
+| 자연 | `water-wave-surface` | ★1 | 추가 | 강 | 메시 |
+| | `water-depth-foam` | ★3 | 1 | 강 | 깊이 사용 |
 | | `wind-sway-foliage` | ★2 | 1 | 강 | 메시 |
 | | `flow-map-liquid` | ★2 | 2 | 강 | 메시 |
 | | `surface-wet-snow` | ★2 | 2 | 중 | 메시 |
-| VFX | `force-field-intersection` **S** | ★3 | 1 | 강 | 깊이 사용 |
+| VFX | `fire-noise-flame` | ★1 | 추가 | 강~중 | 메시 |
+| | `force-field-intersection` **S** | ★3 | 1 | 강 | 깊이 사용 |
 | | `screen-shockwave-distortion` | ★3 | 2 | 중 | 전체 화면 |
 | | `hologram-scanline-glitch` | ★2 | 2 | 중~강 | 메시 |
 | | `scroll-distort-energy` | ★2 | 2 | 중 | 메시 |
@@ -141,7 +143,7 @@
 - **수업 연계**: XR 10 MR Portal의 `PortalMask`(스텐실), XR 11 MR Room의 `Occlusion`(깊이만 쓰기). 같은 도구(Stencil, ZTest)를 쓰는 짝이다. 3D 17 FPS Game.
 - **core.hlsl**: △ (ZTest와 렌더러 기능이 본질, core는 색 계산). **XR ○** (깊이 텍스처 복사가 필요 없는 깊이 버퍼 테스트라고 판단, 추정).
 
-### 자연 (4개)
+### 자연 (5개)
 
 #### 8. water-depth-foam — 깊이 기반 물가 거품 (★3, 1순위, 근거 강)
 - **설명**: 물 표면이 지형이나 물체와 만나는 곳에 깊이 차이로 거품 띠를 그리고 얕은 곳을 투명하게 한다.
@@ -179,7 +181,25 @@
 - **수업 연계**: 3D 01 Rendering(머티리얼·텍스처), 05 Terrain.
 - **core.hlsl**: ○ (색·스무드니스 출력 계산이 core). **XR ○** (모바일 XR은 Lit 비용 주의).
 
-### VFX (4개)
+#### 25. water-wave-surface — 물결 수면 (★1, 추가, 근거 강)
+- **설명**: 사인파 몇 개를 더해 평면 정점을 오르내리게 하고, 같은 식의 도함수로 법선을 구해 조명을 맞춘다. 프레넬로 물빛과 하늘빛을 섞고 주 광원 반사광을 얹는다. 깊이 텍스처 없이 되는 가장 기본 물이다.
+- **왜 자주 쓰나**: GPU Gems 1장(Mark Finch, Cyan Worlds)이 사인파 합으로 수면을 만들고 법선을 도함수로 바로 구하는 방법을 설명하고, 이 방식을 Uru: Ages Beyond Myst 에 썼다고 밝힌다. 같은 장이 Gerstner 파도도 다룬다. Catlike Coding 의 Unity 튜토리얼이 같은 순서(사인파 → 법선 → Gerstner)를 따른다. 출처: https://developer.nvidia.com/gpugems/gpugems/part-i-natural-effects/chapter-1-effective-water-simulation-physical-models (○, 2026-11-03 열람) · https://catlikecoding.com/unity/tutorials/flow/waves/ (△)
+- **대표 게임 예**: Uru: Ages Beyond Myst(GPU Gems 1장 본문으로 확인). 출시 2003, 제작 Cyan Worlds.
+- **무대**: 메시(평면).
+- **URP 핵심 기법**: 정점 셰이더 변위, 사인파 합, 도함수로 법선 다시 계산, 프레넬, Blinn-Phong 반사광(`GetMainLight`), 알파 혼합.
+- **수업 연계**: XR 01 Lake Shader(Step1~7: 파동, 법선맵 두 장, 프레넬, 반사)의 앞부분을 한 장에 모은 기초편이다. 깊이 거품은 `water-depth-foam`이 이어받는다. 3D 05 Terrain Island.
+- **core.hlsl**: ◎ (파도와 색 계산이 core). **XR ○** (정점 수가 많은 수면 메시는 비용 주의).
+
+### VFX (5개)
+
+#### 26. fire-noise-flame — 노이즈 불꽃 (★1, 추가, 근거 강~중)
+- **설명**: 같은 노이즈 텍스처를 크기와 속도를 달리해 두 층 위로 흘려 곱하고, 부드러운 불꽃 모양 마스크로 깎은 뒤 세기에 따라 노랑, 주황, 빨강을 입혀 더하기 혼합으로 그린다. 시뮬레이션 없이 셰이더만으로 만드는 가장 기본 불이다.
+- **왜 자주 쓰나**: Julian Love(Blizzard)의 GDC 2013 Technical Artist Bootcamp 발표 "The VFX of Diablo" 가 같은 노이즈 텍스처 여러 장을 곱하는 공식(Tex1.a × Tex2.a × 2)을 보여 주고, JangaFX 의 분석 글이 이를 크기 0.5·1·2 로 흘린 같은 노이즈 층과 모양을 잡는 부드러운 마스크로 재현한다. 출처: https://gdcvault.com/play/1017660/Technical-Artist-Bootcamp-The-VFX (△, 세션 제목과 발표자만 확인) · https://jangafx.com/insights/diablo-3-vfx-experiments (○, 2026-11-03 열람)
+- **대표 게임 예**: Diablo III(GDC 2013 발표와 분석 글로 확인). 출시 2012, 제작 Blizzard Entertainment.
+- **무대**: 메시(Quad).
+- **URP 핵심 기법**: UV 패닝 두 층(크기와 속도가 다름), 노이즈 곱, UV 기반 모양 마스크, `smoothstep` 으로 깎기, 세기 → 색 그라데이션, 가산 블렌드, `ZWrite Off`.
+- **수업 연계**: 3D 07 External Assets 와 2D 의 MagicArsenal 같은 이펙트 팩의 불꽃이 같은 원리를 쓴다. `scroll-distort-energy`(흐르는 층과 왜곡)와 `dissolve-edge-glow`(노이즈 임계값 깎기)의 기초편이다.
+- **core.hlsl**: ◎. **XR ○** (가산 블렌드 과드로우 주의).
 
 #### 12. force-field-intersection — 역장 교차 (★3, 1순위, 샘플 S, 근거 강)
 - **설명**: 반투명 보호막이 다른 물체와 닿는 선을 깊이 비교로 밝히고, 프레넬 테두리와 육각 패턴, 충돌 맥동을 더한다.
@@ -311,6 +331,7 @@ UI 표본은 UGUI에서 쓰는 것을 기본으로 한다. 정점 색과 UV를 �
 - **1순위 (12개)**: 샘플 4개(`dissolve-edge-glow`, `sprite-outline-hit-flash`, `force-field-intersection`, `screen-transition-wipe`)와 `toon-ramp-lit`, `fresnel-rim-glow`, `triplanar-projection`, `xray-occluded-silhouette`, `water-depth-foam`, `wind-sway-foliage`, `ui-sdf-shape`, `screen-vignette`. 근거가 강하고 수업 연계가 크며 규격 검증(메시, 깊이, 스프라이트, 전체 화면, UI)을 모두 덮는다.
 - **2순위 (10개)**: `screen-refraction-glass`, `inverted-hull-outline`, `flow-map-liquid`, `surface-wet-snow`, `screen-shockwave-distortion`, `hologram-scanline-glitch`, `scroll-distort-energy`, `palette-swap-lut`, `ui-sheen-sweep`, `depth-normal-edge-outline`.
 - **3순위 (2개)**: `tiling-scroll-parallax`(근거 약), `ui-backdrop-blur`(Overlay 제약, ★3). 앞 묶음을 보고 교체 여부를 정한다.
+- **추가 (2개, 2026-11-03)**: `water-wave-surface`, `fire-noise-flame`. 24개를 다 만든 뒤 Jay 가 "가장 기본이 되는 물과 불" 을 요청했다. 둘 다 ★1 기초편이고 그룹에서 가장 앞에 둔다.
 
 ## 4. 5단계 제작 묶음 제안
 
@@ -323,6 +344,8 @@ UI 표본은 UGUI에서 쓰는 것을 기본으로 한다. 정점 색과 UV를 �
 | **3. 2D 스프라이트·UI** | `palette-swap-lut`, `tiling-scroll-parallax`, `ui-sdf-shape`, `ui-sheen-sweep` | 스프라이트 무대를 공유하고 1-2절의 2D Renderer 규격(패스 태그, 인스턴스 머티리얼, 패딩)을 한꺼번에 시험한다. 샘플 `sprite-outline-hit-flash`가 먼저 규격을 증명해야 한다. |
 | **4. 월드 정보·화면 기초** | `water-depth-foam`, `xray-occluded-silhouette`, `surface-wet-snow`, `screen-vignette` | 깊이, 월드 법선, 렌더러 기능(Render Objects, Full Screen Pass)의 첫 본격 사용이다. 샘플 `force-field-intersection`과 `screen-transition-wipe`가 깊이와 전체 화면 경로를 먼저 증명한 뒤에 만든다. |
 | **5. 씬 컬러·깊이·법선 사용** | `screen-refraction-glass`, `screen-shockwave-distortion`, `depth-normal-edge-outline`, `ui-backdrop-blur` | Opaque Texture 의존과 모바일 XR·2D Renderer 제약이 몰려 있다. 앞 묶음에서 제약(7절 1~3번)이 정리된 뒤 마지막에 만든다. |
+
+묶음 6(2026-11-03 추가)은 `water-wave-surface`, `fire-noise-flame` 이다. 둘 다 메시 무대에 깊이 의존이 없어 앞 묶음과 상관없이 만든다.
 
 묶음 1~3은 서로 독립이라 병렬로 진행할 수 있다. 4는 3-6 샘플 뒤, 5는 4 뒤가 좋다. 묶음 5는 통째로 보류하거나 일부를 교체해도 앞 묶음에 영향이 없다.
 

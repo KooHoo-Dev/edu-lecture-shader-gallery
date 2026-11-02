@@ -5,7 +5,7 @@ export const meta: SpecimenMeta = {
   title: '깊이 기반 물가 거품',
   titleEn: 'Water Depth Foam',
   group: 'C',
-  order: 1,
+  order: 2,
   oneLiner: '물체와 만나는 곳에 거품 띠를 그린다',
   goals: [
     '씬 깊이와 수면 깊이의 차이(`depthDelta`)로 물체와 만나는 물가를 찾아 거품 띠를 그릴 수 있다.',

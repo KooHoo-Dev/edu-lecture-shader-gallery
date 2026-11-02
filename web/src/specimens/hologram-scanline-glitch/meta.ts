@@ -5,7 +5,7 @@ export const meta: SpecimenMeta = {
   title: '홀로그램',
   titleEn: 'Hologram Scanline Glitch',
   group: 'D',
-  order: 3,
+  order: 4,
   oneLiner: '스캔라인과 글리치로 홀로그램을 만든다',
   goals: [
     '월드 높이(`positionWS.y`)로 메시 이음매와 회전에 상관없이 이어지는 스캔라인을 그릴 수 있다.',

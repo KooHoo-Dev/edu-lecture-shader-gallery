@@ -5,7 +5,7 @@ export const meta: SpecimenMeta = {
   title: '역장 교차',
   titleEn: 'Force Field Intersection',
   group: 'D',
-  order: 1,
+  order: 2,
   oneLiner: '투명한 보호막이 다른 물체와 닿는 선을 깊이 비교로 밝힌다',
   goals: [
     '씬 깊이와 픽셀 깊이의 차이로 다른 물체와의 거리를 구할 수 있다.',

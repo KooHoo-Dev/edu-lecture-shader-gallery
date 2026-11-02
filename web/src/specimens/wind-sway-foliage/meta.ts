@@ -5,7 +5,7 @@ export const meta: SpecimenMeta = {
   title: '바람 흔들림',
   titleEn: 'Wind Sway Foliage',
   group: 'C',
-  order: 2,
+  order: 3,
   oneLiner: '정점을 높이에 따라 흔들어 바람을 만든다',
   goals: [
     '`uv.y` 로 만든 마스크로 뿌리는 고정하고 끝만 크게 미는 정점 셰이더를 쓸 수 있다.',

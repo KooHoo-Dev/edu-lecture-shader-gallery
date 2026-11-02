@@ -5,7 +5,7 @@ export const meta: SpecimenMeta = {
   title: '충격파 왜곡',
   titleEn: 'Screen Shockwave Distortion',
   group: 'D',
-  order: 2,
+  order: 3,
   oneLiner: '퍼지는 고리 모양으로 화면을 왜곡한다',
   goals: [
     '중심 거리와 반경을 비교해 부드러운 고리 마스크를 만들 수 있다.',

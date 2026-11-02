@@ -5,7 +5,7 @@ export const meta: SpecimenMeta = {
   title: '젖음과 눈 쌓임',
   titleEn: 'Surface Wetness and Snow',
   group: 'C',
-  order: 4,
+  order: 5,
   oneLiner: '윗면에 젖은 느낌이나 눈을 얹는다',
   goals: [
     '월드 법선의 `y` 성분으로 위를 보는 면만 고르는 마스크를 만들 수 있다.',

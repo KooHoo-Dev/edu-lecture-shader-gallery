@@ -8,7 +8,7 @@ export const meta: SpecimenMeta = {
   title: '스크롤·왜곡 에너지',
   titleEn: 'Scroll Distort Energy',
   group: 'D',
-  order: 4,
+  order: 5,
   oneLiner: '흐르는 무늬를 겹쳐 레이저와 마법 기운을 만든다',
   goals: [
     'UV 에 시간을 더해 텍스처를 흘리고, 크기와 방향이 다른 두 레이어를 겹쳐 무늬가 계속 바뀌게 할 수 있다.',

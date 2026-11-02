@@ -5,7 +5,7 @@ export const meta: SpecimenMeta = {
   title: '플로 맵 액체',
   titleEn: 'Flow Map Liquid',
   group: 'C',
-  order: 3,
+  order: 4,
   oneLiner: '방향 텍스처로 UV 를 흘려 액체를 만든다',
   goals: [
     '플로 맵의 RG 값을 -1~1 방향으로 되돌려 UV 를 흘리는 원리를 설명할 수 있다.',
