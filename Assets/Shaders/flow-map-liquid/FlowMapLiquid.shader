@@ -5,7 +5,8 @@ Shader "ShaderGallery/FlowMapLiquid"
     Properties
     {
         // 플로 맵은 메시 UV 0~1 에 한 번 깔고, 무늬는 무늬 크기로 반복하므로 _ST(Tiling, Offset)는 쓰지 않는다.
-        [NoScaleOffset] _FlowTex ("플로 맵 (RG 방향, sRGB 끔)", 2D) = "gray" {}
+        // linearGrey: 칸이 비면 RG 가 정확히 0.5(멈춤)로 읽힌다. "gray" 는 sRGB 0.5 라 Linear 프로젝트에서 약 0.21 이 되어 한쪽으로 흐른다.
+        [NoScaleOffset] _FlowTex ("플로 맵 (RG 방향, B 위상 노이즈, sRGB 끔)", 2D) = "linearGrey" {}
         [NoScaleOffset] _PatternTex ("흘릴 무늬", 2D) = "white" {}
         _FlowStrength ("흐름 세기", Range(0, 0.4)) = 0.12
         _Speed ("속도", Range(0, 2)) = 0.5
@@ -133,7 +134,8 @@ Shader "ShaderGallery/FlowMapLiquid"
                 UNITY_SETUP_INSTANCE_ID(v);
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(v);
                 float3 normalWS = normalize(v.normalWS);
-                Light light = GetMainLight(TransformWorldToShadowCoord(v.positionWS));
+                // 위치와 Shadowmask 까지 넘겨야 그림자 거리 페이드가 들어가 Max Distance 에서 그림자가 선을 긋고 끊기지 않는다.
+                Light light = GetMainLight(TransformWorldToShadowCoord(v.positionWS), v.positionWS, half4(1, 1, 1, 1));
                 float3 lightColor = light.color * light.shadowAttenuation;
                 float3 lighting = lightColor * saturate(dot(normalWS, light.direction)) + SampleSH(normalWS);
 

@@ -5,27 +5,6 @@
 #define SG_STEP(n, rgb)
 #endif
 
-// 0~1 격자 난수 (2D)
-float flowHash(float2 p)
-{
-    float3 q = frac(float3(p.x, p.y, p.x) * 0.1031);
-    q = q + dot(q, q.yzx + 33.33);
-    return frac((q.x + q.y) * q.z);
-}
-
-// 값 노이즈 (2D). 위상을 자리마다 조금씩 어긋나게 하는 데만 쓴다.
-float flowNoise(float2 p)
-{
-    float2 cell = floor(p);
-    float2 f = frac(p);
-    f = f * f * (3.0 - 2.0 * f);
-    float a = flowHash(cell);
-    float b = flowHash(cell + float2(1.0, 0.0));
-    float c = flowHash(cell + float2(0.0, 1.0));
-    float d = flowHash(cell + float2(1.0, 1.0));
-    return lerp(lerp(a, b, f.x), lerp(c, d, f.x), f.y);
-}
-
 // 위상 하나로 무늬를 읽는다. 위상이 0 에서 1 로 가는 동안 읽는 자리를 흐름 반대쪽으로 옮기므로
 // 무늬는 흐름 방향으로 밀려 간다. 흐름이 자리마다 달라 오래 밀수록 무늬가 늘어나고 찢어진다.
 // 흐름은 표면 UV 단위라 무늬 크기를 바꿔도 흐르는 거리는 같다.
@@ -46,7 +25,9 @@ float4 sgEffect(SgInput i)
 {
     // 1. 플로 맵: RG 에 UV 공간 흐름 방향이 0~1 로 들어 있다. 0.5 가 멈춤이라 2 를 곱하고 1 을 빼서 -1~1 로 되돌린다.
     //    데이터 텍스처라 sRGB 를 끄고 읽어야 0.5 가 그대로 0.5 로 들어온다.
-    float2 raw = SG_TEX(_FlowTex, i.uv).rg;
+    //    B 에는 위상 노이즈가 들어 있다. 같은 읽기로 함께 가져온다.
+    float3 flowTexel = SG_TEX(_FlowTex, i.uv).rgb;
+    float2 raw = flowTexel.xy;
     SG_STEP(1, float3(raw.x, raw.y, 0.0));
     float2 flow = (raw * 2.0 - 1.0) * _FlowStrength;
     float t = i.time * _Speed;
@@ -60,8 +41,9 @@ float4 sgEffect(SgInput i)
 #endif
 
     // 위상 노이즈: 자리마다 위상을 다르게 시작해 튀는(가중치가 바뀌는) 순간이 표면 전체에 몰리지 않게 한다.
-    // 값 노이즈는 0.5 근처에 몰리므로 넓혀서 쓴다.
-    float n = saturate((flowNoise(i.uv * 7.0) - 0.2) / 0.6) * _PhaseNoise;
+    // 플로 맵 B 에 0~1 로 넓혀 담아 두었다. 텍스처라 0~1 에서 반복하므로 평면을 이어 깔아도 경계에서 위상이 맞고,
+    // 셰이더가 노이즈를 계산하지 않아 가볍다.
+    float n = flowTexel.z * _PhaseNoise;
     float phaseA = frac(t + n);
     // 두 번째 층은 반 주기 어긋난다. 한 층이 튀는 순간 다른 층은 한가운데(가중치 1)에 있다.
     float phaseB = frac(t + n + 0.5);

@@ -28,7 +28,7 @@ export const meta: SpecimenMeta = {
   params: [
     { key: '_FlowStrength', label: '흐름 세기', type: 'range', min: 0, max: 0.4, step: 0.01, default: 0.12, hint: '한 주기 동안 무늬가 밀려 가는 거리(평면 한 변에 대한 비율). 크면 멀리 흐르는 대신 무늬가 길게 늘어나고 찢어진다. 0 이면 멈춘다' },
     { key: '_Speed', label: '속도', type: 'range', min: 0, max: 2, step: 0.05, default: 0.5, hint: '1초에 도는 주기 수. 세기를 그대로 두고 올리면 같은 늘어남으로 더 빨리 흐른다' },
-    { key: '_PatternScale', label: '무늬 반복 수', type: 'range', min: 1, max: 8, step: 0.5, default: 3, hint: '평면 한 변에 무늬 텍스처가 몇 번 반복되는지. 클수록 세포가 잘다. 흐르는 거리는 그대로라 무늬에 견줘 더 많이 늘어난다' },
+    { key: '_PatternScale', label: '무늬 반복 수', type: 'range', min: 1, max: 8, step: 1, default: 3, hint: '평면 한 변에 무늬 텍스처가 몇 번 반복되는지. 클수록 세포가 잘다. 흐르는 거리는 그대로라 무늬에 견줘 더 많이 늘어난다. 정수여야 평면을 이어 깔았을 때 경계에서 무늬가 맞는다' },
     { key: '_PhaseNoise', label: '위상 노이즈', type: 'range', min: 0, max: 1, step: 0.05, default: 1, hint: '자리마다 위상을 어긋나게 하는 양. 0 이면 표면 전체가 같은 순간에 흐려졌다 또렷해지기를 되풀이한다' },
     { key: '_DeepColor', label: '어두운 색', type: 'color', default: '#2b0a05', hint: '무늬의 어두운 부분 (용암의 식은 껍질, 깊은 물)' },
     { key: '_BrightColor', label: '밝은 색', type: 'color', default: '#ff6a14', hint: '무늬의 밝은 실금 (용암의 갈라진 틈, 물의 거품)' },
@@ -46,22 +46,22 @@ export const meta: SpecimenMeta = {
     loops: [{ key: '_FlowStrength', frames: [[0, 0.12], [3, 0.3], [4.5, 0.3], [7.5, 0.04], [9, 0.04], [11, 0.12]], ease: 'inOutSine' }],
   },
   steps: [
-    { n: 1, label: '플로 맵', body: '플로 맵 텍스처의 R, G 를 그대로 색으로 본다. R 은 u(화면 오른쪽), G 는 v(화면 안쪽) 방향 흐름이고 0.5 가 멈춤이다. 멈춘 곳은 앞쪽 가장자리처럼 노랗게 보인다. 앞쪽 가운데의 주황은 오른쪽으로, 오른쪽의 연두는 안쪽으로, 먼 쪽의 초록은 왼쪽으로, 왼쪽의 빨강은 카메라 쪽으로 흐른다는 뜻이다. 이어 보면 위에서 내려다볼 때 가운데를 중심으로 반시계 방향으로 도는 소용돌이다.' },
+    { n: 1, label: '플로 맵', body: '플로 맵 텍스처의 R, G 를 그대로 색으로 본다. R 은 u, G 는 v 방향 흐름이고 0.5 가 멈춤이다. 이 평면은 Unity 기본 Plane 과 UV 가 같아 u 는 화면 왼쪽, v 는 카메라 쪽으로 커진다. 그래서 빨강이 강하면 왼쪽으로, 초록이 강하면 카메라 쪽으로 흐르고, 색이 진할수록 빠르다. 멈춘 곳은 네 가장자리처럼 노랗게 보인다. 먼 쪽의 주황은 왼쪽으로, 왼쪽의 연두와 앞쪽 가운데의 초록은 카메라 쪽으로, 오른쪽의 탁한 올리브색은 안쪽으로 흐른다. 가장 빠른 곳은 먼 쪽 가장자리 가까이 오른쪽에 있는 진한 빨강으로, 왼쪽 안으로 꺾여 흐른다. 이어 보면 위에서 내려다볼 때 가운데를 중심으로 반시계 방향으로 도는 소용돌이다.' },
     { n: 2, label: '위상 하나', body: '첫 번째 위상 하나로만 무늬를 흘린 밝기다. 위상이 0 에서 1 로 가는 동안 세포 무늬가 흐름을 따라 밀리며 늘어나다가, 위상이 0 으로 돌아가는 순간 원래 모양으로 튄다. 위상 노이즈 때문에 튀는 때가 자리마다 달라서, 화면에는 늘어난 무늬와 반듯한 무늬가 가는 경계선을 사이에 두고 붙어 있고 그 경계가 표면 위를 훑고 지나간다.' },
     { n: 3, label: '두 위상 섞기', body: '반 주기 어긋난 두 번째 층을 삼각파 가중치로 섞었다. 한 층이 튀는 자리에서는 그 층의 가중치가 0 이라 2단계의 경계선이 사라진다. 대신 두 층이 반반 섞이는 곳은 실금이 두 겹으로 겹쳐 조금 흐리다. 위상 노이즈를 0 으로 내리면 이 겹침이 표면 전체에 같은 순간에 와서 화면이 주기적으로 통째로 흐려진다. 이 밝기로 두 색을 섞고 조명과 발광을 더하면 최종 화면이다.' },
   ],
   offNote: '위상 `frac(time * 속도)` 하나만 쓰고 위상 노이즈도 뺀 흔한 실수다. 무늬가 소용돌이를 따라 늘어나다가 한 주기(속도 0.5 면 2초)마다 표면 전체가 한꺼번에 처음 무늬로 튄다. 막 튄 뒤에는 세포가 반듯하고 튀기 직전에는 길게 늘어져 있어 몇 초만 보면 반복 주기가 드러난다. 이 표본은 알파가 항상 1 이라 그림자는 효과를 켰을 때와 같다.',
   mistakes: [
     { title: '무늬가 몇 초마다 한꺼번에 원래대로 튄다', body: '`frac(time)` 위상 하나로만 UV 를 밀면 위상이 1 에서 0 으로 돌아가는 순간 무늬가 처음 자리로 돌아간다. 반 주기 어긋난 위상을 하나 더 두고 `1 - abs(1 - 2 * phase)` 삼각파 가중치로 섞으면, 한 층이 튀는 순간 그 층의 가중치가 0 이라 보이지 않는다.' },
-    { title: '흐름이 한쪽으로 쏠리고 멈춰야 할 곳도 움직인다', body: '플로 맵을 sRGB(Color Texture)로 들여오면 0.5 가 약 0.21 로 읽혀 모든 자리에 왼쪽 아래로 미는 흐름이 더해진다. 플로 맵 텍스처의 Inspector 에서 sRGB (Color Texture) 를 끈다. RG 값을 `* 2 - 1` 로 되돌리는 것도 잊지 않는다.' },
+    { title: '흐름이 한쪽으로 쏠리고 멈춰야 할 곳도 움직인다', body: '플로 맵을 sRGB(Color Texture)로 들여오면 0.5 가 약 0.21 로 읽혀 모든 자리에 UV 의 (−u, −v) 대각선 쪽으로 미는 흐름이 더해진다 (기본 Plane 에서는 +X, +Z 쪽). 플로 맵 텍스처의 Inspector 에서 sRGB (Color Texture) 를 끈다. RG 값을 `* 2 - 1` 로 되돌리는 것도 잊지 않는다.' },
     { title: '표면 전체가 주기적으로 흐려졌다 또렷해진다', body: '두 위상을 섞어도 위상이 모든 자리에서 같으면 두 층이 반반 섞이는 순간(위상 0.25, 0.75)이 한꺼번에 와 무늬가 통째로 흐려진다. 위상에 노이즈를 더해 자리마다 그 순간을 다르게 한다. 위상 노이즈를 0 으로 내려 비교해 본다.' },
     { title: '무늬가 길게 찢어져 알아볼 수 없다', body: '흐름 세기가 크면 한 주기 동안 이웃 자리끼리 밀리는 거리 차이가 커져 무늬가 늘어진다. 세기를 낮추고 속도를 올려 같은 빠르기를 낸다. 무늬 반복 수를 올려도 무늬에 견줘 늘어남이 커진다.' },
-    { title: '평면 가장자리나 이웃 타일 사이에 줄이 생긴다', body: '플로 맵이나 무늬 텍스처의 Wrap Mode 가 Clamp 이거나, 플로 맵이 가장자리에서 이어지지 않게 그려졌다. 두 텍스처를 Repeat 로 두고, 플로 맵은 왼쪽과 오른쪽, 위와 아래 가장자리의 흐름이 맞게 만든다.' },
+    { title: '평면을 이어 깔면 경계에 줄이 생기거나 무늬가 어긋난다', body: '경계 양쪽에서 읽는 값이 하나라도 다르면 이음매가 생긴다. 네 가지를 맞춘다. (1) 두 텍스처의 Wrap Mode 를 Repeat 로 둔다. (2) 플로 맵의 흐름(RG)은 왼쪽과 오른쪽, 위와 아래 가장자리가 이어지게 그린다. (3) 위상 노이즈도 0~1 에서 반복해야 한다. 이 표본은 반복하는 노이즈를 플로 맵 B 채널에 담아 읽으므로 B 도 가장자리가 이어지게 만든다. 셰이더에서 노이즈를 계산하도록 바꾸면 `uv * 7` 처럼 정수 칸으로 나누고 해시에 넣는 칸 번호를 7 로 감싼다. 감싸지 않으면 경계 양쪽의 위상이 달라 가장자리에 남은 흐름만큼 무늬가 엇나간다. (4) 무늬 반복 수를 1, 2, 3 같은 정수로 둔다. 2.5 처럼 정수가 아니면 이웃 평면의 무늬가 이어지지 않는다.' },
   ],
   unity: {
     setup: [
       '`FlowMapLiquid.shader`, `core.hlsl`, `FlowMapLiquidFlow.png`, `FlowMapLiquidPattern.png` 를 `Assets/Shaders/flow-map-liquid/` 에 둔다.',
-      'Project 창에서 `FlowMapLiquidFlow.png` 를 고르고 Inspector 에서 Texture Type 은 Default, sRGB (Color Texture) 는 끄고, Wrap Mode 는 Repeat, Filter Mode 는 Bilinear 로 맞춘 뒤 Apply 를 누른다. 방향 데이터라 압축 품질이 낮으면 흐름이 계단처럼 끊기므로 Compression 은 None 이나 High Quality 로 둔다.',
+      'Project 창에서 `FlowMapLiquidFlow.png` 를 고르고 Inspector 에서 Texture Type 은 Default, sRGB (Color Texture) 는 끄고, Wrap Mode 는 Repeat, Filter Mode 는 Bilinear 로 맞춘 뒤 Apply 를 누른다. RG 에 흐름 방향, B 에 위상 노이즈가 든 데이터 텍스처다. 압축 품질이 낮으면(모바일 ASTC, ETC 저품질 포함) 방향 값이 뭉개져 흐름이 계단처럼 끊기므로 Compression 은 None 이나 High Quality 로 둔다. 64 픽셀이라 압축하지 않아도 작다.',
       '`FlowMapLiquidPattern.png` 는 Texture Type 은 Default, sRGB (Color Texture) 는 켜고, Wrap Mode 는 Repeat, Filter Mode 는 Bilinear 로 맞춘 뒤 Apply 를 누른다.',
       '셰이더를 우클릭해 Create > Material 로 머티리얼을 만들고 플로 맵 칸에 `FlowMapLiquidFlow.png`, 흘릴 무늬 칸에 `FlowMapLiquidPattern.png` 를 넣는다.',
       'GameObject > 3D Object > Plane 을 만들어 머티리얼을 넣는다. 용암이면 그대로, 물이면 어두운 색과 밝은 색을 파랑 계열로 바꾸고 밝은 부분 발광을 0 으로 내린다.',
@@ -69,12 +69,13 @@ export const meta: SpecimenMeta = {
     verify: 'Play 하거나 Scene 뷰의 Always Refresh 를 켜면 무늬가 평면 가운데를 중심으로 소용돌이치며 흐르고, 몇 초를 지켜봐도 무늬가 한꺼번에 원래대로 튀지 않는다. 흐름 세기를 0 으로 내리면 무늬가 멈추고, 0.4 로 올리면 길게 늘어난다.',
     pitfalls: [
       '이 셰이더는 불투명 3D 메시용이다. 패스가 `UniversalForwardOnly` 라 2D Renderer 에서는 그려지지 않는다. 3D 프로젝트에서 쓴다.',
-      '흐름 방향은 메시 UV 기준이다. 같은 플로 맵이라도 UV 가 돌아 있거나 뒤집힌 메시에서는 흐름 방향이 달라진다. Unity 기본 Plane 은 UV 가 다른 메시와 다르게 놓여 있을 수 있으니, 강처럼 방향이 있는 플로 맵은 넣은 뒤 흐르는 쪽을 눈으로 확인하고 필요하면 텍스처를 돌리거나 R, G 부호를 바꾼다. 이 표본의 소용돌이는 UV 가 180도 돌아도 같은 쪽으로 돈다.',
+      '흐름 방향은 메시 UV 기준이다. Unity 기본 Plane 은 위에서 볼 때 UV 가 180도 돌아 있다 (u 는 −X, v 는 −Z 쪽으로 커진다). 그래서 텍스처 위쪽으로 흐르게 그린 강 맵은 기본 Plane 에서 카메라(−Z) 쪽으로 흐른다. Plane 을 Y 축으로 180도 돌리거나 Quad 를 X 축으로 90도 돌려 눕혀 쓰면 텍스처 위쪽이 +Z, 오른쪽이 +X 가 된다. 다른 메시도 UV 가 돌아 있거나 뒤집혀 있으면 흐름 방향이 달라진다. 이 표본의 소용돌이는 180도 돌아도 같은 쪽으로 돌지만 굽이의 배치는 중심 대칭 자리로 옮겨 간다.',
       'Scene 뷰에서 무늬가 멈춰 있으면 Scene 뷰 툴바의 Effects 메뉴(Toggle skybox, fog, and various other effects)에서 Always Refresh 를 켠다. `_Time` 은 편집 모드에서 화면을 다시 그릴 때만 나아간다.',
-      '플로 맵 압축(모바일 ASTC, ETC 저품질)은 방향 값을 뭉개 흐름이 덩어리지게 한다. 작은 해상도(64~128)로 두고 압축 품질을 높이는 편이 낫다.',
       '평면 하나에 플로 맵이 한 번 깔린다. 평면을 크게 키우면 소용돌이도 함께 커진다. 넓은 강은 플로 맵을 강 모양에 맞춰 새로 그리거나 메시 UV 를 강 줄기를 따라 펴서 쓴다.',
+      '위상을 `_Time.y * 속도` 로 만들므로 실행 중에 속도를 바꾸면 그동안 흐른 시간 전체에 변화량이 곱해져 무늬가 한 번에 튄다. 연출로 속도를 바꾸려면 C# 에서 `Time.deltaTime * 속도` 를 쌓아 `Mathf.Repeat(값, 1)` 로 감싼 위상을 머티리얼 값으로 넘기고 셰이더는 그 값을 쓴다. 감싸 두면 오래 켜 둔 장면에서 float 정밀도가 떨어져 무늬가 떨리는 일도 없다.',
+      '이 셰이더는 안개를 처리하지 않아 Fog 를 켠 씬에서 넓은 용암이나 강의 먼 쪽이 안개에 묻히지 않고 그대로 보인다. Forward 패스에 `#pragma multi_compile_fog` 를 넣고 정점에서 `ComputeFogFactor(positionCS.z)` 를 넘긴 뒤, 마지막 색에 `MixFog(color, fogFactor)` 를 건다.',
     ],
-    graph: 'Shader Graph 의 Feature Examples 샘플에 Flow Mapping 예제가 있다. 직접 만들 때는 Sample Texture 2D(플로 맵, Type 을 Normal 이 아닌 Default, sRGB 끈 텍스처)에서 RG 를 꺼내 `* 2 - 1` 하고, Time 노드에 Fraction 노드를 두 번(하나는 0.5 를 더해서) 걸어 위상 두 개를 만든다. 두 위상으로 UV 를 각각 밀어 무늬를 두 번 읽고, `1 - abs(1 - 2 * 위상)` 가중치로 Lerp 한다. `core.hlsl` 을 Custom Function 에 그대로 지정하면 `SgInput`, `SG_TEX` 가 래퍼에만 있어 컴파일되지 않으므로, 쓰려면 `flowWeight` 같은 함수만 새 파일에 옮긴다.',
+    graph: 'Shader Graph 의 Feature Examples 샘플에 Flow Mapping 예제가 있다. 직접 만들 때는 Sample Texture 2D(플로 맵, Type 을 Normal 이 아닌 Default, sRGB 끈 텍스처)에서 RG 를 꺼내 `* 2 - 1` 하고, Time × 속도에 B(위상 노이즈)를 더한 값에 Fraction 노드를 두 번(하나는 0.5 를 더해서) 걸어 위상 두 개를 만든다. 두 위상으로 UV 를 각각 밀어 무늬를 두 번 읽고, `1 - abs(1 - 2 * 위상)` 가중치로 Lerp 한다. `core.hlsl` 을 Custom Function 에 그대로 지정하면 `SgInput`, `SG_TEX` 가 래퍼에만 있어 컴파일되지 않으므로, 쓰려면 `flowWeight` 같은 함수만 새 파일에 옮긴다.',
   },
   prompt: {
     goal: '방향을 담은 플로 맵 텍스처로 무늬를 흘려 용암이나 강물 표면을 만드는 셰이더를 넣는다. 무늬가 주기마다 튀지 않고 끊김 없이 계속 흐른다.',
@@ -84,6 +85,7 @@ export const meta: SpecimenMeta = {
       '용암이 식은 곳은 덜 흐르게 정점 색으로 흐름 세기를 칠하고 싶다.',
       '물체 주변을 피해 돌아가는 흐름을 만들고 싶다.',
       '모바일에서 텍스처 읽기를 줄여 가볍게 하고 싶다.',
+      'Fog 를 켠 넓은 지형에서 먼 강물과 용암이 안개에 자연스럽게 묻히게 하고 싶다.',
     ],
   },
   captures: [
@@ -108,7 +110,7 @@ export const meta: SpecimenMeta = {
   ],
   original: '특정 게임의 재현이 아니라 공개 발표의 원리를 따라 새로 만들었다. 수업 XR 01 Lake Shader Step6 의 법선맵 두 장 스크롤을 방향 텍스처로 넓힌 확장편이고, 3D 05 Terrain Island 의 용암과 강에 쓸 수 있다. 소용돌이 플로 맵, 세포 무늬 텍스처, 코드는 이 갤러리에서 새로 만들었다.',
   references: [
-    { label: 'Vlachos: Water Flow in Portal 2 (SIGGRAPH 2010)', url: 'https://www.advances.realtimerendering.com/s2010/Vlachos-Waterflow(SIGGRAPH%202010%20Advanced%20RealTime%20Rendering%20Course).pdf' },
+    { label: 'Vlachos: 물 흐름 (SIGGRAPH 2010)', url: 'https://www.advances.realtimerendering.com/s2010/Vlachos-Waterflow(SIGGRAPH%202010%20Advanced%20RealTime%20Rendering%20Course).pdf' },
     { label: 'Grimes: 비표준 텍스처 (GDC 2011, Valve)', url: 'https://www.hlportal.de/files/GDC2011_BronwenGrimes_NonstandardTextures.pdf' },
     { label: 'Shader Graph Feature Examples (Flow Mapping 예제)', url: 'https://docs.unity3d.com/Packages/com.unity.shadergraph@17.4/manual/Shader-Graph-Sample-Feature-Examples.html' },
   ],
