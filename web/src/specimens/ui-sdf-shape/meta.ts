@@ -1,0 +1,117 @@
+import type { SpecimenMeta } from '../../core/types'
+
+export const meta: SpecimenMeta = {
+  id: 'ui-sdf-shape',
+  title: 'SDF 도형',
+  titleEn: 'UI SDF Shape',
+  group: 'F',
+  order: 1,
+  oneLiner: '거리장으로 해상도와 상관없이 매끈한 도형을 그린다',
+  goals: [
+    '둥근 사각형, 원, 링의 거리 함수를 쓰고 같은 거리 값으로 채움과 윤곽을 나눌 수 있다.',
+    '`fwidth` 로 이미지 크기와 상관없이 가장자리를 1픽셀 폭으로 부드럽게 만들 수 있다.',
+    'uv 의 화면 미분으로 Image 의 가로세로 비를 재서 원이 찌그러지지 않게 할 수 있다.',
+    'UGUI Image 에 쓰는 UI 셰이더 구조(Stencil, RectMask2D 클리핑, 정점 색)를 설명할 수 있다.',
+  ],
+  tags: ['거리장(SDF)', 'fwidth 안티앨리어싱', 'UGUI', '진행 바'],
+  difficulty: 2,
+  shaderFile: 'UiSdfShape.shader',
+  stage: { kind: 'sprite', ui: true, blend: 'alpha' },
+  params: [
+    {
+      key: '_Shape',
+      label: '도형',
+      type: 'select',
+      options: [
+        { value: '0', label: '둥근 사각형' },
+        { value: '1', label: '원' },
+        { value: '2', label: '링' },
+      ],
+      default: '2',
+    },
+    { key: '_Fill', label: '채움 양', type: 'range', min: 0, max: 1, step: 0.01, default: 0.7, hint: '링은 12시부터 시계 방향, 사각형은 왼쪽부터, 원은 아래부터 찬다. C# 이 체력이나 쿨타임으로 움직인다' },
+    { key: '_Radius', label: '모서리 반경', type: 'range', min: 0, max: 1, step: 0.01, default: 0.6, hint: '사각형의 모서리와 링 끝의 둥글기. 1 이면 반원. 원에는 영향이 없다' },
+    { key: '_OutlineWidth', label: '윤곽 두께', type: 'range', min: 0, max: 0.08, step: 0.005, default: 0.025, hint: '이미지 높이에 대한 비율. 0 이면 윤곽이 없다' },
+    { key: '_FillColor', label: '채움 색', type: 'color', default: '#4fd1c5', hint: '아직 안 채운 자리는 이 색이 옅게 비친다' },
+    { key: '_OutlineColor', label: '윤곽 색', type: 'color', default: '#f4f1de' },
+    { key: '_Aspect', label: '도형 가로세로 비', type: 'range', min: 0.5, max: 5, step: 0.1, default: 1, hint: '사각형과 원의 가로 대 세로. 원을 늘리면 캡슐이 된다. 링에는 영향이 없다' },
+  ],
+  presets: [
+    { id: 'cooldown', name: '쿨타임 링', look: '스킬 아이콘 둘레에서 시계 방향으로 차오르는 링', values: {} },
+    { id: 'hp-bar', name: '체력 바', look: '양끝이 둥근 빨간 막대가 왼쪽부터 찬다', values: { _Shape: '0', _Aspect: 4, _Radius: 1, _Fill: 0.65, _FillColor: '#e5484d', _OutlineWidth: 0.02 } },
+    { id: 'button', name: '버튼 배경', look: '모서리가 살짝 둥근 파란 버튼 판', values: { _Shape: '0', _Aspect: 2.4, _Radius: 0.4, _Fill: 1, _FillColor: '#3e63dd', _OutlineWidth: 0.03, _OutlineColor: '#c7d2fe' } },
+    { id: 'mana-orb', name: '마나 구슬', look: '아래부터 차오르는 동그란 게이지', values: { _Shape: '1', _Fill: 0.45, _FillColor: '#5b8def', _OutlineColor: '#d6e2ff', _OutlineWidth: 0.035 } },
+    { id: 'charge', name: '각진 충전 링', look: '끝이 각진 주황 링. 충전, 캐스팅 표시', values: { _Radius: 0, _Fill: 0.4, _FillColor: '#f5a524', _OutlineWidth: 0.015 } },
+  ],
+  events: [
+    {
+      id: 'cooldown',
+      label: '쿨타임',
+      tracks: [{ key: '_Fill', frames: [[0, 0], [2.4, 1]], ease: 'linear' }],
+    },
+    {
+      id: 'damage',
+      label: '피해',
+      tracks: [{ key: '_Fill', frames: [[0, 1], [0.15, 0.55], [1.4, 0.55]], ease: 'outQuad' }],
+    },
+  ],
+  demo: { fire: [{ event: 'cooldown', every: 3.6 }] },
+  steps: [
+    { n: 1, label: '거리', body: '픽셀마다 도형 가장자리까지의 거리를 색으로 본다. 안쪽은 파랑, 바깥은 주황이고 흰 선이 거리 0 인 가장자리다. 줄무늬 간격이 어디서나 같다는 것이 "거리" 라는 뜻이다. 도형과 모서리 반경을 바꿔 본다.' },
+    { n: 2, label: '채움', body: '윤곽 두께만큼 안쪽으로 줄인 도형에 진행 마스크를 겹친 영역이다. 흰 곳이 채운 부분, 회색이 아직 안 채운 자리다. 사각형과 원은 반평면 거리와 `max` 로 겹치고, 링은 12시에서 시작하는 호의 거리를 쓴다. 채움 양을 움직여 본다.' },
+    { n: 3, label: '윤곽', body: '도형 전체에서 채움 쪽(거리 + 두께)을 뺀 가는 띠다. 같은 거리 값 하나에서 문턱만 바꿔 얻으므로 도형이 바뀌어도 윤곽이 저절로 따라간다. 두 영역 모두 `fwidth` 로 1픽셀만큼만 부드럽게 자른다.' },
+  ],
+  offNote: '`fwidth` 대신 가장자리 폭을 숫자(0.03)로 고정했다. 이 크기에서는 링과 윤곽의 가장자리가 뿌옇게 번진다. 같은 머티리얼을 작은 아이콘에 쓰면 반대로 폭이 1픽셀보다 좁아져 계단이 생긴다. 폭은 Image 크기마다 `fwidth` 로 재야 한다.',
+  mistakes: [
+    { title: '가장자리가 계단처럼 깨진다', body: '`step` 이나 `if (d < 0)` 으로 자르면 픽셀마다 0 또는 1 이라 계단이 생긴다. `saturate(0.5 - d / fwidth(d))` 처럼 픽셀 하나의 폭으로 나눠 가장자리에서만 알파가 0~1 로 바뀌게 한다.' },
+    { title: '가장자리가 크면 날카롭고 작으면 뭉갠다', body: '`smoothstep(0.0, 0.01, -d)` 처럼 폭을 고정 숫자로 두면 그 폭이 화면에서 몇 픽셀인지가 Image 크기에 따라 달라진다. 폭은 `fwidth(d)` 로 그때그때 잰다.' },
+    { title: '원이 타원으로 찌그러진다', body: 'uv 는 가로세로가 모두 0~1 이라 그대로 거리를 재면 Rect Transform 비율만큼 찌그러진다. uv 를 `float2(aspect, 1.0)` 로 늘려서 잰다. 이 셰이더는 uv 의 화면 미분(`ddx`, `ddy`)으로 비율을 재므로 크기를 바꿔도 따로 넣을 값이 없다.' },
+    { title: '체력 바 하나를 바꿨는데 전부 같이 줄어든다', body: '`Image.material` 은 `Renderer.material` 과 달리 복사본을 만들지 않고 공유 머티리얼을 돌려준다. `new Material(image.material)` 로 복사본을 만들어 `image.material` 에 넣고 `OnDestroy` 에서 지운다 (`UiSdfProgress` 참고).' },
+    { title: '도형이 엉뚱한 곳에 작게 그려진다', body: 'Image 의 Source Image 에 아틀라스 스프라이트를 넣거나 Image Type 을 Sliced, Filled 로 바꾸면 uv 가 0~1 이 아니게 된다. Source Image 를 비우고 Image Type 은 Simple 로 둔다.' },
+  ],
+  unity: {
+    setup: [
+      '`UiSdfShape.shader`, `core.hlsl`, `UiSdfProgress.cs` 를 `Assets/Shaders/ui-sdf-shape/` 에 둔다.',
+      '셰이더를 우클릭해 Create > Material 로 머티리얼을 만든다.',
+      'Hierarchy 에서 Create > UI > Image 로 Image 를 만들고 Image 컴포넌트의 Material 칸에 머티리얼을 넣는다. 텍스처는 원래 Source Image 칸이 맡지만 이 셰이더는 도형을 계산으로 그리므로 Source Image 를 비우고 Image Type 은 Simple 로 둔다.',
+      'Rect Transform 의 Width, Height 로 크기를 정한다. 셰이더가 실제 비율을 재므로 원은 찌그러지지 않는다. 머티리얼의 도형 가로세로 비는 도형 자체의 비율(체력 바라면 4 정도)이다.',
+      '같은 오브젝트에 `UiSdfProgress` 를 붙이고 체력은 `SetValue(현재, 최대)`, 쿨타임은 `StartCooldown(초)` 를 호출한다.',
+    ],
+    verify: 'Game 뷰에서 머티리얼의 채움 양을 0 에서 1 로 올리면 링이 12시부터 시계 방향으로 차오르고, Image 를 크게 키워도 가장자리가 계단 없이 매끈하다.',
+    pitfalls: [
+      'Stencil 속성(`_StencilComp` 등)과 Stencil 블록을 지우면 Mask 안에 넣었을 때 Unity 가 머티리얼에 스텐실 속성이 없다고 경고하고 자식이 가려지지 않는다.',
+      '`UNITY_UI_CLIP_RECT` 키워드와 `_ClipRect` 계산을 지우면 Scroll View 같은 RectMask2D 밖으로 도형이 샌다.',
+      '패스에 LightMode 태그를 붙이지 않는다. Screen Space - Overlay 캔버스는 첫 패스를 쓰고, Camera·World Space 캔버스와 2D Renderer 는 태그 없는 패스를 SRPDefaultUnlit 으로 그린다. Overlay 캔버스에서 실제로 그려지는지는 촬영으로 확인하지 못했다 (촬영 무대는 SpriteRenderer 다).',
+      'Image 마다 다른 머티리얼 복사본을 쓰면 캔버스 배칭이 끊겨 드로우 콜이 늘어난다. 값이 같은 Image 끼리는 머티리얼을 공유한다.',
+      '가로세로 비를 uv 의 화면 미분으로 재므로 World Space 캔버스를 비스듬히 보면 원근 때문에 도형이 조금 휠 수 있다 (추정, 확인하지 않았다). 그럴 때는 비율을 C# 에서 Rect Transform 크기로 넘긴다.',
+    ],
+    graph: 'Shader Graph 의 Canvas 타깃에서 Custom Function 노드로 `uiSdfRoundBox`, `uiSdfArc` 를 부를 수 있다. 가장자리는 거리 값에 DDXY 노드(= `fwidth`)를 나눠 Saturate 하면 같다.',
+  },
+  prompt: {
+    goal: 'UGUI Image 에 쓰는 SDF 도형 셰이더를 넣는다. 둥근 사각형, 원, 링 진행 바를 해상도와 상관없이 매끈하게 그리고, 체력과 쿨타임 값을 C# 으로 넘긴다.',
+    adaptIdeas: [
+      '체력이 30% 아래로 떨어지면 채움 색이 빨갛게 바뀌고 윤곽이 천천히 맥동하게 하고 싶다. 맥동은 2Hz 이하로.',
+      '링 두께를 머티리얼에서 조절하고 싶다.',
+      '윤곽 두께를 이미지 높이 비율이 아니라 픽셀 단위로 맞추고 싶다.',
+      '두 도형을 합집합, 차집합으로 합쳐 말풍선이나 알림 배지 모양을 만들고 싶다.',
+      '도형 바깥에 부드러운 그림자를 깔고 싶다.',
+    ],
+  },
+  captures: [
+    { name: 'hp-bar', label: '체력 바', values: { _Shape: '0', _Aspect: 4, _Radius: 1, _Fill: 0.65, _FillColor: '#e5484d', _OutlineWidth: 0.02 } },
+    { name: 'mana-orb', label: '마나 구슬', values: { _Shape: '1', _Fill: 0.45, _FillColor: '#5b8def', _OutlineColor: '#d6e2ff', _OutlineWidth: 0.035 } },
+  ],
+  inspiredBy: [],
+  original: '특정 게임의 재현이 아니라 널리 쓰이는 범용 기법이다. 코드는 이 갤러리에서 새로 썼다. 수업 2D 09 UGUI Basic Component, 10 Inventory And TradeSystem, 15 Mini Defence HUD 의 슬롯과 HUD 에 붙여 쓸 수 있고, [UI 갤러리](https://koohoo-dev.github.io/UIGallery/) 와 짝을 이룬다.',
+  references: [
+    { label: 'Unity Shader Graph UGUI Shaders 샘플: SDF 도형, 안티앨리어싱 서브그래프', url: 'https://docs.unity3d.com/Packages/com.unity.shadergraph@17.4/manual/Shader-Graph-Sample-UGUI-Shaders-Subgraph-nodes.html' },
+    { label: 'Inigo Quilez: 2D 거리 함수 모음', url: 'https://iquilezles.org/articles/distfunctions2d/' },
+    { label: 'Unity SDF UI Toolkit 위키', url: 'https://github.com/TLabAltoh/Unity-SDF-UI-Toolkit/wiki' },
+    { label: 'Unity UI Rounded Corners', url: 'https://github.com/smitdylan2001/Unity-UI-Rounded-Corners' },
+    { label: 'UI 갤러리', url: 'https://koohoo-dev.github.io/UIGallery/' },
+  ],
+  related: [
+    { id: 'screen-transition-wipe', why: '같은 거리와 화면비 보정으로 원형 아이리스를 만든다' },
+    { id: 'sprite-outline-hit-flash', why: '같은 스프라이트 무대. 텍스처의 알파로 외곽선을 그리는 방식과 비교한다' },
+  ],
+}
