@@ -27,7 +27,7 @@ export const meta: SpecimenMeta = {
   params: [
     { key: '_PaletteRow', label: '팔레트 줄', type: 'range', min: 0, max: 7, step: 1, default: 0, hint: '팔레트 PNG 의 위에서부터 몇 번째 줄을 쓸지. 0 기본(파랑), 1 빨강 팀, 2 초록 팀, 3 정예 적, 4 밤, 5 노을, 6 석화, 7 피격' },
     { key: '_HitFlash', label: '피격', type: 'range', min: 0, max: 1, step: 0.01, default: 0, hint: '0.5 이상이면 팔레트 줄이 피격 줄로 통째로 바뀐다. C# 은 맞은 순간 1 로 올렸다가 잠시 뒤 0 으로 내린다' },
-    { key: '_HitRow', label: '피격 줄', type: 'range', min: 0, max: 7, step: 1, default: 7, hint: '피격 중에 쓸 줄. 피격을 0.5 이상으로 올린 채 바꿔 본다. 7 은 흰 몸에 빨간 외곽선이다' },
+    { key: '_HitRow', label: '피격 줄', type: 'range', min: 0, max: 7, step: 1, default: 7, hint: '피격 중에 쓸 줄. 피격을 0.5 이상으로 올린 채 바꿔 본다. 7 은 흰색과 연분홍 몸에 빨간 외곽선이다' },
   ],
   presets: [
     { id: 'hero', name: '주인공', look: '파랑 옷에 주황 머리띠', values: {} },
@@ -55,8 +55,8 @@ export const meta: SpecimenMeta = {
   ],
   offNote: '인덱스 스프라이트를 Unity 기본값대로 sRGB 를 켠 채 임포트한 모습이다. GPU 가 읽으면서 감마를 풀어 값이 작아지고 색 번호가 낮은 쪽으로 밀린다. 옷은 외곽선처럼 검게 묻히고, 머리카락은 옷 색, 피부는 옷의 밝은 하늘색, 머리띠와 신발은 피부색이 된다. 값이 0 과 1 인 외곽선과 눈 하이라이트만 제자리다. 웹에서는 텍스처 설정을 바꿀 수 없어 같은 변환을 셰이더에서 해서 보여 준다.',
   mistakes: [
-    { title: '피부가 파랗고 옷이 검게 나온다', body: '인덱스 스프라이트의 sRGB (Color Texture) 가 켜져 있으면 GPU 가 값을 감마 변환해 색 번호가 낮은 쪽으로 밀린다. 임포트 설정의 Advanced 에서 sRGB 를 끄고 Apply 한다. 팔레트는 색이므로 반대로 켜 둔다.' },
-    { title: '색 경계가 번지거나 없는 색이 섞인다', body: 'Filter Mode 가 Bilinear 이면 이웃 번호나 이웃 팔레트 칸과 섞인 값을 읽는다. 압축(Compression)이 켜져 있으면 4x4 블록 안의 값이 서로 섞여 번호가 틀어진다. 인덱스 스프라이트와 팔레트 모두 Filter Mode 는 Point, Compression 은 None 으로 둔다.' },
+    { title: '색이 더 낮은 번호의 색으로 밀리고 0 번과 마지막 번호의 색만 맞다', body: 'Linear 색 공간 프로젝트에서 인덱스 스프라이트의 sRGB (Color Texture) 가 켜져 있으면 GPU 가 읽으면서 감마를 풀어 값이 작아지고 색 번호가 낮은 쪽으로 밀린다. 값이 0 과 1 인 번호만 그대로다. Gamma 색 공간에서는 변환이 없어 생기지 않는다. 임포트 설정의 Advanced 에서 sRGB 를 끄고 Apply 한다. 팔레트는 색이므로 반대로 켜 둔다.' },
+    { title: '색 경계가 번지거나 없는 색이 섞인다', body: 'Filter Mode 가 Bilinear 이면 이웃 번호나 이웃 팔레트 칸과 섞인 값을 읽는다. 압축(Compression)이 켜져 있으면 블록 안의 값이 몇 단계로 줄거나 섞여 번호가 틀어진다. 인덱스 스프라이트와 팔레트 모두 Filter Mode 는 Point, Compression 은 None 으로 둔다.' },
     { title: '어떤 색만 옆 칸 색으로 나오거나 깜빡인다', body: '번호를 `번호 / 칸 수` 로 바꿔 읽으면 칸의 왼쪽 경계를 가리켜 실수 오차 하나로 옆 칸이 나온다. `(번호 + 0.5) / 칸 수` 로 칸 가운데를 읽는다. 1x256 팔레트에서 흔한 반 텍셀 오류다.' },
     { title: '색 경계마다 가는 선이 생긴다', body: '팔레트 좌표가 색 경계에서 크게 뛰어 GPU 가 작은 밉맵을 고른다. 이 셰이더는 `SAMPLE_TEXTURE2D_LOD` 로 0 단계만 읽어 막는다. 직접 고친다면 팔레트의 Generate Mip Maps 를 끈다.' },
     { title: '한 캐릭터의 팀을 바꿨는데 전부 바뀐다', body: '`sharedMaterial` 이나 머티리얼 에셋의 값을 바꾸면 같은 머티리얼을 쓰는 모든 캐릭터가 함께 바뀐다. `SpriteRenderer.material` 로 복사본을 만들고 `OnDestroy` 에서 지운다. `PaletteSwapController` 가 그렇게 한다.' },
@@ -70,13 +70,13 @@ export const meta: SpecimenMeta = {
       '인덱스 스프라이트를 씬에 끌어다 놓고 SpriteRenderer 의 Material 칸에 이 머티리얼을 넣는다.',
       '같은 오브젝트에 `PaletteSwapController` 를 붙여 Team Row 를 정하고, 팀이 바뀌면 `SetTeam(줄)`, 피격 판정 때 `Hit()` 을 호출한다.',
     ],
-    verify: '머티리얼의 팔레트 줄을 0 에서 1 로 바꾸면 파랑 옷이 빨강 옷으로 바뀌고 피부와 머리카락은 그대로다. 피격을 0.5 이상으로 올리면 몸 전체가 흰색, 외곽선이 빨강이 된다.',
+    verify: '머티리얼의 팔레트 줄을 0 에서 1 로 바꾸면 파랑 옷이 빨강 옷으로 바뀌고 피부와 머리카락은 그대로다. 피격을 0.5 이상으로 올리면 몸이 흰색과 연분홍, 외곽선이 빨강이 된다.',
     pitfalls: [
       '2D Renderer 에서는 `Universal2D` 패스가, Universal Renderer 에서는 `UniversalForward` 패스가 그려진다. 하나를 지우면 다른 쪽에서 스프라이트가 사라진다.',
-      'Unity 의 기본 임포트는 압축이 켜져 있어(데스크톱 BC, 모바일 ASTC) 4x4 블록 안의 값이 섞인다. 이 표본의 PNG 는 아트 1픽셀을 4x4 텍셀로 키워 압축돼도 번호가 버티게 만들었지만, 1배 크기로 그린 인덱스 스프라이트와 팔레트는 반드시 Compression 을 None 으로 둔다.',
+      'Unity 의 기본 임포트는 압축이 켜져 있다(데스크톱 BC, 모바일 ASTC). 인덱스 회색은 RGB 가 한 직선 위에 있어 BC1 은 블록 안의 값을 4단계로 줄여 번호가 바뀐다. Android 기본 ASTC 처럼 블록이 4x4 가 아니거나 아틀라스로 자리가 옮겨지면 블록 하나에 여러 번호가 들어가 같은 일이 생긴다. 인덱스 스프라이트와 팔레트 모두 모든 플랫폼에서 Compression 을 None 으로 두는 것이 필수다.',
       'Default 텍스처는 Non-Power of 2 가 ToNearest 라 크기가 2의 거듭제곱이 아니면 늘어나며 칸이 어긋난다. 팔레트는 2의 거듭제곱 크기로 만들거나 Non-Power of 2 를 None 으로 둔다. 칸 수를 바꾸면 `core.hlsl` 의 `PALETTE_COLORS`, `PALETTE_ROWS` 도 맞춘다.',
       '이 셰이더는 2D 조명을 받지 않는다. 밤 장면처럼 분위기를 바꾸는 것은 조명 대신 팔레트 줄로 한다. 2D 라이트가 필요하면 `Universal2D` 패스에 라이팅 코드를 넣어야 한다.',
-      'Sprite Atlas 에 넣어도 인덱스 값은 그대로지만, 아틀라스의 Compression 과 Filter Mode 가 따로 있으므로 같은 설정(None, Point)을 다시 맞춘다. sRGB 도 아틀라스 설정을 따른다.',
+      'Sprite Atlas 하나는 sRGB 와 압축 설정을 하나만 가진다. 인덱스 스프라이트를 컬러 스프라이트와 같은 아틀라스에 넣으면 sRGB 가 켜진 채 읽혀 색 번호가 낮은 쪽으로 밀리고(인덱스의 sRGB 를 켜 둔 것과 같은 고장), 압축까지 켜져 있으면 번호가 더 틀어진다. 인덱스 스프라이트만 담는 아틀라스를 따로 만들고 sRGB 끔, Filter Mode Point, Compression None 으로 둔다.',
       'MaterialPropertyBlock 은 쓰지 않는다. SRP Batcher 에서 빠지고, 머티리얼 복사본 방식이 수업 프로젝트와도 같다.',
     ],
     graph: 'Shader Graph 의 Sprite Unlit 타깃에서는 노드만으로 같은 일을 할 수 있다. Sample Texture 2D 로 인덱스의 R 을 읽어 Multiply(칸 수 - 1), Round, Add(0.5), Divide(칸 수) 로 U 를 만들고, 줄 번호로 V 를 만들어 Vector 2 로 합친 뒤 팔레트를 Sample Texture 2D LOD (LOD 0) 로 읽는다. 두 Sample 노드의 Type 은 Default 로 두되, 인덱스 텍스처의 sRGB 는 임포트 설정에서 꺼야 한다. 샘플러는 Sampler State 노드로 Point 를 지정한다.',
@@ -98,8 +98,8 @@ export const meta: SpecimenMeta = {
   ],
   inspiredBy: [
     {
-      title: 'Little Nemo and the Guardians of Slumberland (2025)',
-      credit: 'Dream Logic Games',
+      title: 'Little Nemo and the Guardians of Slumberland (2026)',
+      credit: 'DIE SOFT',
       borrowed: ['장면 분위기에 맞춰 스프라이트 팔레트를 바꾸기'],
       learned: '제작기는 커스텀 스프라이트 셰이더가 팔레트 스왑을 지원해 장면의 조명 분위기를 바꾼다고 쓴다. 이 표본의 밤, 노을 줄이 그 축이다. 게임 화면은 직접 확인하지 않았다.',
       link: 'https://diesoft.games/2022/06/13/nemo-art-pipeline.html',
