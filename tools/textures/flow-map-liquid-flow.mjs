@@ -1,10 +1,16 @@
 // 플로 맵 액체의 흐름 방향 텍스처. RG 에 UV 공간 흐름 방향을 0~1 로 담는다 (0.5 가 멈춤). 데이터라 sRGB 를 끄고 읽는다.
+// B 에는 위상 노이즈(0~1)를 담는다. 셰이더가 노이즈를 계산하지 않아 가볍고, 0~1 에서 반복하므로 평면을 이어 깔아도
+// 경계에서 위상이 어긋나지 않는다.
 // 가운데 큰 소용돌이 하나에 반복 노이즈로 굽이를 더했다. 둘 다 흐름 함수(stream function)의 기울기를 90도 돌려 만들어
 // 물이 한곳에 몰리거나 비지 않는다(발산 0). 가장자리에서 흐름이 이어지므로 Repeat 로 깔아도 이음매가 없다.
-// 소용돌이는 UV 중심에 대해 180도 돌려도 같은 모양이라, 메시마다 UV 가 180도 돌아 있어도 도는 방향이 같다.
-import { tileFbm } from '../lib/texture-kit.mjs'
+// UV 가 180도 돌아 있는 메시(Unity 기본 Plane)에서도 소용돌이가 도는 방향은 같다. 다만 굽이 노이즈 때문에
+// 빠른 곳과 굽이의 배치는 중심 대칭 자리로 옮겨 간다 (같은 모양이 아니다).
+import { tileFbm, tileNoise } from '../lib/texture-kit.mjs'
 
-const SIZE = 128
+// 흐름이 부드러워 Bilinear 로 64 면 충분하다. PNG 는 HTML 에 그대로 들어가므로 작게 둔다.
+const SIZE = 64
+// 위상 노이즈 한 변의 칸 수. 칸이 정수라 0~1 에서 반복한다.
+const PHASE_CELLS = 7
 // 굽이 노이즈의 세기. 소용돌이 기울기 최대값(약 3.14)에 견줘 정한다. 크면 소용돌이가 흐트러진다.
 const WOBBLE = 0.32
 
@@ -37,6 +43,8 @@ export default {
   shade(u, v) {
     // shade 의 v 는 위에서 아래로 늘어나므로 UV 의 v(아래가 0)로 뒤집는다.
     const [vx, vy] = velocity(u, 1 - v)
-    return [(vx / peak) * 0.5 + 0.5, (vy / peak) * 0.5 + 0.5, 0]
+    // 값 노이즈는 0.5 근처에 몰리므로 0~1 로 넓혀 담는다.
+    const phase = Math.min(1, Math.max(0, (tileNoise(u + 0.13, v + 0.29, PHASE_CELLS) - 0.2) / 0.6))
+    return [(vx / peak) * 0.5 + 0.5, (vy / peak) * 0.5 + 0.5, phase]
   },
 }
