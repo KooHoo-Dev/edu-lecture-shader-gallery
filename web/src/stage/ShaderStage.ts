@@ -306,7 +306,8 @@ class ShaderStage {
 
   private effectGeometry(specimen: Specimen) {
     const shape = specimen.meta.stage.mesh ?? 'sphere'
-    if (shape === 'cube') return new THREE.BoxGeometry(1, 1, 1, 8, 8, 8)
+    // Unity 기본 큐브처럼 면을 나누지 않는다 (정점 24개). 나누면 정점을 미는 표본이 웹에서만 휜다
+    if (shape === 'cube') return new THREE.BoxGeometry(1, 1, 1)
     if (shape === 'capsule') return new THREE.CapsuleGeometry(0.5, 1, 16, 48)
     if (shape === 'cylinder') return new THREE.CylinderGeometry(0.5, 0.5, 2, 64, 24)
     if (shape === 'quad') return new THREE.PlaneGeometry(1, 1, 32, 32)

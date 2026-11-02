@@ -333,9 +333,9 @@ async function checkCutoutShadow(page, url, id, meta) {
   }
   const shaded = await probe('')
 
-  // sgEffect 가 항상 알파 1.0 을 돌려주면 자르지 않는 표본이다
+  // sgEffect 가 항상 알파 1.0 을 돌려주면 자르지 않는 표본이다. 외곽선 표본은 파일이 #endif 로 끝날 수 있다
   const core = stripComments(readFileSync(join(SHADERS, id, 'core.hlsl'), 'utf8').replace(/\r\n/g, '\n'))
-  if (/return\s+float4\([^;]*,\s*1\.0\s*\)\s*;\s*\}\s*$/.test(core)) return
+  if (/return\s+float4\([^;]*,\s*1\.0\s*\)\s*;\s*\}\s*(#\s*endif\s*)?$/.test(core)) return
 
   const track = meta.demo?.loops?.[0] ?? meta.events[0]?.tracks[0]
   if (!track) {

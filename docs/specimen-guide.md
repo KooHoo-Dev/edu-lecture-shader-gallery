@@ -209,7 +209,7 @@ float effectNoise(float2 p)
 - 메시 잘라 내기 표본은 `Forward`, `ShadowCaster`, `DepthOnly`, `DepthNormals` 네 패스를 모두 유지한다. 알파로 자르는 부분이 그림자와 깊이에 빠지면 사라진 자리에 그림자가 남는다. 투명 표본은 `Forward` 패스 하나면 된다.
 - 불투명, 잘라 내기 메시의 `Forward` 패스 태그는 `UniversalForwardOnly`, 노멀 패스 태그는 `DepthNormalsOnly` 다. `UniversalForward` 만 있으면 Deferred 렌더 경로에서 오류 없이 사라진다.
 - 스프라이트 표본은 `Universal2D` 와 `UniversalForward` 두 패스를 유지한다. 2D Renderer 는 `Universal2D` 와 `SRPDefaultUnlit` 만 그리고 Universal Renderer 는 `UniversalForward` 만 그린다. 둘 다 촬영으로 확인했다.
-- 메시, 깊이 표본의 패스는 2D Renderer 에서 그려지지 않는다 (`Universal2D`, `SRPDefaultUnlit` 만 그린다). 3D 프로젝트용이라고 `unity.pitfalls` 에 적는다.
+- 메시, 깊이 표본의 패스는 2D Renderer 에서 그려지지 않는다 (`Universal2D`, `SRPDefaultUnlit` 만 그린다). 3D 프로젝트용이라고 `unity.pitfalls` 에 적는다. 예외로 외곽선 패스(`SRPDefaultUnlit`)는 그려지므로 외곽선 표본은 본체 없이 외곽선 색 덩어리만 보인다.
 - 깊이 표본은 `DeclareDepthTexture.hlsl` 을 include 하고 `meta.requires` 에 `'depth'` 를 넣는다. 씬 색상을 쓰면 `DeclareOpaqueTexture.hlsl` 을 더 include 하고 다음을 `core.hlsl` include 앞에 두고 `requires` 에 `'opaque'` 를 넣는다.
 
   ```hlsl
@@ -222,11 +222,17 @@ float effectNoise(float2 p)
 
 껍데기 외곽선처럼 같은 물체를 한 번 더 그리는 표본용이다. mesh, depth 무대에서만 쓴다.
 
-- `core.hlsl` 은 `#ifdef SG_OUTLINE` 블록에 외곽선 패스의 `sgVertex`(정점을 미는 함수)와 `sgEffect`(외곽선 색)를, `#else` 블록에 본체를 둔다. `SG_STEP`, `SG_OFF` 는 블록마다 따로 쓴다.
+- `core.hlsl` 은 `#ifdef SG_OUTLINE` 블록에 외곽선 패스의 `sgVertex`(정점을 미는 함수)를 둔다. `sgEffect` 는 블록마다 따로 두어도 되고, 하나로 두고 `#ifdef SG_OUTLINE` 으로 색만 갈라도 된다.
+- 단계 번호(`_SgStep`)는 두 패스에 함께 걸린다. 모든 단계가 본체와 외곽선 양쪽에서 말이 되게 정한다. `SG_OFF` 도 두 패스에 함께 걸린다.
 - 래퍼는 `core.hlsl` 을 `HLSLINCLUDE` 가 아니라 패스마다 include 한다. 외곽선 패스만 include 앞에 `#define SG_OUTLINE` 을 둔다.
 - 외곽선 패스는 `Tags { "LightMode" = "SRPDefaultUnlit" }`, `Cull Front`, 정점에서 `sgVertex` 를 부른다. URP 17.3 은 이 태그를 Forward, Deferred(Forward 전용 목록), 2D Renderer 모두에서 그린다 (패키지 소스 확인). 그림자와 깊이 패스는 본체만 둔다.
 - 웹은 같은 메시를 자식으로 하나 더 두고 뒷면만 그린다. 외곽선은 그림자를 드리우지 않는다.
 - `meta.stage.outline: true` 로 적는다. `tools/check.mjs` 가 블록, `#define`, `Cull Front`, 태그를 확인하고 외곽선 프로그램도 WebGL 로 컴파일한다.
+- `unity.pitfalls` 에 적을 것 (리뷰 지적, Unity 에서는 아직 확인하지 않았다):
+  - 외곽선 패스는 깊이 프리패스(DepthOnly)에 없다. Universal Renderer 의 Depth Priming 이 켜지고 프리패스가 돌면(SSAO 등) 불투명 그리기가 ZTest Equal 로 바뀌어 외곽선이 통째로 사라질 수 있다.
+  - 깊이 텍스처에 외곽선이 들어가는지는 프리패스냐 불투명 뒤 깊이 복사냐에 따라 다르다. 노멀 텍스처에는 들어가지 않는다.
+
+`positionOS` 를 쓰는 모든 표본은 `unity.pitfalls` 에 정적 배칭을 적는다. Batching Static 물체는 정점이 월드 좌표로 합쳐져 `positionOS` 가 월드 위치가 된다. 웹 `cube` 는 Unity 기본 큐브처럼 면을 나누지 않은 정점 24개다.
 
 ### 속성 형식 대응
 

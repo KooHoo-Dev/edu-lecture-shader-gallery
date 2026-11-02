@@ -72,6 +72,12 @@ function numbered(lines: string[]): string {
   return lines.map((line, i) => `${i + 1}. ${line}`).join('\n')
 }
 
+/** 표본별로 더하는 지킬 것. 외곽선 표본의 SG_OUTLINE 은 갤러리 표시가 아니라 Unity 에서 쓰는 스위치다 */
+function rules(meta: SpecimenMeta): string {
+  const extra = meta.stage.outline ? ['- `SG_OUTLINE` 은 Unity 에서도 쓰는 스위치다. 외곽선 패스의 `#define SG_OUTLINE` 과 패스마다 하는 `core.hlsl` include 를 지우거나 합치지 않는다.'] : []
+  return [FIXED_RULES, ...extra].join('\n')
+}
+
 export function buildPrompt(kind: PromptKind, source: PromptSource, values: ParamValues): string {
   const { meta } = source
   const head = `${meta.prompt.goal}`
@@ -86,7 +92,7 @@ export function buildPrompt(kind: PromptKind, source: PromptSource, values: Para
       `## 환경\n${ENVIRONMENT}`,
       `## 할 일\n${numbered(steps)}`,
       `## 머티리얼 값\n${table}`,
-      `## 지킬 것\n${FIXED_RULES}`,
+      `## 지킬 것\n${rules(meta)}`,
       `## 주의할 점\n${meta.unity.pitfalls.map(p => `- ${p}`).join('\n')}`,
       `## 파일\n\n${code}`,
     ].join('\n\n')
@@ -104,7 +110,7 @@ export function buildPrompt(kind: PromptKind, source: PromptSource, values: Para
         '- 바꾼 파일은 일부가 아니라 전체 내용을 출력한다.',
         '- 무엇을 왜 바꿨는지 세 줄 이내로 설명하고, 바뀐 값과 확인 방법을 적는다.',
       ].join('\n')}`,
-      `## 지킬 것\n${FIXED_RULES}`,
+      `## 지킬 것\n${rules(meta)}`,
       `## 변형 예시\n${meta.prompt.adaptIdeas.map(i => `- ${i}`).join('\n')}`,
       `## 현재 머티리얼 값\n${table}`,
       `## 현재 파일\n\n${code}`,
@@ -122,7 +128,7 @@ export function buildPrompt(kind: PromptKind, source: PromptSource, values: Para
       '- 설정 문제면 어느 창의 어느 항목인지 적는다. 코드 문제면 바꾼 파일 전체를 출력한다.',
       '- 고친 뒤 확인 방법을 적는다.',
     ].join('\n')}`,
-    `## 지킬 것\n${FIXED_RULES}`,
+    `## 지킬 것\n${rules(meta)}`,
     `## 정상 동작 기준\n${meta.unity.verify}`,
     `## 기준 머티리얼 값\n${table}`,
     `## 기준 파일\n\n${code}`,
