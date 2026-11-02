@@ -171,18 +171,18 @@ namespace ShaderGallery.EditorTools
                     BuildPerspective(stage);
                     AddFloor(stage);
                     AddProps(stage);
-                    AddMesh(stage, PrimitiveType.Sphere, material, new Vector3(0f, 0.55f, 0f), 2.2f);
+                    PlaceEffectMesh(stage, specimen.mesh, material, true);
                     break;
                 case "fullscreen":
                     BuildPerspective(stage);
                     AddFloor(stage);
                     AddProps(stage);
-                    AddMesh(stage, PrimitiveType.Sphere, LitMaterial(stage, new Color(0.62f, 0.68f, 0.76f)), new Vector3(0f, 0.75f, 0f), 1.5f);
+                    AddMesh(stage, "New-Sphere.fbx", LitMaterial(stage, new Color(0.62f, 0.68f, 0.76f)), new Vector3(0f, 0.75f, 0f), 1.5f);
                     break;
                 default:
                     BuildPerspective(stage);
                     AddFloor(stage);
-                    PlaceEffectMesh(stage, specimen.mesh, material);
+                    PlaceEffectMesh(stage, specimen.mesh, material, false);
                     break;
             }
 
@@ -219,25 +219,28 @@ namespace ShaderGallery.EditorTools
             spriteRenderer.sharedMaterial = material;
         }
 
-        // web/src/stage/layout.ts 의 meshPlacement 와 같은 값.
-        static void PlaceEffectMesh(Stage stage, string mesh, Material material)
+        // web/src/stage/layout.ts 의 meshPlacement, depthPlacement 와 같은 값.
+        static void PlaceEffectMesh(Stage stage, string mesh, Material material, bool depth)
         {
             switch (mesh)
             {
                 case "capsule":
-                    AddMesh(stage, PrimitiveType.Capsule, material, new Vector3(0f, 1f, 0f), 1f);
+                    AddMesh(stage, "New-Capsule.fbx", material, new Vector3(0f, depth ? 0.6f : 1f, 0f), depth ? 1.4f : 1f);
                     break;
                 case "cylinder":
-                    AddMesh(stage, PrimitiveType.Cylinder, material, new Vector3(0f, 1f, 0f), 1f);
+                    AddMesh(stage, "New-Cylinder.fbx", material, new Vector3(0f, depth ? 0.6f : 1f, 0f), depth ? 1.4f : 1f);
                     break;
                 case "cube":
-                    AddMesh(stage, PrimitiveType.Cube, material, new Vector3(0f, 0.75f, 0f), 1.2f);
+                    AddMesh(stage, "Cube.fbx", material, new Vector3(0f, depth ? 0.5f : 0.75f, 0f), depth ? 1.6f : 1.2f);
                     break;
                 case "quad":
-                    AddMesh(stage, PrimitiveType.Quad, material, new Vector3(0f, 0.85f, 0f), 1.6f);
+                    AddMesh(stage, "Quad.fbx", material, new Vector3(0f, depth ? 0.6f : 0.85f, 0f), depth ? 2.4f : 1.6f);
+                    break;
+                case "plane":
+                    AddMesh(stage, "New-Plane.fbx", material, new Vector3(0f, depth ? 0.3f : 0.5f, 0f), depth ? 0.35f : 0.3f);
                     break;
                 default:
-                    AddMesh(stage, PrimitiveType.Sphere, material, new Vector3(0f, 0.85f, 0f), 1.5f);
+                    AddMesh(stage, "New-Sphere.fbx", material, new Vector3(0f, depth ? 0.55f : 0.85f, 0f), depth ? 2.2f : 1.5f);
                     break;
             }
         }
@@ -259,15 +262,15 @@ namespace ShaderGallery.EditorTools
             floor.SetTexture("_BaseMap", texture);
             floor.SetTextureScale("_BaseMap", new Vector2(4f, 4f));
 
-            GameObject plane = AddMesh(stage, PrimitiveType.Plane, floor, Vector3.zero, 1f);
+            GameObject plane = AddMesh(stage, "New-Plane.fbx", floor, Vector3.zero, 1f);
             plane.transform.localScale = new Vector3(1.6f, 1f, 1.6f);
         }
 
         static void AddProps(Stage stage)
         {
-            GameObject box = AddMesh(stage, PrimitiveType.Cube, LitMaterial(stage, PropColor), new Vector3(0.95f, 0.4f, 0.3f), 0.8f);
+            GameObject box = AddMesh(stage, "Cube.fbx", LitMaterial(stage, PropColor), new Vector3(0.95f, 0.4f, 0.3f), 0.8f);
             box.transform.rotation = Quaternion.Euler(0f, 28f, 0f);
-            AddMesh(stage, PrimitiveType.Sphere, LitMaterial(stage, PropColor2), new Vector3(-1.1f, 0.45f, 0.5f), 0.9f);
+            AddMesh(stage, "New-Sphere.fbx", LitMaterial(stage, PropColor2), new Vector3(-1.1f, 0.45f, 0.5f), 0.9f);
         }
 
         static Material LitMaterial(Stage stage, Color color)
@@ -279,15 +282,14 @@ namespace ShaderGallery.EditorTools
             return material;
         }
 
-        static GameObject AddMesh(Stage stage, PrimitiveType type, Material material, Vector3 position, float scale)
+        static GameObject AddMesh(Stage stage, string builtinMesh, Material material, Vector3 position, float scale)
         {
-            GameObject go = GameObject.CreatePrimitive(type);
-            SceneManager.MoveGameObjectToScene(go, stage.scene);
-            go.hideFlags = HideFlags.HideAndDontSave;
+            GameObject go = NewObject(stage, builtinMesh);
+            go.AddComponent<MeshFilter>().sharedMesh = Resources.GetBuiltinResource<Mesh>(builtinMesh);
+            var meshRenderer = go.AddComponent<MeshRenderer>();
+            meshRenderer.sharedMaterial = material;
             go.transform.position = position;
             go.transform.localScale = Vector3.one * scale;
-            var meshRenderer = go.GetComponent<MeshRenderer>();
-            meshRenderer.sharedMaterial = material;
             stage.renderers.Add(meshRenderer);
             return go;
         }
@@ -307,10 +309,12 @@ namespace ShaderGallery.EditorTools
             }
         }
 
+        // 태어날 때부터 숨김 플래그를 달아 열린 씬을 건드리지 않는다. 이런 물체는 씬을 닫아도 남으므로 직접 지운다.
         static GameObject NewObject(Stage stage, string name)
         {
-            var go = new GameObject(name) { hideFlags = HideFlags.HideAndDontSave };
+            GameObject go = EditorUtility.CreateGameObjectWithHideFlags(name, HideFlags.HideAndDontSave);
             SceneManager.MoveGameObjectToScene(go, stage.scene);
+            stage.temporary.Add(go);
             return go;
         }
 

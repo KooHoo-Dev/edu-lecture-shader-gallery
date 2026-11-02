@@ -104,7 +104,8 @@ Shader "ShaderGallery/DissolveEdgeGlow"
         Pass
         {
             Name "Forward"
-            Tags { "LightMode" = "UniversalForward" }
+            // Forward 와 Deferred 렌더 경로 모두에서 그려지려면 UniversalForwardOnly 여야 한다.
+            Tags { "LightMode" = "UniversalForwardOnly" }
 
             HLSLPROGRAM
             #pragma vertex vert
@@ -116,6 +117,7 @@ Shader "ShaderGallery/DissolveEdgeGlow"
             float4 frag(Varyings v) : SV_Target
             {
                 UNITY_SETUP_INSTANCE_ID(v);
+                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(v);
                 float3 normalWS = normalize(v.normalWS);
                 Light light = GetMainLight(TransformWorldToShadowCoord(v.positionWS));
                 float3 lightColor = light.color * light.shadowAttenuation;
@@ -140,13 +142,20 @@ Shader "ShaderGallery/DissolveEdgeGlow"
             #pragma vertex vertShadow
             #pragma fragment fragClip
             #pragma multi_compile_instancing
+            #pragma multi_compile_vertex _ _CASTING_PUNCTUAL_LIGHT_SHADOW
 
             float3 _LightDirection;
+            float3 _LightPosition;
 
             Varyings vertShadow(Attributes v)
             {
                 Varyings o = vert(v);
-                float4 cs = TransformWorldToHClip(ApplyShadowBias(o.positionWS, o.normalWS, _LightDirection));
+                #if _CASTING_PUNCTUAL_LIGHT_SHADOW
+                    float3 lightDir = normalize(_LightPosition - o.positionWS);
+                #else
+                    float3 lightDir = _LightDirection;
+                #endif
+                float4 cs = TransformWorldToHClip(ApplyShadowBias(o.positionWS, o.normalWS, lightDir));
                 o.positionCS = ApplyShadowClamping(cs);
                 return o;
             }
@@ -154,6 +163,7 @@ Shader "ShaderGallery/DissolveEdgeGlow"
             float4 fragClip(Varyings v) : SV_Target
             {
                 UNITY_SETUP_INSTANCE_ID(v);
+                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(v);
                 clip(effectAlpha(v) - 0.5);
                 return 0;
             }
@@ -176,6 +186,7 @@ Shader "ShaderGallery/DissolveEdgeGlow"
             float4 fragClip(Varyings v) : SV_Target
             {
                 UNITY_SETUP_INSTANCE_ID(v);
+                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(v);
                 clip(effectAlpha(v) - 0.5);
                 return v.positionCS.z;
             }
@@ -186,7 +197,7 @@ Shader "ShaderGallery/DissolveEdgeGlow"
         Pass
         {
             Name "DepthNormals"
-            Tags { "LightMode" = "DepthNormals" }
+            Tags { "LightMode" = "DepthNormalsOnly" }
             ZWrite On
 
             HLSLPROGRAM
@@ -197,6 +208,7 @@ Shader "ShaderGallery/DissolveEdgeGlow"
             float4 fragNormals(Varyings v) : SV_Target
             {
                 UNITY_SETUP_INSTANCE_ID(v);
+                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(v);
                 clip(effectAlpha(v) - 0.5);
                 return float4(normalize(v.normalWS), 0.0);
             }

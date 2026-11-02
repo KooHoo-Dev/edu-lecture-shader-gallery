@@ -21,6 +21,15 @@ namespace ShaderGallery.EditorTools
             (ShaderCompilerPlatform.Metal, BuildTarget.iOS, "Metal"),
         };
 
+        // 기본 변형 외에 실제 빌드에서 갈리기 쉬운 키워드. 모든 플랫폼에 돌리면 오래 걸려 D3D11 과 GLES3 에만 돌린다.
+        static readonly string[][] ExtraKeywords =
+        {
+            new[] { "INSTANCING_ON" },
+            new[] { "STEREO_INSTANCING_ON" },
+            new[] { "_MAIN_LIGHT_SHADOWS_CASCADE", "_SHADOWS_SOFT" },
+            new[] { "SKINNED_SPRITE" },
+        };
+
         public static void RunBatch()
         {
             string jobPath = ArgumentAfter("-sgJob");
@@ -51,6 +60,9 @@ namespace ShaderGallery.EditorTools
                 ok = true,
             };
 
+            // 비동기 컴파일이 켜져 있으면 방금 고친 셰이더 대신 청록색 임시 셰이더가 찍힐 수 있다.
+            bool asyncCompilation = ShaderUtil.allowAsyncCompilation;
+            ShaderUtil.allowAsyncCompilation = false;
             try
             {
                 AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
@@ -69,6 +81,10 @@ namespace ShaderGallery.EditorTools
             {
                 result.ok = false;
                 result.fatal = e.ToString();
+            }
+            finally
+            {
+                ShaderUtil.allowAsyncCompilation = asyncCompilation;
             }
 
             result.finishedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
@@ -108,25 +124,28 @@ namespace ShaderGallery.EditorTools
                     ShaderData.Pass pass = sub.GetPass(p);
                     foreach (var (platform, target, label) in Platforms)
                     {
-                        foreach (ShaderType type in new[] { ShaderType.Vertex, ShaderType.Fragment })
+                        foreach (string[] keywords in KeywordSets(shader, platform))
                         {
-                            if (!pass.HasShaderStage(type))
+                            foreach (ShaderType type in new[] { ShaderType.Vertex, ShaderType.Fragment })
                             {
-                                continue;
-                            }
-                            ShaderData.VariantCompileInfo info = pass.CompileVariant(type, Array.Empty<string>(), platform, target);
-                            item.variantsCompiled++;
-                            string where = $"{label}/{pass.Name}/{type}";
-                            foreach (ShaderMessage m in info.Messages)
-                            {
-                                AddMessage(item, m, where);
-                            }
-                            if (!info.Success)
-                            {
-                                item.compileOk = false;
-                                if (info.Messages.Length == 0)
+                                if (!pass.HasShaderStage(type))
                                 {
-                                    item.messages.Add(new SgMessage { severity = "error", where = where, message = "컴파일 실패 (메시지 없음)" });
+                                    continue;
+                                }
+                                ShaderData.VariantCompileInfo info = pass.CompileVariant(type, keywords, platform, target);
+                                item.variantsCompiled++;
+                                string where = $"{label}/{pass.Name}/{type}/{string.Join("+", keywords)}";
+                                foreach (ShaderMessage m in info.Messages)
+                                {
+                                    AddMessage(item, m, where);
+                                }
+                                if (!info.Success)
+                                {
+                                    item.compileOk = false;
+                                    if (info.Messages.Length == 0)
+                                    {
+                                        item.messages.Add(new SgMessage { severity = "error", where = where, message = "컴파일 실패 (메시지 없음)" });
+                                    }
                                 }
                             }
                         }
@@ -135,6 +154,24 @@ namespace ShaderGallery.EditorTools
             }
 
             return item;
+        }
+
+        // 기본 변형과, 이 셰이더가 선언한 키워드 조합. 스테레오는 프로젝트의 XR 설정이 더하므로 선언과 상관없이 검사한다.
+        static IEnumerable<string[]> KeywordSets(Shader shader, ShaderCompilerPlatform platform)
+        {
+            yield return Array.Empty<string>();
+            if (platform != ShaderCompilerPlatform.D3D && platform != ShaderCompilerPlatform.GLES3x)
+            {
+                yield break;
+            }
+            var declared = new HashSet<string>(shader.keywordSpace.keywordNames);
+            foreach (string[] keywords in ExtraKeywords)
+            {
+                if (keywords[0] == "STEREO_INSTANCING_ON" || declared.Contains(keywords[0]))
+                {
+                    yield return keywords;
+                }
+            }
         }
 
         static void AddMessage(SgSpecimenResult item, ShaderMessage m, string where)

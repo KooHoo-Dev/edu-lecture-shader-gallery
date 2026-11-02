@@ -14,7 +14,7 @@
 // 결과: _shots/unity/result.json 과 _shots/unity/<id>/<상태>.png. 오류가 있으면 종료 코드 1.
 
 import { spawn, spawnSync } from 'node:child_process'
-import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { basename, dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -26,7 +26,9 @@ const UNITY = process.env.SG_UNITY_EXE ?? findUnityExe()
 const COPY = process.env.SG_UNITY_COPY ?? join(homedir(), '.sg-unity', basename(ROOT))
 const BRIDGE = join(ROOT, 'Temp', 'ShaderGalleryBridge')
 const BATCH_TIMEOUT_MS = 20 * 60 * 1000
-const EDITOR_TIMEOUT_MS = 5 * 60 * 1000
+// 에디터가 명령을 집어 갈 때까지(도메인 리로드 포함)와, 집어 간 뒤 끝날 때까지의 제한
+const EDITOR_PICKUP_MS = 3 * 60 * 1000
+const EDITOR_RUN_MS = 30 * 60 * 1000
 const HEARTBEAT_FRESH_MS = 20 * 1000
 
 function findUnityExe() {
@@ -52,9 +54,11 @@ async function runEditor(jobPath) {
   const id = String(Date.now())
   const done = join(BRIDGE, 'done.json')
   rmSync(done, { force: true })
-  writeFileSync(join(BRIDGE, 'command.json'), JSON.stringify({ id, job: jobPath }))
+  // 에디터가 쓰는 도중의 파일을 읽지 않도록 임시 파일로 쓴 뒤 이름을 바꾼다
+  writeFileSync(join(BRIDGE, 'command.tmp'), JSON.stringify({ id, job: jobPath }))
+  renameSync(join(BRIDGE, 'command.tmp'), join(BRIDGE, 'command.json'))
   const start = Date.now()
-  while (Date.now() - start < EDITOR_TIMEOUT_MS) {
+  while (Date.now() - start < (existsSync(join(BRIDGE, 'running.txt')) ? EDITOR_RUN_MS : EDITOR_PICKUP_MS)) {
     await sleep(500)
     if (!existsSync(done)) continue
     const answer = JSON.parse(readFileSync(done, 'utf8'))
@@ -70,6 +74,9 @@ function mirror(name) {
   if (r.status === null || r.status >= 8) throw new Error(`복사 실패 (${name}): ${r.stdout}${r.stderr}`)
 }
 
+const normalized = path => readFileSync(path, 'utf8').replace(/\r\n/g, '\n')
+
+// 새 .meta 를 리포로 가져온다. 표본 폴더의 .meta 는 촬영 도구가 텍스처 설정을 고칠 수 있어 내용이 달라도 가져온다.
 function syncMetaBack(dir = join(COPY, 'Assets')) {
   let added = 0
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -79,7 +86,9 @@ function syncMetaBack(dir = join(COPY, 'Assets')) {
     } else if (entry.name.endsWith('.meta')) {
       const target = join(ROOT, relative(COPY, path))
       const asset = target.slice(0, -'.meta'.length)
-      if (!existsSync(target) && existsSync(asset)) {
+      if (!existsSync(asset)) continue
+      const specimenFile = relative(join(ROOT, 'Assets', 'Shaders'), target).split(/[\\/]/).length === 2
+      if (!existsSync(target) || (specimenFile && normalized(target) !== normalized(path))) {
         copyFileSync(path, target)
         added++
       }
@@ -111,7 +120,7 @@ async function runBatch(jobPath) {
   })
   if (projectPath === COPY) {
     const added = syncMetaBack()
-    if (added) console.log(`새 .meta ${added}개를 리포로 가져옴`)
+    if (added) console.log(`.meta ${added}개를 리포로 가져옴`)
   }
   return { code, log }
 }
