@@ -10,7 +10,7 @@
 //   4. 메타와 셰이더 일치: 속성 이름, 범위, 기본값, CBUFFER, SG_STEP 번호, 트랙, 정점 변형, 텍스처, URP 요구 사항
 //   5. 글: 개수 규칙, 게임명이 ID·제목에 없는지, inspiredBy 형식
 //   6. import 대소문자 (Windows 에서 통과해도 Linux CI 에서 깨진다)
-//   7. 페이지: WebGL2 컴파일 로그, 무대가 실제로 그리는지, 이벤트와 자동 데모, 페이지 오류
+//   7. 페이지: WebGL2 컴파일 로그, 무대가 실제로 그리는지, 이벤트와 자동 데모, 잘라 내기 메시의 그림자, 페이지 오류
 //   8. 전체 검사만: dist 용량 예산, 외부 참조, 네트워크 차단 오프라인 실행, Skill 최신 여부
 
 import { spawnSync } from 'node:child_process'
@@ -305,6 +305,43 @@ function checkImportCase(dir = join(WEB, 'src')) {
   }
 }
 
+/** 잘라 내기 메시: 효과 끄기에서는 온전한 그림자, 평소에는 알파를 따라 변하는 그림자여야 한다 */
+async function checkCutoutShadow(page, url, id, meta) {
+  const probe = async query => {
+    await page.goto(`${url}#/s/${id}?auto=0${query}`)
+    await page.sleep(600)
+    return page.evaluate('window.__sgShadow()')
+  }
+  const plain = await probe('&off=1')
+  if (!plain || plain.area < 0.005) {
+    err(`${id}: 효과 끄기에서 온전한 그림자가 보이지 않는다 (${JSON.stringify(plain)})`)
+    return
+  }
+  const shaded = await probe('')
+
+  // sgEffect 가 항상 알파 1.0 을 돌려주면 자르지 않는 표본이다
+  const core = stripComments(readFileSync(join(SHADERS, id, 'core.hlsl'), 'utf8').replace(/\r\n/g, '\n'))
+  if (/return\s+float4\([^;]*,\s*1\.0\s*\)\s*;\s*\}\s*$/.test(core)) return
+
+  const track = meta.demo?.loops?.[0] ?? meta.events[0]?.tracks[0]
+  if (!track) {
+    if (shaded.area > plain.area * 0.98) err(`${id}: 물체를 잘라 내도 바닥 그림자가 그대로다`)
+    return
+  }
+  const values = track.frames.map(frame => frame[1])
+  const low = `&p.${track.key}=${Math.min(...values)}`
+  const high = `&p.${track.key}=${Math.max(...values)}`
+  const [lowOn, highOn] = [await probe(low), await probe(high)]
+  if (Math.abs(lowOn.area - highOn.area) < plain.area * 0.5) {
+    err(`${id}: ${track.key} 를 움직여도 바닥 그림자가 따라 변하지 않는다 (온전 ${plain.area.toFixed(3)}, 낮은 값 ${lowOn.area.toFixed(3)}, 높은 값 ${highOn.area.toFixed(3)})`)
+  }
+  // 효과 끄기는 어떤 값에서도 온전한 그림자여야 한다
+  const [lowOff, highOff] = [await probe(`&off=1${low}`), await probe(`&off=1${high}`)]
+  if (Math.abs(lowOff.area - highOff.area) > plain.area * 0.1) {
+    err(`${id}: 효과 끄기인데 ${track.key} 를 따라 그림자가 변한다 (낮은 값 ${lowOff.area.toFixed(3)}, 높은 값 ${highOff.area.toFixed(3)})`)
+  }
+}
+
 /** 네트워크를 완전히 막고 file:// 로 연 페이지에서 표본을 컴파일하고 실제로 돌려 본다 */
 async function checkPage(html, titles, { home }) {
   if (!findChrome()) {
@@ -340,6 +377,8 @@ async function checkPage(html, titles, { home }) {
         else if (!state?.frames) err(`무대가 그리지 않음: ${id}`)
         const shown = await page.evaluate(`document.querySelector('.notfound')?.innerText ?? ''`)
         if (shown) err(`표본을 표시하지 못함 ${id}: ${shown}`)
+        const meta = await loadMeta(ROOT, id)
+        if (meta.stage.kind === 'mesh' && (meta.stage.blend ?? 'cutout') === 'cutout') await checkCutoutShadow(page, url, id, meta)
       }
       for (const log of page.logs.slice(0, 5)) err(`페이지 오류: ${log.slice(0, 300)}`)
     },

@@ -202,6 +202,10 @@ uniform vec3 uLightColor;
 uniform vec3 uAmbient;
 uniform vec4 uShadowSpheres[3];
 uniform int uShadowCount;
+uniform sampler2D uShadowMask;
+uniform mat4 uShadowMatrix;
+uniform float uShadowMaskOn;
+uniform float uShadowSoft;
 out vec4 sgOut;
 float sphereShadow(vec3 p, vec3 l, vec4 s) {
   vec3 toCenter = s.xyz - p;
@@ -210,6 +214,15 @@ float sphereShadow(vec3 p, vec3 l, vec4 s) {
   float miss = length(toCenter - l * along);
   float soft = 0.04 + 0.05 * along;
   return smoothstep(s.w - soft, s.w + soft, miss);
+}
+float maskShadow(vec3 p) {
+  vec2 uv = (uShadowMatrix * vec4(p, 1.0)).xy * 0.5 + 0.5;
+  if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) return 1.0;
+  float covered = 0.0;
+  for (int y = -2; y <= 2; y++) {
+    for (int x = -2; x <= 2; x++) covered += texture(uShadowMask, uv + vec2(float(x), float(y)) * uShadowSoft).a;
+  }
+  return 1.0 - covered / 25.0;
 }
 void main() {
   vec3 albedo = uAlbedo;
@@ -220,7 +233,15 @@ void main() {
   vec3 n = normalize(vNormalWS);
   float shadow = 1.0;
   for (int k = 0; k < uShadowCount; k++) shadow *= sphereShadow(vPositionWS, uLightDir, uShadowSpheres[k]);
+  if (uShadowMaskOn > 0.5) shadow *= maskShadow(vPositionWS);
   sgOut = vec4(albedo * (uLightColor * max(dot(n, uLightDir), 0.0) * shadow + uAmbient), 1.0);
+}`
+
+/** 잘라 내기를 무시하고 물체 전체를 그림자 마스크에 그린다 ('효과 끄기'의 온전한 그림자) */
+export const SHADOW_PLAIN_FRAGMENT = `precision highp float;
+out vec4 sgOut;
+void main() {
+  sgOut = vec4(1.0);
 }`
 
 export const PRESENT_FRAGMENT = `precision highp float;

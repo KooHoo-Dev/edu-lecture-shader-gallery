@@ -194,6 +194,8 @@ float effectNoise(float2 p)
 | `additive` | 더하기 혼합 | `Blend SrcAlpha One`, `ZWrite Off`, 태그는 `alpha` 와 같다 | 역장 |
 | (fullscreen) | 알파 무시 | 해당 없음 | 전환 |
 
+**잘라 내기 메시의 그림자.** `mesh` 무대의 `cutout` 표본은 앱이 광원 쪽에서 `sgEffect` 를 한 번 더 돌려 그 알파로 바닥 그림자를 만든다 (Unity 의 `ShadowCaster` 패스에 해당). 구멍, 시간에 따른 변화, 정점 변형까지 따라오므로 표본이 따로 할 일은 없다. 단계 보기에서도 그림자는 최종 알파를 쓴다. 효과 끄기에서는 잘라 내기를 무시한 온전한 그림자가 나온다. 그림자 패스를 자르지 않는 흔한 실수이므로, 표본의 `SG_OFF` 와 `offNote` 는 이 모습과 어울리게 쓴다. `node tools/check.mjs <id>` 가 첫 자동 데모 트랙(없으면 첫 이벤트 트랙)을 양 끝으로 움직여, 평소에는 그림자가 따라 변하고 효과 끄기에서는 변하지 않는지 잰다. 알파를 자르지 않는 표본(마지막 `return` 의 알파가 `1.0`)은 값 변화 검사를 건너뛴다. `depth`, `fullscreen` 무대의 소품 그림자는 단순 근사이고, 투명 표본은 그림자를 만들지 않는 것이 맞다.
+
 불투명 표본은 `blend: 'cutout'` 으로 두고 항상 알파 1.0 을 돌려준다. 투명 메시는 샘플이 없다. 역장의 래퍼에서 깊이 관련 줄을 빼고 `SgInput` 을 메시 형식으로 바꾼 뒤, `"LightMode" = "UniversalForward"` 패스 하나로 쓴다. 웹 쪽 입력은 `stage.kind` 를 따르므로 `kind: 'mesh'` 와 `blend` 를 함께 적는다. 양면을 그리면 래퍼에 `Cull Off`, 메타에 `stage.doubleSided: true` 를 둔다.
 
 ### 래퍼 규칙

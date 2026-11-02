@@ -7,6 +7,7 @@ declare global {
   interface Window {
     __sgCompileAll?: () => { id: string; variant: string; errors: string[] }[]
     __sgStage?: () => { frames: number; error: string | null } | null
+    __sgShadow?: () => { coverage: number; area: number } | null
   }
 }
 
@@ -21,6 +22,8 @@ window.__sgCompileAll = () => {
     })),
   )
 }
+
+window.__sgShadow = () => getShaderStage()?.probeShadow() ?? null
 
 window.__sgStage = () => {
   const stage = getShaderStage()

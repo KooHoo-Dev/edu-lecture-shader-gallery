@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { requestFlash } from '../core/flash'
 import { STAGE_SPRITE_URL } from './assets'
 import type { Ease, ParamDef, ParamValues, Specimen, Track } from '../core/types'
-import { buildProgram, defaultBlend, LIT_FRAGMENT, LIT_VERTEX, PRESENT_FRAGMENT, PRESENT_VERTEX, textureNames } from './glsl'
+import { buildProgram, defaultBlend, LIT_FRAGMENT, LIT_VERTEX, PRESENT_FRAGMENT, PRESENT_VERTEX, SHADOW_PLAIN_FRAGMENT, textureNames } from './glsl'
 import { hexToLinear, LAYOUT, linear3, toThree } from './layout'
 
 /**
@@ -66,6 +66,12 @@ class ShaderStage {
   private hdr = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, samples: 4 })
   private source = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, samples: 4 })
   private opaque = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, depthTexture: new THREE.DepthTexture(4, 4, THREE.FloatType) })
+  /** 잘라 내기 메시의 그림자: 광원 쪽에서 평행 투영으로 본 물체의 알파. 바닥이 이 값으로 어두워진다 */
+  private shadowMask = new THREE.WebGLRenderTarget(512, 512)
+  private shadowCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 30)
+  private shadowMatrix = new THREE.Matrix4()
+  private shadowPlain: THREE.RawShaderMaterial
+  private maskFloor: THREE.Mesh<THREE.BufferGeometry, THREE.RawShaderMaterial> | null = null
 
   private perspective = new THREE.PerspectiveCamera(LAYOUT.camera.fov, 16 / 9, LAYOUT.camera.near, LAYOUT.camera.far)
   private ortho = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100)
@@ -127,6 +133,7 @@ class ShaderStage {
       depthWrite: false,
     })
     this.presentScene.add(this.fullscreenMesh(this.presentMaterial))
+    this.shadowPlain = new THREE.RawShaderMaterial({ glslVersion: THREE.GLSL3, vertexShader: LIT_VERTEX, fragmentShader: SHADOW_PLAIN_FRAGMENT })
 
     this.resizeObserver = new ResizeObserver(() => this.resize())
     this.canvas.addEventListener('pointerdown', this.onPointerDown)
@@ -228,6 +235,10 @@ class ShaderStage {
         uAmbient: { value: new THREE.Vector3(...linear3(LAYOUT.ambient)) },
         uShadowSpheres: { value: [new THREE.Vector4(), new THREE.Vector4(), new THREE.Vector4()] },
         uShadowCount: { value: 0 },
+        uShadowMask: { value: this.shadowMask.texture },
+        uShadowMatrix: { value: this.shadowMatrix },
+        uShadowMaskOn: { value: 0 },
+        uShadowSoft: { value: 0 },
       },
     })
     this.litMaterials.push(material)
@@ -248,6 +259,25 @@ class ShaderStage {
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(LAYOUT.floorSize, LAYOUT.floorSize), material)
     floor.rotation.x = -Math.PI / 2
     this.scene.add(floor)
+    return floor
+  }
+
+  /** 그림자 마스크 카메라를 물체에 맞추고 바닥이 마스크를 읽게 한다 */
+  private aimShadowMask(floor: THREE.Mesh<THREE.BufferGeometry, THREE.RawShaderMaterial>, mesh: THREE.Mesh, specimen: Specimen) {
+    mesh.geometry.computeBoundingSphere()
+    const radius = mesh.geometry.boundingSphere!.radius * mesh.scale.x * (specimen.meta.stage.vertex ? 1.3 : 1.05)
+    const camera = this.shadowCamera
+    camera.left = camera.bottom = -radius
+    camera.right = camera.top = radius
+    camera.position.copy(mesh.position).addScaledVector(this.lightDir(), 10)
+    camera.lookAt(mesh.position)
+    camera.updateProjectionMatrix()
+    camera.updateMatrixWorld()
+    this.shadowMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
+    floor.material.uniforms.uShadowMaskOn.value = 1
+    // 그림자 경계를 약 0.08 유닛 폭으로 흐린다. 마스크 전체 폭은 radius * 2 유닛이다
+    floor.material.uniforms.uShadowSoft.value = 0.02 / (radius * 2)
+    this.maskFloor = floor
   }
 
   private addProps() {
@@ -286,12 +316,14 @@ class ShaderStage {
 
     if (kind === 'mesh') {
       const place = LAYOUT.meshPlacement[specimen.meta.stage.mesh ?? 'sphere']
-      this.addFloor([{ position: place.position, radius: place.shadow }])
+      const cutout = defaultBlend(specimen.meta) === 'cutout'
+      const floor = this.addFloor(cutout ? [] : [{ position: place.position, radius: place.shadow }])
       const mesh = new THREE.Mesh(this.effectGeometry(specimen), material)
       mesh.position.set(...toThree(place.position))
       mesh.scale.setScalar(place.scale)
       this.scene.add(mesh)
       this.effect = mesh
+      if (cutout) this.aimShadowMask(floor, mesh, specimen)
     } else if (kind === 'depth') {
       this.addFloor(this.propShadows())
       this.addProps()
@@ -402,6 +434,7 @@ class ShaderStage {
     for (const material of this.litMaterials) material.dispose()
     this.litMaterials = []
     this.effect = null
+    this.maskFloor = null
   }
 
   /* ───────── 크기 ───────── */
@@ -518,6 +551,60 @@ class ShaderStage {
     material.uniforms.uViewport.value.set(this.hdr.width, this.hdr.height)
   }
 
+  /**
+   * Unity 의 ShadowCaster 패스에 해당한다. 잘라 낸 구멍이 그림자에도 뚫린다.
+   * 단계 보기와 상관없이 최종 알파를 쓰고, 효과 끄기에서는 그림자 패스를 자르지 않는 흔한 실수를 보여 준다.
+   */
+  private renderShadowMask(material: THREE.RawShaderMaterial) {
+    const renderer = this.renderer
+    const effect = this.effect!
+    const floor = this.maskFloor!
+    material.uniforms._SgStep.value = 0
+    effect.material = this.settings.off ? this.shadowPlain : material
+    floor.visible = false
+    renderer.setClearColor(0x000000, 0)
+    renderer.setRenderTarget(this.shadowMask)
+    renderer.render(this.scene, this.shadowCamera)
+    floor.visible = true
+    effect.material = material
+    material.uniforms._SgStep.value = this.settings.step
+  }
+
+  /** 자동 검사용: 마스크가 얼마나 찼고 바닥에 그림자가 얼마나 드리우는지 잰다. 화면에는 영향이 없다 */
+  probeShadow() {
+    const floor = this.maskFloor
+    if (!floor || !this.effect) return null
+    const renderer = this.renderer
+    const { width, height } = this.shadowMask
+    const mask = new Uint8Array(width * height * 4)
+    renderer.readRenderTargetPixels(this.shadowMask, 0, 0, width, height, mask)
+    let covered = 0
+    for (let i = 3; i < mask.length; i += 4) if (mask[i] > 127) covered++
+
+    // 바닥만 마스크를 켜고 끈 두 장을 비교한다
+    const probe = new THREE.WebGLRenderTarget(128, 72, { type: THREE.FloatType })
+    const floorPixels = (on: number) => {
+      const pixels = new Float32Array(probe.width * probe.height * 4)
+      floor.material.uniforms.uShadowMaskOn.value = on
+      renderer.setRenderTarget(probe)
+      renderer.render(this.scene, this.perspective)
+      renderer.readRenderTargetPixels(probe, 0, 0, probe.width, probe.height, pixels)
+      return pixels
+    }
+    this.effect.visible = false
+    renderer.setClearColor(0x000000, 1)
+    const shaded = floorPixels(1)
+    const unshaded = floorPixels(0)
+    floor.material.uniforms.uShadowMaskOn.value = 1
+    this.effect.visible = true
+    renderer.setRenderTarget(null)
+    probe.dispose()
+
+    let dark = 0
+    for (let i = 1; i < shaded.length; i += 4) if (shaded[i] < unshaded[i] * 0.8) dark++
+    return { coverage: covered / (width * height), area: dark / (shaded.length / 4) }
+  }
+
   private renderFrame() {
     if (!this.specimen || !this.effect) return
     this.dirty = false
@@ -530,6 +617,11 @@ class ShaderStage {
     if (kind !== 'fullscreen' && blend !== 'cutout') {
       // 단계 보기에서는 뒤 배경과 섞이지 않게 값을 그대로 보여 준다
       material.blending = stepping ? THREE.NoBlending : blend === 'additive' ? THREE.CustomBlending : THREE.NormalBlending
+    }
+
+    if (this.maskFloor) {
+      this.effect.rotation.y = this.spin
+      this.renderShadowMask(material)
     }
 
     const renderer = this.renderer
