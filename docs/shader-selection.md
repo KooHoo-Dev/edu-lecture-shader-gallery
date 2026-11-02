@@ -1,6 +1,6 @@
 # Shader Gallery 셰이더 선정 (plan 2-1~2-3)
 
-작성 2026-11-02, 상태 **2-4 Jay 확인 대기**. 이 문서는 24개 목록과 선정 근거다. 조사 근거는 `research/`에 있다: [search-log.md](../research/search-log.md)(방법과 한계), [course-survey.md](../research/course-survey.md)(수업 프로젝트 3개 확인), [sources-by-effect.md](../research/sources-by-effect.md)(후보별 URL).
+작성 2026-11-02, 상태 **2-4 확정 (2026-11-02)**. 이 문서는 24개 목록과 선정 근거다. 조사 근거는 `research/`에 있다: [search-log.md](../research/search-log.md)(방법과 한계), [course-survey.md](../research/course-survey.md)(수업 프로젝트 3개 확인), [sources-by-effect.md](../research/sources-by-effect.md)(후보별 URL).
 
 **읽기 전에 알아둘 한계**
 - 게임 화면은 하나도 직접 확인하지 못했다. 게임 예는 문서, 강연 자료, 기사, 포럼 글 같은 출처가 있는 것만 "확인"으로 적고, 근거가 없으면 "범용 기법, 대표작 미확인"이라고 적었다.
@@ -9,7 +9,7 @@
 
 ## 0. 요약
 
-7그룹 24개. 확정된 샘플 4개(S 표시)를 포함한다. 아래 ID는 영구 ID 제안이므로 확정 전에 한 번 더 봐 주세요.
+7그룹 24개. 확정된 샘플 4개(S 표시)를 포함한다. 아래 ID는 확정된 영구 ID다. 공개 후에는 바꾸지 않는다.
 
 | 그룹 | ID | 난이도 | 우선 | 근거 | 무대 |
 |---|---|---|---|---|---|
@@ -361,7 +361,24 @@ UI 표본은 UGUI에서 쓰는 것을 기본으로 한다. 정점 색과 UV를 �
 9. **게임 예 대부분이 미확인**: 대표작이 확인된 것은 Guilty Gear Xrd, Portal 2, Left 4 Dead 2, Sea of Thieves, Ghost of Tsushima, Overwatch, Call of Duty: Modern Warfare, Little Nemo, Space Marine 2뿐이다. 모두 화면을 직접 확인하지 못했다.
 10. 모든 외부 URL의 라이선스를 열어 확인하지 않았다. 코드는 어디서도 가져오지 않는다.
 
-## 7. Jay가 판단할 쟁점
+## 7. 쟁점과 결정
+
+2026-11-02 목록 확정과 함께 아래처럼 정했다. 표가 그 아래 쟁점 설명과 다르면 표를 따른다.
+
+| 번호 | 결정 |
+|---|---|
+| 1 | 메타에 요구 사항을 적고 AI 지시 세트에 URP 설정 단계를 자동으로 넣는다 |
+| 2 | Full Screen Pass 가 2D Renderer 에서 동작함을 촬영으로 확인했다 (plan 11절). UI 대안은 만들지 않는다. Opaque Texture 미지원은 소스만 읽은 판단이다 |
+| 3 | 메시형만 XR 호환을 약속하고 △, ✕ 는 표시만 한다. 실기기 시험은 하지 않는다 |
+| 4 | 확장편으로 둔다. 공개 앱이므로 비공개 수업 파일은 링크하지 않고 이름만 언급한다 |
+| 5 | UI 3개는 스프라이트 무대를 쓴다. 씬 컬러 제공은 무대에 추가했다 |
+| 6 | `screen-vignette` 를 유지하고 "Volume 으로 충분한 경우"를 해설에 넣는다 |
+| 7 | 앞 묶음을 만든 뒤 유지 여부를 판단한다 |
+| 8 | 지면 표시는 이번에 제외한다 |
+| 9 | `inspiredBy` 는 출처가 확인된 게임만 적고 나머지는 비운다 |
+| 10 | ID 는 0절의 제안대로 확정한다 |
+| 11 | 전체 화면 표본은 내장 Full Screen Pass + 머티리얼만 쓴다 |
+| 12 | 계획서 버전 표기는 정정했다 |
 
 1. **깊이·씬 컬러 의존 표본의 URP 설정 정책** (6개). 켜야 하는 설정을 표본 메타에 `requires: [depth, opaque]`처럼 적고 AI 지시 세트에 자동으로 "URP 에셋에서 켜기" 단계를 넣는 것을 권장한다. 수업의 모바일·2D 에셋은 꺼져 있다.
 2. **2D Renderer 한계**: Opaque Texture는 미지원으로 알려져 있고 Full Screen Pass 지원은 확인하지 못했다. 2D 대상 후처리형(전환, 비네트, 충격파)을 UI Image 방식으로 대체할지, plan 0-4 시험 결과를 보고 결정할지 정해 주세요. 권장은 시험 결과를 본 뒤 결정이다.
