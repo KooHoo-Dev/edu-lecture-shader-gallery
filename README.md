@@ -2,6 +2,7 @@
 
 유니티 개발자 양성과정의 강사와 수강생이 함께 보는 게임 셰이더 갤러리. 화면과 샘플 코드, 프롬프트만 보고도 AI에게 같은 효과를 지시해 자기 프로젝트에 넣을 수 있게 만든다.
 
+- 바로 보기: https://koohoo-dev.github.io/edu-lecture-shader-gallery/ (main 에 push 하면 Actions 가 다시 배포한다)
 - 기준: Unity 6.3 LTS (6000.3), URP 17.3, HLSL 코드 셰이더
 - 결과물: HTML 파일 하나 (`web/dist/index.html`). 더블클릭과 GitHub Pages 에서 똑같이 동작한다
 - 브라우저 미리보기와 Unity 셰이더가 같은 `core.hlsl` 을 쓰고, 모든 표본을 실제 Unity 에서 컴파일하고 촬영한다
