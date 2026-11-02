@@ -9,7 +9,9 @@ namespace ShaderGallery.Samples
     {
         static readonly int OutlineAmount = Shader.PropertyToID("_OutlineAmount");
 
-        // 외곽선 패스의 LightMode 태그. SetShaderPassEnabled 는 이 이름으로 패스를 켜고 끈다.
+        // 외곽선 패스의 LightMode 태그. SetShaderPassEnabled 는 패스 이름이 아니라 이 태그로 켜고 끈다.
+        // 그래서 같은 셰이더에 SRPDefaultUnlit 태그의 패스가 더 있으면 그 패스도 함께 꺼진다.
+        // 이 셰이더를 고쳐 그런 패스를 더하면 외곽선만 끄는 다른 방법(예: _OutlineAmount 만 0)을 쓴다.
         const string OutlinePassTag = "SRPDefaultUnlit";
 
         [SerializeField] bool selectedOnStart = false;
@@ -26,6 +28,9 @@ namespace ShaderGallery.Samples
         {
             // 이 물체 전용 복사본을 쓴다. 그래야 같은 머티리얼의 다른 물체에는 외곽선이 켜지지 않고 SRP Batcher 도 유지된다.
             // 머티리얼 에셋의 기본값(1)은 썸네일용이라, 시작 상태는 여기서 넣는다.
+            // .material 은 Materials 목록의 첫 머티리얼만 잡는다. 이 스크립트는 이 셰이더가 첫 머티리얼(본체와 외곽선을 함께 그림)일 때용이다.
+            // 외곽선을 두 번째 머티리얼로 덧붙이는 방식과 함께 쓰면 본체 머티리얼만 바뀌어 외곽선이 켜지지 않는다.
+            // 그 방식이면 .materials 배열에서 외곽선 머티리얼의 칸을 골라 고친다.
             material = GetComponent<Renderer>().material;
             selected = selectedOnStart;
             Apply(selected ? 1f : 0f);
@@ -62,7 +67,8 @@ namespace ShaderGallery.Samples
         IEnumerator Fade(float target)
         {
             float start = amount;
-            for (float t = 0f; t < fadeSeconds; t += Time.deltaTime)
+            // 일시정지 메뉴(timeScale 0)에서 고를 때도 멈추지 않게 실제 시간으로 잰다.
+            for (float t = 0f; t < fadeSeconds; t += Time.unscaledDeltaTime)
             {
                 Apply(Mathf.Lerp(start, target, t / fadeSeconds));
                 yield return null;
