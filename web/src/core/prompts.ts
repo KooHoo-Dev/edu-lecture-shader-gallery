@@ -43,7 +43,7 @@ const UI_STEPS = [
 
 /** URP Asset 에서 켜야 하는 설정 */
 const REQUIRE_STEPS: Record<Requirement, string> = {
-  depth: '사용 중인 URP Asset 의 Depth Texture 를 켠다. 품질 단계마다 URP Asset 이 다르면 모두 켠다. 카메라의 Depth Texture 가 Off 이면 Use Pipeline Settings 로 바꾼다.',
+  depth: '사용 중인 URP Asset 의 Depth Texture 를 켠다. 품질 단계마다 URP Asset 이 다르면 모두 켠다. 카메라의 Depth Texture 가 Off 이면 Use Pipeline Settings 로 바꾼다. Universal Renderer 의 Depth Texture Mode 가 After Transparents 이면 투명 셰이더가 깊이를 읽지 못하므로 After Opaques 로 둔다.',
   opaque: '사용 중인 URP Asset 의 Opaque Texture 를 켠다. 품질 단계마다 URP Asset 이 다르면 모두 켠다. 카메라의 Opaque Texture 가 Off 이면 Use Pipeline Settings 로 바꾼다.',
   normals: '법선 텍스처가 필요하다. 전체 화면 효과는 Full Screen Pass Renderer Feature 의 Requirements 에서 Normal 을 켠다 (Depth 도 쓰면 함께 켠다). 그 밖의 효과는 SSAO 처럼 법선을 요청하는 기능이 있어야 만들어진다.',
 }
@@ -51,7 +51,9 @@ const REQUIRE_STEPS: Record<Requirement, string> = {
 /** 표본 폴더 PNG 의 임포트 설정과 머티리얼 칸. 스프라이트의 _MainTex 는 SpriteRenderer 의 스프라이트가 채운다 */
 function textureSteps(meta: SpecimenMeta): string[] {
   return Object.entries(meta.stage.textures ?? {}).map(([name, t]) => {
-    const settings = `Inspector 에서 sRGB (Color Texture) 를 ${t.linear ? '끄고' : '켜고'}, Wrap Mode 를 ${t.repeat ? 'Repeat' : 'Clamp'}, Filter Mode 를 ${t.point ? 'Point' : 'Bilinear'} 로 둔다`
+    // 데이터, 포인트 텍스처는 압축하면 값이 바뀐다 (촬영 도구도 압축하지 않는다)
+    const compression = t.linear || t.point ? ', Compression 을 None' : ''
+    const settings = `Inspector 에서 sRGB (Color Texture) 를 ${t.linear ? '끄고' : '켜고'}, Wrap Mode 를 ${t.repeat ? 'Repeat' : 'Clamp'}, Filter Mode 를 ${t.point ? 'Point' : 'Bilinear'}${compression} 로 둔다`
     const slot = meta.stage.kind === 'sprite' && name === '_MainTex' ? '스프라이트로 쓴다' : `머티리얼의 \`${name}\` 칸에 넣는다`
     return `\`${t.file}\` 을 같은 폴더에 두고 ${settings}. ${slot}.`
   })

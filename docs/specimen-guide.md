@@ -159,6 +159,7 @@ float effectNoise(float2 p)
 
 - 텍스처는 `SG_TEX(_MyTex, uv)` 로만 읽는다. `_MyTex_TexelSize` 도 쓸 수 있다. 래퍼에는 `Properties` 에 `_MyTex ("이름", 2D) = "white" {}`, 그 아래에 `TEXTURE2D(_MyTex); SAMPLER(sampler_MyTex);` 와 `#define SG_TEX(name, uv) SAMPLE_TEXTURE2D(name, sampler##name, uv)`, `CBUFFER` 안에 `float4 _MyTex_TexelSize;` 를 둔다. 텍스처 파일은 표본 폴더에 두고 `meta.stage.textures` 에 적는다. 텍스처는 `meta.params` 에 넣지 않는다. sRGB 를 끈 데이터 텍스처(`linear: true`)의 기본값은 `"gray"` 가 아니라 `"linearGrey"` 다. `"gray"` 는 sRGB 0.5 라 Linear 프로젝트에서 약 0.21 로 읽혀, 0.5 를 0 으로 쓰는 맵은 칸이 비었을 때 한쪽으로 쏠린다 (`tools/check.mjs` 가 잡는다). 임포트 설정은 촬영 도구가 맞춘다. PNG 는 프롬프트에 넣을 수 없어 Skill zip 으로 전달되므로 `unity.setup` 에 임포트 설정(sRGB, Wrap Mode, Filter Mode)을 적는다.
 - PNG 는 `tools/textures/<이름>.mjs` 에 무늬를 코드로 쓰고 `node tools/gen-texture.mjs <이름>` 으로 만든다. 모듈 형식은 `tools/gen-texture.mjs` 머리말에 있고, 노이즈 같은 공용 도구는 `tools/lib/texture-kit.mjs` 에 있다. 표본 잡은 자기 모듈 경로를 `writePaths` 에 넣고 직접 쓴다. PNG 는 HTML 에 그대로 들어가므로 128 정도로 작게 둔다. 만든 PNG 는 Read 로 열어 눈으로 본다.
+- 데이터 텍스처(`linear`)와 포인트 텍스처는 Unity 기본 압축(BC, ASTC)에서 값이 바뀐다. 촬영 도구는 압축하지 않고, '그대로 넣기' 프롬프트도 Compression None 단계를 자동으로 넣는다.
 - 웹은 머티리얼의 Tiling, Offset(`_ST`)을 넘기지 않는다. 수강생이 다른 텍스처를 넣어 쓸 표본은 반복 횟수를 `#define` 이 아니라 range 값으로 노출한다. 구 UV 에 맞춘 비율은 큐브나 Plane 에서 늘어난다.
 - 스프라이트의 `_MainTex` 크기는 `_MainTex_TexelSize` 를 믿을 수 없다 (렌더러 단위로 넘어와 머티리얼 버퍼와 어긋난다. 실제로 촬영에서 틀린 값이 나왔다). `i.texelSize` 를 쓴다.
 - 정점을 움직이는 표본은 `core.hlsl` 에 다음 함수를 두고 `meta.stage.vertex = true` 로 한다. 메시와 깊이 무대에서 쓸 수 있다. 움직인 뒤의 오브젝트 공간 위치를 돌려준다.
@@ -183,7 +184,7 @@ float effectNoise(float2 p)
 - `lighting` = `lightColor * saturate(dot(normalWS, lightDirWS)) + 환경광`. 대부분은 `albedo * i.lighting` 이면 된다. 툰처럼 빛을 직접 다루면 `lightDirWS`, `lightColor` 를 쓴다.
 - `viewWS` 는 표면에서 카메라 쪽 방향. `normalWS`, `viewWS`, `normalOS` 는 정규화되어 있다.
 - `positionWS`, `normalOS` 는 삼평면 투영처럼 월드와 오브젝트 공간을 고르는 표본용이다. 기준 샘플 래퍼에는 없으므로, 쓰는 표본은 래퍼의 `SgInput` 과 `Varyings` 에 넣고 정점에서 `normalOS` 를 넘긴다. 메시 무대는 돌기 때문에 월드 공간 무늬는 물체 위를 흐르고 오브젝트 공간 무늬는 물체에 붙는다.
-- `depthDelta` = 카메라에서 씬 표면까지 거리 - 카메라에서 이 픽셀까지 거리 (미터). 물체가 닿는 곳에서 0 에 가까워진다.
+- `depthDelta` = 씬 표면의 눈 깊이 - 이 픽셀의 눈 깊이 (미터). 눈 깊이는 카메라 정면 축 방향의 거리다 (시선 길이에 화면 중심에서 벗어난 각의 cos 을 곱한 값). 물체가 닿는 곳에서 0 에 가까워진다. 수직 깊이가 아니라 보는 각도에 따라 같은 물가에서도 값이 달라진다.
 - 깊이 무대의 `color` 는 정점 색이다. 웹 무대는 항상 흰색(1)이고, 깊이 무대에 쓰는 UI 표본(`stage.ui`, 예: 배경 블러)의 Unity 래퍼는 Image 의 정점 색을 넣는다. 일반 깊이 표본은 쓰지 않는다.
 - `fullscreen` 의 `uv` 는 왼쪽 아래가 (0, 0) 이고 위쪽이 1 이다. 화면비 보정은 `float2(aspect, 1.0)` 을 곱한다. `texelSize` 는 화면 한 픽셀의 uv 크기다 (Unity 래퍼는 `_ScreenSize.zw`).
 - XR 에서 전체 화면 uv 의 (0.5, 0.5) 는 눈의 정면이 아니다. HMD 투영은 눈마다 비대칭이라 화면 중심을 쓰는 효과(비네트, 충격파 중심)는 두 눈에서 어긋날 수 있다. URP 내장 Vignette 는 투영 행렬로 이를 보정한다. XR 설명은 '실기기 미확인' 으로 쓰고 XRI 나 Volume 같은 보정된 대안을 먼저 권한다.
@@ -254,9 +255,13 @@ UGUI Image 에 쓰는 표본용이다. 미리보기와 촬영은 스프라이트
 
 - `core.hlsl` 은 `#ifdef SG_OCCLUDED` 블록에서 가려진 부분의 색과 알파를 정한다. 단계 번호와 `SG_OFF` 는 두 패스에 함께 걸린다.
 - 래퍼는 본체 패스들에 더해 `Tags { "LightMode" = "SRPDefaultUnlit" }`, `ZTest Greater`, `ZWrite Off`, `Blend SrcAlpha OneMinusSrcAlpha` 패스를 하나 둔다. 정점은 본체와 같고 `core.hlsl` 앞에 `#define SG_OCCLUDED` 를 둔다. core 를 패스마다 include 하는 방식은 외곽선 패스와 같다.
-- Unity 는 같은 물체의 `SRPDefaultUnlit` 패스를 `UniversalForwardOnly` 본체보다 먼저 그린다 (2026-11-02 촬영으로 확인). 그래서 본체 깊이가 아직 없을 때 실루엣이 그려져 팔이 몸을 가리는 식의 자기 겹침이 생기지 않는다. 벽보다 늦게 그려지도록 본체는 잘라 내기 표본처럼 `"Queue" = "AlphaTest"` 에 둔다. 웹도 벽, 실루엣, 본체 순서로 그린다.
+- Forward 와 Forward+ 의 불투명 그리기 목록은 `SRPDefaultUnlit` 가 첫째라 같은 물체의 실루엣 패스가 `UniversalForwardOnly` 본체보다 먼저 그려진다 (2026-11-02 촬영으로 확인. Forward+, Depth Priming 꺼짐, MSAA 꺼짐 설정에서). 그래서 본체 깊이가 아직 없을 때 실루엣이 그려져, 렌더러 하나짜리 캐릭터에서는 팔이 몸을 가리는 식의 자기 겹침이 생기지 않는다. 벽보다 늦게 그려지도록 본체는 잘라 내기 표본처럼 `"Queue" = "AlphaTest"` 에 둔다. 웹도 벽, 실루엣, 본체 순서로 그린다.
 - 같은 LightMode 태그를 두 패스가 쓰면 URP 는 첫 패스만 그리므로 `stage.outline` 과 함께 쓸 수 없다.
-- `unity.pitfalls` 에 적을 것: Depth Priming 이나 깊이 프리패스가 돌면 본체 깊이가 먼저 쓰여 실루엣이 사라지거나 자기 몸 위에 겹칠 수 있다 (외곽선 패스와 같은 이유). 실루엣은 깊이 버퍼만 비교하므로 Depth Texture 설정은 필요 없다.
+- `unity.pitfalls` 에 적을 것 (URP 17.3 소스로 확인, 아래 둘째부터는 Unity 촬영으로 확인하지 않았다):
+  - Depth Priming 이 켜지면 불투명 그리기 전체가 `ZTest Equal, ZWrite Off` 로 덮어써져 실루엣 패스의 `ZTest Greater` 가 무시되고 실루엣이 통째로 사라진다. 17.3 의 Auto 모드는 데스크톱에서 MSAA 가 꺼져 있으면 프리패스가 필요 없어도 프라이밍을 켤 수 있다. Depth Priming 이 꺼진 깊이 프리패스(SSAO 등)는 깊이 텍스처에만 그리므로 상관없다.
+  - Deferred 의 Forward 전용 목록은 `UniversalForwardOnly, SRPDefaultUnlit` 순이라 본체가 먼저 그려질 수 있다 (추론). 그러면 볼록하지 않은 캐릭터는 팔 위에 뒤쪽 몸통의 실루엣이 칠해진다.
+  - 렌더러나 서브메시가 여러 개인 캐릭터는 부위마다 실루엣과 본체가 따로 그려져, 먼저 그린 부위 위에 뒤 부위의 실루엣이 덮인다. 다른 큐의 무기나 모자도 같다. 이때는 Render Objects 방식(레이어 전체 실루엣을 먼저, 본체를 나중에)을 쓴다.
+  - 실루엣은 깊이 버퍼만 비교하므로 Depth Texture 설정은 필요 없다.
 - 머티리얼 하나로 끝나는 이 방식 대신 Universal Renderer 의 Render Objects 기능(레이어 마스크, Depth Test Greater, Override Material)으로 같은 효과를 내는 방법이 Unity 공식 예제에 있다. 캐릭터가 여럿이거나 팀마다 색이 다를 때의 변형으로 해설이나 `adaptIdeas` 에 적는다. 직접 쓰는 C# 렌더러 기능은 만들지 않는다.
 - `meta.stage.occluded: true` 로 적는다. `tools/check.mjs` 가 블록, `#define`, 렌더 상태, 태그를 확인하고 실루엣 프로그램도 WebGL 로 컴파일한다.
 
@@ -271,7 +276,7 @@ UGUI Image 에 쓰는 표본용이다. 미리보기와 촬영은 스프라이트
 - 웹은 같은 메시를 자식으로 하나 더 두고 뒷면만 그린다. 외곽선은 그림자를 드리우지 않는다.
 - `meta.stage.outline: true` 로 적는다. `tools/check.mjs` 가 블록, `#define`, `Cull Front`, 태그를 확인하고 외곽선 프로그램도 WebGL 로 컴파일한다.
 - `unity.pitfalls` 에 적을 것 (리뷰 지적, Unity 에서는 아직 확인하지 않았다):
-  - 외곽선 패스는 깊이 프리패스(DepthOnly)에 없다. Universal Renderer 의 Depth Priming 이 켜지고 프리패스가 돌면(SSAO 등) 불투명 그리기가 ZTest Equal 로 바뀌어 외곽선이 통째로 사라질 수 있다.
+  - Universal Renderer 의 Depth Priming 이 켜지면 불투명 그리기 전체가 ZTest Equal 로 바뀌어, 깊이 프리패스(DepthOnly)에 없는 외곽선 패스가 통째로 사라질 수 있다. 17.3 의 Auto 모드는 데스크톱에서 MSAA 가 꺼져 있으면 켜질 수 있다 (소스 판단). 프라이밍이 꺼진 프리패스는 상관없다.
   - 깊이 텍스처에 외곽선이 들어가는지는 프리패스냐 불투명 뒤 깊이 복사냐에 따라 다르다. 노멀 텍스처에는 들어가지 않는다.
 
 `positionOS` 를 쓰는 모든 표본은 `unity.pitfalls` 에 정적 배칭을 적는다. Batching Static 물체는 정점이 월드 좌표로 합쳐져 `positionOS` 가 월드 위치가 된다. 웹 `cube` 는 Unity 기본 큐브처럼 면을 나누지 않은 정점 24개다.
