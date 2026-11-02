@@ -131,6 +131,7 @@ function SpecimenView({ specimen, presetId, opts, presenter }: { specimen: Speci
           <span className="chip chip-outline">Unity 6.3 · URP 17.3</span>
           {m.requires?.includes('depth') && <span className="chip chip-warn">Depth Texture 필요</span>}
           {m.requires?.includes('opaque') && <span className="chip chip-warn">Opaque Texture 필요</span>}
+          {m.requires?.includes('normals') && <span className="chip chip-warn">법선 텍스처 필요</span>}
           {m.flashes && (
             <span className="chip chip-warn" title="넓은 면이 번쩍이는 효과가 있습니다. 초당 3회 이하로 제한됩니다.">
               번쩍임 포함

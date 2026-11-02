@@ -45,6 +45,7 @@ const UI_STEPS = [
 const REQUIRE_STEPS: Record<Requirement, string> = {
   depth: '사용 중인 URP Asset 의 Depth Texture 를 켠다. 품질 단계마다 URP Asset 이 다르면 모두 켠다. 카메라의 Depth Texture 가 Off 이면 Use Pipeline Settings 로 바꾼다.',
   opaque: '사용 중인 URP Asset 의 Opaque Texture 를 켠다. 품질 단계마다 URP Asset 이 다르면 모두 켠다. 카메라의 Opaque Texture 가 Off 이면 Use Pipeline Settings 로 바꾼다.',
+  normals: '법선 텍스처가 필요하다. 전체 화면 효과는 Full Screen Pass Renderer Feature 의 Requirements 에서 Normal 을 켠다 (Depth 도 쓰면 함께 켠다). 그 밖의 효과는 SSAO 처럼 법선을 요청하는 기능이 있어야 만들어진다.',
 }
 
 /** 표본 폴더 PNG 의 임포트 설정과 머티리얼 칸. 스프라이트의 _MainTex 는 SpriteRenderer 의 스프라이트가 채운다 */

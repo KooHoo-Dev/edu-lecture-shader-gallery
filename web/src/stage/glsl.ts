@@ -31,8 +31,16 @@ uniform sampler2D _SgSceneColor;
 float4 sgSceneColor(float2 uv) { return texture(_SgSceneColor, uv); }
 struct SgInput { float2 uv; float3 positionOS; float3 positionWS; float3 normalOS; float3 normalWS; float3 viewWS; float2 screenUV; float depthDelta; float time; };`,
   fullscreen: `uniform sampler2D _SgSource;
+uniform sampler2D _SgSceneDepth;
+uniform sampler2D _SgSceneNormal;
+uniform vec2 uNearFar;
 float4 sgSource(float2 uv) { return texture(_SgSource, uv); }
-struct SgInput { float2 uv; float aspect; float time; };`,
+float sgSceneDepth(float2 uv) {
+  float z = texture(_SgSceneDepth, uv).r * 2.0 - 1.0;
+  return 2.0 * uNearFar.x * uNearFar.y / (uNearFar.y + uNearFar.x - z * (uNearFar.y - uNearFar.x));
+}
+float3 sgSceneNormal(float2 uv) { return SG_FLIP(texture(_SgSceneNormal, uv).xyz); }
+struct SgInput { float2 uv; float aspect; float2 texelSize; float time; };`,
 }
 
 const writeColor = (cutout: boolean) => (cutout ? 'if (c.a < 0.5) discard;\n  sgOut = vec4(c.rgb, 1.0);' : 'sgOut = c;')
@@ -108,12 +116,14 @@ void main() {
 }`,
   fullscreen: () => `in vec2 vUv;
 uniform float uAspect;
+uniform vec2 uViewport;
 uniform float uTime;
 out vec4 sgOut;
 void main() {
   SgInput i;
   i.uv = vUv;
   i.aspect = uAspect;
+  i.texelSize = 1.0 / uViewport;
   i.time = uTime;
   sgOut = vec4(sgEffect(i).rgb, 1.0);
 }`,
@@ -299,3 +309,12 @@ export function compileProgram(gl: WebGL2RenderingContext, sources: ProgramSourc
   }
   return errors
 }
+
+/** 전체 화면 무대의 법선 버퍼. 월드 법선을 그대로 쓴다 (URP 의 _CameraNormalsTexture 에 해당). 빈 곳은 0 */
+export const NORMAL_FRAGMENT = `precision highp float;
+in vec3 vPositionWS;
+in vec3 vNormalWS;
+out vec4 sgOut;
+void main() {
+  sgOut = vec4(normalize(vNormalWS), 1.0);
+}`

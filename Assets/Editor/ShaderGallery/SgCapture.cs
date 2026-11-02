@@ -59,7 +59,7 @@ namespace ShaderGallery.EditorTools
             {
                 if (specimen.stage == "fullscreen")
                 {
-                    feature = AddFullScreenFeature(material, out rendererData);
+                    feature = AddFullScreenFeature(material, specimen.requires, out rendererData);
                 }
 
                 stage.camera.targetTexture = renderTexture;
@@ -101,7 +101,7 @@ namespace ShaderGallery.EditorTools
 
         // 화면 전환은 수강생이 쓰는 경로와 똑같이 Full Screen Pass Renderer Feature 로 찍는다.
         // 렌더러 에셋을 메모리에서만 잠시 고치고 바로 되돌린다. 디스크에는 저장하지 않는다.
-        static FullScreenPassRendererFeature AddFullScreenFeature(Material material, out ScriptableRendererData rendererData)
+        static FullScreenPassRendererFeature AddFullScreenFeature(Material material, List<string> requires, out ScriptableRendererData rendererData)
         {
             var pipeline = (UniversalRenderPipelineAsset)GraphicsSettings.currentRenderPipeline;
             rendererData = pipeline.rendererDataList[0];
@@ -111,6 +111,11 @@ namespace ShaderGallery.EditorTools
             feature.passMaterial = material;
             feature.injectionPoint = FullScreenPassRendererFeature.InjectionPoint.BeforeRenderingPostProcessing;
             feature.fetchColorBuffer = true;
+            // 메타의 requires 를 Requirements 로 옮긴다. 수강생도 같은 칸을 켠다
+            var input = ScriptableRenderPassInput.None;
+            if (requires.Contains("depth")) input |= ScriptableRenderPassInput.Depth;
+            if (requires.Contains("normals")) input |= ScriptableRenderPassInput.Normal;
+            feature.requirements = input;
             feature.Create();
             rendererData.rendererFeatures.Add(feature);
             rendererData.SetDirty();

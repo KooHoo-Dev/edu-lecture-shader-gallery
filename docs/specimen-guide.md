@@ -177,13 +177,19 @@ float effectNoise(float2 p)
 | `mesh` | 바닥과 물체 하나 (`stage.mesh`). Y 30도에서 시작해 천천히 돈다 (`quad`, `plane`, `grass` 는 돌지 않는다) | `uv positionOS positionWS normalOS normalWS viewWS lightDirWS lightColor lighting time` | | 디졸브 |
 | `sprite` | 정사영 카메라, 드론 스프라이트(또는 `stage.textures._MainTex`), 2유닛 높이 | `uv color texelSize time` | `SG_TEX(_MainTex, uv)` | 스프라이트 |
 | `depth` | 바닥, 상자, 공, 그 위를 덮는 물체 (`stage.mesh`). `plane` 이면 소품을 가르는 수면 높이에 놓인다 | `uv positionOS positionWS normalOS normalWS viewWS screenUV depthDelta time` | `sgSceneColor(screenUV)` | 역장 |
-| `fullscreen` | 바닥, 상자, 공을 그린 화면 전체 | `uv aspect time` | `sgSource(uv)` | 전환 |
+| `fullscreen` | 바닥, 상자, 공을 그린 화면 전체 | `uv aspect texelSize time` | `sgSource(uv)`, `sgSceneDepth(uv)`, `sgSceneNormal(uv)` | 전환 |
 
 - `lighting` = `lightColor * saturate(dot(normalWS, lightDirWS)) + 환경광`. 대부분은 `albedo * i.lighting` 이면 된다. 툰처럼 빛을 직접 다루면 `lightDirWS`, `lightColor` 를 쓴다.
 - `viewWS` 는 표면에서 카메라 쪽 방향. `normalWS`, `viewWS`, `normalOS` 는 정규화되어 있다.
 - `positionWS`, `normalOS` 는 삼평면 투영처럼 월드와 오브젝트 공간을 고르는 표본용이다. 기준 샘플 래퍼에는 없으므로, 쓰는 표본은 래퍼의 `SgInput` 과 `Varyings` 에 넣고 정점에서 `normalOS` 를 넘긴다. 메시 무대는 돌기 때문에 월드 공간 무늬는 물체 위를 흐르고 오브젝트 공간 무늬는 물체에 붙는다.
 - `depthDelta` = 카메라에서 씬 표면까지 거리 - 카메라에서 이 픽셀까지 거리 (미터). 물체가 닿는 곳에서 0 에 가까워진다.
-- `fullscreen` 의 `uv` 는 왼쪽 아래가 (0, 0) 이고 위쪽이 1 이다. 화면비 보정은 `float2(aspect, 1.0)` 을 곱한다.
+- `fullscreen` 의 `uv` 는 왼쪽 아래가 (0, 0) 이고 위쪽이 1 이다. 화면비 보정은 `float2(aspect, 1.0)` 을 곱한다. `texelSize` 는 화면 한 픽셀의 uv 크기다 (Unity 래퍼는 `_ScreenSize.zw`).
+- 전체 화면 무대의 `sgSceneDepth(uv)` 는 카메라에서 그 픽셀까지의 선형 거리(미터, 하늘은 먼 평면 100 근처), `sgSceneNormal(uv)` 는 월드 법선(하늘은 0)이다. 쓰면 `meta.requires` 에 `'depth'`, `'normals'` 를 넣고, 래퍼는 `DeclareDepthTexture.hlsl`, `DeclareNormalsTexture.hlsl` 을 include 한 뒤 core 앞에 다음을 둔다. 수강생은 Full Screen Pass 의 Requirements 에서 Depth, Normal 을 켠다 (촬영 도구도 같은 칸을 켠다. 웹과 Unity 를 법선 색과 깊이 줄무늬로 비교해 확인했다).
+
+  ```hlsl
+  float sgSceneDepth(float2 uv) { return LinearEyeDepth(SampleSceneDepth(uv), _ZBufferParams); }
+  float3 sgSceneNormal(float2 uv) { return SampleSceneNormals(uv); }
+  ```
 - `positionOS` 는 오브젝트 공간. `sphere` 반지름 0.5, `capsule`, `cylinder` 높이 2, `cube`, `quad` 한 변 1 (`quad` 는 카메라 쪽으로 서 있다), `plane` 은 XZ 로 누운 한 변 10 이다. `plane` 은 Unity 기본 메시라 정점 간격이 1 이다. 정점 변형은 그만큼 거칠다.
 - Unity 기본 Plane 은 위에서 볼 때 UV 가 180도 돌아 있다. u 는 −X(카메라에서 보면 왼쪽), v 는 −Z(카메라 쪽)로 커진다. 웹도 같게 맞췄다 (촬영으로 확인). 텍스처 위쪽으로 흐르게 그린 맵은 기본 Plane 에서 카메라 쪽으로 흐르므로, UV 방향이 중요한 표본은 이 점을 `unity.pitfalls` 에 단정해서 적는다 (Y 180도 회전이나 Quad 로 맞춘다).
 - 웹도 위치, 법선, 방향을 Unity 좌표로 넘긴다 (three.js 의 z 를 뒤집는다). 월드나 오브젝트 좌표로 만든 무늬와 방향(바람 방향 등)이 두 화면에서 같다. 웹 무대의 메시는 three.js 가 만든 것이라 정점 수가 Unity 기본 메시와 다르다. `cube` 와 `grass` 만 같다. 정점을 미는 표본은 Unity 의 정점 간격을 기준으로 정한다.
@@ -394,7 +400,7 @@ node tools/check.mjs
 |---|---|---|
 | 웹에서 한 물체를 패스 두 개로 그리기 (`Cull Front`) | `inverted-hull-outline` | 지원. 4절 "외곽선 패스" |
 | 웹에서 `ZTest Greater` 로 가려진 부분만 그리기 | `xray-occluded-silhouette` | 지원. 4절 "가려진 부분 패스" |
-| 전체 화면 무대에서 깊이, 법선 읽기 | `depth-normal-edge-outline` | 앱 확장 필요 |
+| 전체 화면 무대에서 깊이, 법선 읽기 | `depth-normal-edge-outline` | 지원. 4절 `sgSceneDepth`, `sgSceneNormal` |
 | 촘촘한 수면 메시 (`plane` 은 정점 간격 1) | `water-depth-foam` 의 파도 | 파도가 거칠면 요청 |
 | UGUI Canvas 무대 | `ui-*` | 스프라이트 무대로 대체. `_MainTex` 만 바꾼다 |
 

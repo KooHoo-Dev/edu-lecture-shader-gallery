@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { requestFlash } from '../core/flash'
 import { STAGE_SPRITE_URL } from './assets'
 import type { Ease, ParamDef, ParamValues, Specimen, Track } from '../core/types'
-import { buildProgram, defaultBlend, type StagePass, LIT_FRAGMENT, LIT_VERTEX, PRESENT_FRAGMENT, PRESENT_VERTEX, SHADOW_PLAIN_FRAGMENT, textureNames } from './glsl'
+import { buildProgram, defaultBlend, type StagePass, LIT_FRAGMENT, LIT_VERTEX, NORMAL_FRAGMENT, PRESENT_FRAGMENT, PRESENT_VERTEX, SHADOW_PLAIN_FRAGMENT, textureNames } from './glsl'
 import { grassGeometry } from './grass'
 import { hexToLinear, LAYOUT, linear3, toThree } from './layout'
 
@@ -82,6 +82,9 @@ class ShaderStage {
   private hdr = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, samples: 4 })
   private source = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, samples: 4 })
   private opaque = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, depthTexture: new THREE.DepthTexture(4, 4, THREE.FloatType) })
+  /** 전체 화면 무대의 법선 버퍼 (requires 'normals') */
+  private normals = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType })
+  private normalMaterial = new THREE.RawShaderMaterial({ glslVersion: THREE.GLSL3, vertexShader: LIT_VERTEX, fragmentShader: NORMAL_FRAGMENT })
   /** 잘라 내기 메시의 그림자: 광원 쪽에서 평행 투영으로 본 물체의 알파. 바닥이 이 값으로 어두워진다 */
   private shadowMask = new THREE.WebGLRenderTarget(512, 512)
   private shadowCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 30)
@@ -433,6 +436,7 @@ class ShaderStage {
       uNearFar: { value: new THREE.Vector2(LAYOUT.camera.near, LAYOUT.camera.far) },
       _SgSceneDepth: { value: this.opaque.depthTexture },
       _SgSceneColor: { value: this.opaque.texture },
+      _SgSceneNormal: { value: this.normals.texture },
       _SgSource: { value: this.source.texture },
     }
     for (const def of meta.params) uniforms[def.key] = { value: paramToUniform(def, def.default) }
@@ -528,6 +532,7 @@ class ShaderStage {
     this.hdr.setSize(w, h)
     this.source.setSize(w, h)
     this.opaque.setSize(w, h)
+    this.normals.setSize(w, h)
     this.dirty = true
   }
 
@@ -751,6 +756,20 @@ class ShaderStage {
         renderer.setRenderTarget(this.hdr)
         renderer.render(this.scene, this.perspective)
       } else {
+        // Full Screen Pass 의 Requirements(Depth, Normal)에 해당하는 버퍼를 필요할 때만 그린다
+        const requires = this.specimen.meta.requires ?? []
+        if (requires.includes('depth')) {
+          renderer.setRenderTarget(this.opaque)
+          renderer.render(this.scene, this.perspective)
+        }
+        if (requires.includes('normals')) {
+          renderer.setClearColor(0x000000, 0)
+          renderer.setRenderTarget(this.normals)
+          this.scene.overrideMaterial = this.normalMaterial
+          renderer.render(this.scene, this.perspective)
+          this.scene.overrideMaterial = null
+          renderer.setClearColor(new THREE.Color(...linear3(background)), 1)
+        }
         renderer.setRenderTarget(this.source)
         renderer.render(this.scene, this.perspective)
         renderer.setRenderTarget(this.hdr)

@@ -48,6 +48,8 @@ namespace ShaderGallery.EditorTools
         public string mesh;
         // stage.occluded: 물체 앞에 벽을 세운다
         public bool occluder;
+        // meta.requires: depth, opaque, normals
+        public List<string> requires = new List<string>();
         public List<SgTextureValue> textures = new List<SgTextureValue>();
         public List<SgCaptureState> states = new List<SgCaptureState>();
     }

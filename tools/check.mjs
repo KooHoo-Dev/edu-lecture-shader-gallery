@@ -233,6 +233,16 @@ function checkMeta(id, meta, core, wrapper) {
   }
   if (/\bsgSceneColor\s*\(/.test(core) && !meta.requires?.includes('opaque')) err(`${where}: 씬 색상을 쓰면 requires 에 'opaque' 를 넣는다`)
   if (/\bdepthDelta\b/.test(core) && !meta.requires?.includes('depth')) err(`${where}: 깊이를 쓰면 requires 에 'depth' 를 넣는다`)
+  // 전체 화면 무대의 깊이와 법선 (Full Screen Pass 의 Requirements)
+  if (/\bsgSceneDepth\s*\(/.test(core)) {
+    if (!meta.requires?.includes('depth')) err(`${where}: sgSceneDepth 를 쓰면 requires 에 'depth' 를 넣는다`)
+    if (!wrapper.includes('DeclareDepthTexture.hlsl')) err(`${id}/${meta.shaderFile}: sgSceneDepth 를 쓰면 DeclareDepthTexture.hlsl 을 include 한다`)
+  }
+  if (/\bsgSceneNormal\s*\(/.test(core)) {
+    if (!meta.requires?.includes('normals')) err(`${where}: sgSceneNormal 을 쓰면 requires 에 'normals' 를 넣는다`)
+    if (!wrapper.includes('DeclareNormalsTexture.hlsl')) err(`${id}/${meta.shaderFile}: sgSceneNormal 을 쓰면 DeclareNormalsTexture.hlsl 을 include 한다`)
+  }
+  if (/\bsgScene(Depth|Normal)\s*\(/.test(core) && meta.stage.kind !== 'fullscreen') err(`${where}: sgSceneDepth, sgSceneNormal 은 fullscreen 무대 함수다 (깊이 무대는 depthDelta)`)
   for (const m of core.matchAll(/\bSG_TEX\s*\(\s*(\w+)/g)) if (!textures.has(m[1])) err(`${where}: 텍스처 ${m[1]} 이 stage.textures 에 없다`)
   // 내장 "gray" 는 sRGB 0.5 라 Linear 프로젝트에서 약 0.21 로 읽힌다. 0.5 를 0 으로 쓰는 데이터 텍스처는 칸이 비면 한쪽으로 쏠린다
   for (const [name, texture] of Object.entries(meta.stage.textures ?? {})) {
