@@ -188,12 +188,19 @@ float effectNoise(float2 p)
 - 깊이 무대의 `color` 는 정점 색이다. 웹 무대는 항상 흰색(1)이고, 깊이 무대에 쓰는 UI 표본(`stage.ui`, 예: 배경 블러)의 Unity 래퍼는 Image 의 정점 색을 넣는다. 일반 깊이 표본은 쓰지 않는다.
 - `fullscreen` 의 `uv` 는 왼쪽 아래가 (0, 0) 이고 위쪽이 1 이다. 화면비 보정은 `float2(aspect, 1.0)` 을 곱한다. `texelSize` 는 화면 한 픽셀의 uv 크기다 (Unity 래퍼는 `_ScreenSize.zw`).
 - XR 에서 전체 화면 uv 의 (0.5, 0.5) 는 눈의 정면이 아니다. HMD 투영은 눈마다 비대칭이라 화면 중심을 쓰는 효과(비네트, 충격파 중심)는 두 눈에서 어긋날 수 있다. URP 내장 Vignette 는 투영 행렬로 이를 보정한다. XR 설명은 '실기기 미확인' 으로 쓰고 XRI 나 Volume 같은 보정된 대안을 먼저 권한다.
-- 전체 화면 무대의 `sgSceneDepth(uv)` 는 카메라에서 그 픽셀까지의 선형 거리(미터, 하늘은 먼 평면 100 근처), `sgSceneNormal(uv)` 는 월드 법선(하늘은 0)이다. 쓰면 `meta.requires` 에 `'depth'`, `'normals'` 를 넣고, 래퍼는 `DeclareDepthTexture.hlsl`, `DeclareNormalsTexture.hlsl` 을 include 한 뒤 core 앞에 다음을 둔다. 수강생은 Full Screen Pass 의 Requirements 에서 Depth, Normal 을 켠다 (촬영 도구도 같은 칸을 켠다. 웹과 Unity 를 법선 색과 깊이 줄무늬로 비교해 확인했다).
+- 전체 화면 무대의 `sgSceneDepth(uv)` 는 그 픽셀의 눈 깊이(카메라 정면 축 방향 거리, 미터, 하늘은 먼 평면 100 근처), `sgSceneNormal(uv)` 는 월드 법선(하늘은 0)이다. 쓰면 `meta.requires` 에 `'depth'`, `'normals'` 를 넣고, 래퍼는 `DeclareDepthTexture.hlsl`, `DeclareNormalsTexture.hlsl` 을 include 한 뒤 core 앞에 다음을 둔다. 수강생은 Full Screen Pass 의 Requirements 에서 Depth, Normal 을 켠다 (촬영 도구도 같은 칸을 켠다. 웹과 Unity 를 법선 색과 깊이 줄무늬로 비교해 확인했다).
 
   ```hlsl
-  float sgSceneDepth(float2 uv) { return LinearEyeDepth(SampleSceneDepth(uv), _ZBufferParams); }
+  // 직교 카메라는 깊이가 선형이라 LinearEyeDepth 를 쓰면 안 된다
+  float sgSceneDepth(float2 uv)
+  {
+      float raw = SampleSceneDepth(uv);
+      return unity_OrthoParams.w > 0.5 ? LinearDepthToEyeDepth(raw) : LinearEyeDepth(raw, _ZBufferParams);
+  }
   float3 sgSceneNormal(float2 uv) { return SampleSceneNormals(uv); }
   ```
+
+  법선을 읽는 래퍼는 `#pragma multi_compile_fragment _ _GBUFFER_NORMALS_OCT` 를 둔다 (Deferred 의 정확한 G-buffer 노멀은 8면체로 인코딩되어, 이 변형 없이 읽으면 매끈한 면에도 얼룩 선이 생긴다). Requirements 의 Normal 은 불투명 물체를 DepthNormals 패스로 한 번 더 그리는 프리패스를 강제하고 깊이도 그 패스에서 나온다. 그 패스가 없는 직접 만든 셰이더의 물체는 깊이와 법선 모두에서 빠진다. 이 점과 그 비용(불투명 물체를 한 번 더 그림)을 `unity.pitfalls` 에 적는다. 2D Renderer 는 법선 텍스처를 만들지 않는다 (소스 확인).
 - `positionOS` 는 오브젝트 공간. `sphere` 반지름 0.5, `capsule`, `cylinder` 높이 2, `cube`, `quad` 한 변 1 (`quad` 는 카메라 쪽으로 서 있다), `plane` 은 XZ 로 누운 한 변 10 이다. `plane` 은 Unity 기본 메시라 정점 간격이 1 이다. 정점 변형은 그만큼 거칠다.
 - Unity 기본 Plane 은 위에서 볼 때 UV 가 180도 돌아 있다. u 는 −X(카메라에서 보면 왼쪽), v 는 −Z(카메라 쪽)로 커진다. 웹도 같게 맞췄다 (촬영으로 확인). 텍스처 위쪽으로 흐르게 그린 맵은 기본 Plane 에서 카메라 쪽으로 흐르므로, UV 방향이 중요한 표본은 이 점을 `unity.pitfalls` 에 단정해서 적는다 (Y 180도 회전이나 Quad 로 맞춘다).
 - 웹도 위치, 법선, 방향을 Unity 좌표로 넘긴다 (three.js 의 z 를 뒤집는다). 월드나 오브젝트 좌표로 만든 무늬와 방향(바람 방향 등)이 두 화면에서 같다. 웹 무대의 메시는 three.js 가 만든 것이라 정점 수가 Unity 기본 메시와 다르다. `cube` 와 `grass` 만 같다. 정점을 미는 표본은 Unity 의 정점 간격을 기준으로 정한다.
@@ -351,7 +358,8 @@ UGUI Image 에 쓰는 표본용이다. 미리보기와 촬영은 스프라이트
 - 물체 하나에 쓰는 값은 `renderer.material` 복사본에 넣고 `OnDestroy` 에서 지운다. MaterialPropertyBlock 은 쓰지 않는다 (SRP Batcher 에서 빠진다).
 - UGUI Image 는 다르다. `Image.material` 은 복사본을 만들지 않으므로 `new Material(...)` 로 직접 만들어 넣고 `OnDestroy` 에서 지운다. 복사본은 처음 쓸 때 만든다 (꺼진 채 시작한 UI 에 `Awake` 전에 값을 넣어도 되게). Mask 안에서는 Unity 가 스텐실용 복사본(`materialForRendering`)을 따로 쓰므로 그쪽에도 값을 넣되, Image 가 꺼져 있을 때는 `materialForRendering` 을 건드리지 않는다 (지운 복사본이 다시 생겨 샌다).
 - 머티리얼 에셋을 직접 고치면(전체 화면 표본) `OnDisable` 에서 원래 값으로 되돌린다. 머티리얼 기본값이 썸네일용으로 진하면 Scene 뷰와 컨트롤러가 없는 씬에도 그대로 걸리므로, `unity.setup` 에 평소 값으로 낮춰 두는 단계를 넣는다.
-- 화면 머티리얼 하나를 여러 컴포넌트가 함께 고치는 효과는 번쩍임 제한기의 마지막 시각을 `static` 으로 둔다. 분할 화면, 추가 씬, 씬 재로드 직후처럼 컨트롤러가 둘이 되어도 합쳐서 초당 3회를 넘지 않게 한다. 도메인 리로드를 끄는 설정에 대비해 `[RuntimeInitializeOnLoadMethod]` 로 초기화한다.
+- 머티리얼 에셋을 고치는 컨트롤러는 머티리얼 하나에 인스턴스 하나만 둔다 (`ScreenTransitionController` 처럼 `Instance` 를 남기고 중복은 스스로 지운다). 둘이 각자 저장하고 되돌리면 서로의 중간 값을 에셋에 남긴다. 이벤트 전용 값(더하기용)은 저장값이 아니라 항상 0 으로 되돌린다.
+- 화면 머티리얼 하나를 여러 컴포넌트가 함께 고치는 효과는 번쩍임 제한기의 마지막 시각을 `static` 으로 둔다. 밝기 번쩍임이 아니어도 연타로 다시 시작하면 넓은 면이 튀는 효과(화면 왜곡, 흔들림)도 같은 제한기를 둔다. 분할 화면, 추가 씬, 씬 재로드 직후처럼 컨트롤러가 둘이 되어도 합쳐서 초당 3회를 넘지 않게 한다. 도메인 리로드를 끄는 설정에 대비해 `[RuntimeInitializeOnLoadMethod]` 로 초기화한다.
 - 머티리얼 기본값은 썸네일을 위한 값일 수 있다. 연출을 시작하기 전의 값은 `Awake` 에서 넣는다 (`DissolveController` 참고).
 - `DontDestroyOnLoad` 오브젝트는 씬을 오갈 때 복사본이 쌓이지 않게 인스턴스를 하나만 남긴다 (`ScreenTransitionController` 참고).
 - 코루틴은 `OnDisable` 에서 `StopAllCoroutines` 하고 상태 변수를 초기화한다.
@@ -385,7 +393,7 @@ node tools/live.mjs <id> --query="auto=0&preset=<프리셋>" wait:800 stage:pres
 node tools/live.mjs <id> --query="auto=0" wait:800 click:<이벤트 글자> wait:100 stage:event
 ```
 
-`live.mjs` 는 한 번에 `--query` 하나만 받는다. 쿼리에 `t=<초>` 를 더하면 무대 시간이 그 순간에 멈춘 채 열린다. 시간에 따라 모습이 바뀌는 효과는 단계와 효과 끄기를 `t=` 로 같은 순간에 찍어 비교한다 (예: `--query="auto=0&step=2&t=1.2"`). `live.mjs` 는 이 표본만 넣어 빌드하고 `_shots/<id>/` 에 PNG 를 남긴다. 파일을 열어 눈으로 본다. 표본을 합친 뒤의 전체 검사는 다음과 같다. 표본 하나를 만드는 작업에서는 돌리지 않아도 된다.
+Unity 촬영은 1280×720, 웹 촬영은 약 1000 픽셀 폭이라 픽셀 단위 효과(윤곽선 두께 등)는 두 화면에서 굵기가 달라 보인다. `live.mjs` 는 한 번에 `--query` 하나만 받는다. 쿼리에 `t=<초>` 를 더하면 무대 시간이 그 순간에 멈춘 채 열린다. 시간에 따라 모습이 바뀌는 효과는 단계와 효과 끄기를 `t=` 로 같은 순간에 찍어 비교한다 (예: `--query="auto=0&step=2&t=1.2"`). `live.mjs` 는 이 표본만 넣어 빌드하고 `_shots/<id>/` 에 PNG 를 남긴다. 파일을 열어 눈으로 본다. 표본을 합친 뒤의 전체 검사는 다음과 같다. 표본 하나를 만드는 작업에서는 돌리지 않아도 된다.
 
 ```bash
 npm --prefix web run build

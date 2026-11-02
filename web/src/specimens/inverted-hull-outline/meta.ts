@@ -108,5 +108,6 @@ export const meta: SpecimenMeta = {
   related: [
     { id: 'fresnel-rim-glow', why: '같은 메시 무대에서 윤곽을 셰이더 한 패스로 밝히는 방법. 외곽선과 달리 실루엣 바깥으로 나가지 못한다' },
     { id: 'xray-occluded-silhouette', why: '같은 물체를 한 번 더 그리되 깊이 테스트를 바꿔 가려진 부분만 칠하는 짝' },
+    { id: 'depth-normal-edge-outline', why: '물체마다가 아니라 화면 전체에 후처리로 윤곽을 그리는 방법. 선 두께가 화면 픽셀로 고정되고 안쪽 접힌 모서리도 잡는다' },
   ],
 }
