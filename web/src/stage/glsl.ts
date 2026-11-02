@@ -21,12 +21,12 @@ uniform int _SgStep;
 `
 
 const INPUT: Record<StageKind, string> = {
-  mesh: `struct SgInput { float2 uv; float3 positionOS; float3 normalWS; float3 viewWS; float3 lightDirWS; float3 lightColor; float3 lighting; float time; };`,
+  mesh: `struct SgInput { float2 uv; float3 positionOS; float3 positionWS; float3 normalOS; float3 normalWS; float3 viewWS; float3 lightDirWS; float3 lightColor; float3 lighting; float time; };`,
   sprite: `struct SgInput { float2 uv; float4 color; float2 texelSize; float time; };`,
   depth: `uniform sampler2D _SgSceneDepth;
 uniform sampler2D _SgSceneColor;
 float4 sgSceneColor(float2 uv) { return texture(_SgSceneColor, uv); }
-struct SgInput { float2 uv; float3 positionOS; float3 normalWS; float3 viewWS; float2 screenUV; float depthDelta; float time; };`,
+struct SgInput { float2 uv; float3 positionOS; float3 positionWS; float3 normalOS; float3 normalWS; float3 viewWS; float2 screenUV; float depthDelta; float time; };`,
   fullscreen: `uniform sampler2D _SgSource;
 float4 sgSource(float2 uv) { return texture(_SgSource, uv); }
 struct SgInput { float2 uv; float aspect; float time; };`,
@@ -38,6 +38,7 @@ const FRAGMENT_MAIN: Record<StageKind, (cutout: boolean) => string> = {
   mesh: cutout => `in vec2 vUv;
 in vec3 vPositionOS;
 in vec3 vPositionWS;
+in vec3 vNormalOS;
 in vec3 vNormalWS;
 uniform vec3 cameraPosition;
 uniform vec3 uLightDir;
@@ -49,6 +50,8 @@ void main() {
   SgInput i;
   i.uv = vUv;
   i.positionOS = vPositionOS;
+  i.positionWS = vPositionWS;
+  i.normalOS = normalize(vNormalOS);
   i.normalWS = normalize(vNormalWS);
   i.viewWS = normalize(cameraPosition - vPositionWS);
   i.lightDirWS = uLightDir;
@@ -74,6 +77,7 @@ void main() {
   depth: cutout => `in vec2 vUv;
 in vec3 vPositionOS;
 in vec3 vPositionWS;
+in vec3 vNormalOS;
 in vec3 vNormalWS;
 in float vEyeDepth;
 uniform vec3 cameraPosition;
@@ -89,6 +93,8 @@ void main() {
   SgInput i;
   i.uv = vUv;
   i.positionOS = vPositionOS;
+  i.positionWS = vPositionWS;
+  i.normalOS = normalize(vNormalOS);
   i.normalWS = normalize(vNormalWS);
   i.viewWS = normalize(cameraPosition - vPositionWS);
   i.screenUV = gl_FragCoord.xy / uViewport;
@@ -119,6 +125,7 @@ uniform mat4 projectionMatrix;
 out vec2 vUv;
 out vec3 vPositionOS;
 out vec3 vPositionWS;
+out vec3 vNormalOS;
 out vec3 vNormalWS;
 out float vEyeDepth;
 void main() {
@@ -128,6 +135,7 @@ void main() {
   vUv = uv;
   vPositionOS = p;
   vPositionWS = world.xyz;
+  vNormalOS = normal;
   vNormalWS = mat3(modelMatrix) * normal;
   vEyeDepth = -view.z;
   gl_Position = projectionMatrix * view;

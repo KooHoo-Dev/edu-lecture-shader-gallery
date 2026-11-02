@@ -158,6 +158,7 @@ float effectNoise(float2 p)
 ### 3-4. 텍스처와 정점 변형
 
 - 텍스처는 `SG_TEX(_MyTex, uv)` 로만 읽는다. `_MyTex_TexelSize` 도 쓸 수 있다. 래퍼에는 `Properties` 에 `_MyTex ("이름", 2D) = "white" {}`, 그 아래에 `TEXTURE2D(_MyTex); SAMPLER(sampler_MyTex);` 와 `#define SG_TEX(name, uv) SAMPLE_TEXTURE2D(name, sampler##name, uv)`, `CBUFFER` 안에 `float4 _MyTex_TexelSize;` 를 둔다. 텍스처 파일은 표본 폴더에 두고 `meta.stage.textures` 에 적는다. 텍스처는 `meta.params` 에 넣지 않는다. 임포트 설정은 촬영 도구가 맞춘다. PNG 는 프롬프트에 넣을 수 없어 Skill zip 으로 전달되므로 `unity.setup` 에 임포트 설정(sRGB, Wrap Mode, Filter Mode)을 적는다.
+- PNG 는 `tools/gen-texture.mjs` 에 무늬를 코드로 넣어 만든다 (`node tools/gen-texture.mjs <이름>`). PNG 는 HTML 에 그대로 들어가므로 128 정도로 작게 둔다. 무늬 추가는 구독 세션이 하고, 잡의 워커는 그 명령을 실행만 한다.
 - 스프라이트의 `_MainTex` 크기는 `_MainTex_TexelSize` 를 믿을 수 없다 (렌더러 단위로 넘어와 머티리얼 버퍼와 어긋난다. 실제로 촬영에서 틀린 값이 나왔다). `i.texelSize` 를 쓴다.
 - 정점을 움직이는 표본은 `core.hlsl` 에 다음 함수를 두고 `meta.stage.vertex = true` 로 한다. 메시와 깊이 무대에서 쓸 수 있다. 움직인 뒤의 오브젝트 공간 위치를 돌려준다.
 
@@ -173,13 +174,14 @@ float effectNoise(float2 p)
 
 | 무대 (`stage.kind`) | 무대 내용 | `SgInput` 필드 | 쓰는 함수 | 기준 샘플 |
 |---|---|---|---|---|
-| `mesh` | 바닥과 물체 하나 (`stage.mesh`). 천천히 돈다 (`quad`, `plane` 은 돌지 않는다) | `uv positionOS normalWS viewWS lightDirWS lightColor lighting time` | | 디졸브 |
+| `mesh` | 바닥과 물체 하나 (`stage.mesh`). 천천히 돈다 (`quad`, `plane` 은 돌지 않는다) | `uv positionOS positionWS normalOS normalWS viewWS lightDirWS lightColor lighting time` | | 디졸브 |
 | `sprite` | 정사영 카메라, 드론 스프라이트(또는 `stage.textures._MainTex`), 2유닛 높이 | `uv color texelSize time` | `SG_TEX(_MainTex, uv)` | 스프라이트 |
-| `depth` | 바닥, 상자, 공, 그 위를 덮는 물체 (`stage.mesh`). `plane` 이면 소품을 가르는 수면 높이에 놓인다 | `uv positionOS normalWS viewWS screenUV depthDelta time` | `sgSceneColor(screenUV)` | 역장 |
+| `depth` | 바닥, 상자, 공, 그 위를 덮는 물체 (`stage.mesh`). `plane` 이면 소품을 가르는 수면 높이에 놓인다 | `uv positionOS positionWS normalOS normalWS viewWS screenUV depthDelta time` | `sgSceneColor(screenUV)` | 역장 |
 | `fullscreen` | 바닥, 상자, 공을 그린 화면 전체 | `uv aspect time` | `sgSource(uv)` | 전환 |
 
 - `lighting` = `lightColor * saturate(dot(normalWS, lightDirWS)) + 환경광`. 대부분은 `albedo * i.lighting` 이면 된다. 툰처럼 빛을 직접 다루면 `lightDirWS`, `lightColor` 를 쓴다.
-- `viewWS` 는 표면에서 카메라 쪽 방향. `normalWS`, `viewWS` 는 정규화되어 있다.
+- `viewWS` 는 표면에서 카메라 쪽 방향. `normalWS`, `viewWS`, `normalOS` 는 정규화되어 있다.
+- `positionWS`, `normalOS` 는 삼평면 투영처럼 월드와 오브젝트 공간을 고르는 표본용이다. 기준 샘플 래퍼에는 없으므로, 쓰는 표본은 래퍼의 `SgInput` 과 `Varyings` 에 넣고 정점에서 `normalOS` 를 넘긴다. 메시 무대는 돌기 때문에 월드 공간 무늬는 물체 위를 흐르고 오브젝트 공간 무늬는 물체에 붙는다.
 - `depthDelta` = 카메라에서 씬 표면까지 거리 - 카메라에서 이 픽셀까지 거리 (미터). 물체가 닿는 곳에서 0 에 가까워진다.
 - `fullscreen` 의 `uv` 는 왼쪽 아래가 (0, 0) 이고 위쪽이 1 이다. 화면비 보정은 `float2(aspect, 1.0)` 을 곱한다.
 - `positionOS` 는 오브젝트 공간. `sphere` 반지름 0.5, `capsule`, `cylinder` 높이 2, `cube`, `quad` 한 변 1 (`quad` 는 카메라 쪽으로 서 있다), `plane` 은 XZ 로 누운 한 변 10 이다. `plane` 은 Unity 기본 메시라 정점 간격이 1 이다. 정점 변형은 그만큼 거칠다.
