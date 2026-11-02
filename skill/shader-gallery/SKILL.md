@@ -1,6 +1,6 @@
 ---
 name: shader-gallery
-description: Unity URP 에 게임 셰이더 효과를 넣거나 변형하거나 고칠 때 쓴다. Unity 6.3 LTS, URP 17.3, HLSL 코드 셰이더 기준의 검증된 샘플과 설정 순서가 들어 있다. 포함된 효과: 디졸브, 역장 교차, 스프라이트 외곽선 + 피격 번쩍임, 화면 전환 와이프. 비슷한 효과를 새로 만들 때도 기준 코드로 삼는다.
+description: "Unity URP 에 게임 셰이더 효과를 넣거나 변형하거나 고칠 때 쓴다. Unity 6.3 LTS, URP 17.3, HLSL 코드 셰이더 기준의 검증된 샘플과 설정 순서가 들어 있다. 포함된 효과: 디졸브(Dissolve Edge Glow), 역장 교차(Force Field Intersection), 스프라이트 외곽선 + 피격 번쩍임(Sprite Outline & Hit Flash), 화면 전환 와이프(Screen Transition Wipe). 비슷한 효과를 새로 만들 때도 기준 코드로 삼는다."
 license: MIT
 compatibility: Unity 6.3 LTS (6000.3), Universal Render Pipeline 17.3
 metadata:

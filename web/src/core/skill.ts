@@ -39,7 +39,7 @@ function guide(meta: SpecimenMeta, files: SpecimenFile[]): string {
 }
 
 function description(specimens: SkillSource[]): string {
-  const names = specimens.map(s => s.meta.title).join(', ')
+  const names = specimens.map(s => `${s.meta.title}(${s.meta.titleEn})`).join(', ')
   const text = `Unity URP 에 게임 셰이더 효과를 넣거나 변형하거나 고칠 때 쓴다. Unity 6.3 LTS, URP 17.3, HLSL 코드 셰이더 기준의 검증된 샘플과 설정 순서가 들어 있다. 포함된 효과: ${names}. 비슷한 효과를 새로 만들 때도 기준 코드로 삼는다.`
   if (text.length > DESCRIPTION_LIMIT) throw new Error(`Skill 설명이 ${DESCRIPTION_LIMIT}자를 넘습니다: ${text.length}`)
   return text
@@ -50,7 +50,7 @@ function skillMarkdown(name: string, specimens: SkillSource[], version: string):
   const text = [
     '---',
     `name: ${name}`,
-    `description: ${description(specimens)}`,
+    `description: ${JSON.stringify(description(specimens))}`,
     'license: MIT',
     'compatibility: Unity 6.3 LTS (6000.3), Universal Render Pipeline 17.3',
     'metadata:',

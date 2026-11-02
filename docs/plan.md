@@ -29,17 +29,18 @@
 
 API 크레딧은 개인·조직 계정의 **월간 부여분만** 쓰고 추가 충전하지 않는다. 소진되면 구독으로 전환한다. **API 계정 연결은 Jay 가 자기 작업을 끝낸 뒤에 한다.** 그 전까지 API 가 필요한 단계는 진행하지 않는다.
 
-## 3. 리포 구조 (초안, 3단계에서 확정)
+## 3. 리포 구조 (3단계에서 확정)
 
 ```text
 shader-gallery/
-├─ Assets/Shaders/<id>/    # core.hlsl + <Name>.shader. Unity 와 웹이 같은 파일을 쓴다
-├─ Assets/Editor/          # 컴파일 검사·촬영 코드
-├─ web/                    # Vite 앱 (UIGallery 셸 복사)
-├─ tools/                  # 검사·빌드 스크립트
-├─ docs/                   # plan.md, specimen-guide.md, shader-selection.md
-├─ research/               # 수집 자료 (텍스트와 URL만)
-└─ skill/                  # 표본 데이터에서 생성한 Skill
+├─ Assets/Shaders/<id>/         # core.hlsl + <Name>.shader + C#. Unity 와 웹이 같은 파일을 쓴다
+├─ Assets/ShaderGalleryStage/   # 스프라이트 무대 텍스처 (코드로 생성, 웹도 같은 PNG)
+├─ Assets/Editor/ShaderGallery/ # 컴파일 검사·촬영 코드
+├─ web/                         # Vite 앱 (UIGallery 셸 복사). web/src/specimens/<id>/meta.ts 가 표본 데이터
+├─ tools/                       # 검사·촬영·Skill 스크립트 (Node 만 사용)
+├─ docs/                        # plan.md, specimen-guide.md, shader-selection.md, prompt-test.md
+├─ research/                    # 수집 자료 (텍스트와 URL만)
+└─ skill/shader-gallery/        # 표본 데이터에서 생성한 Skill. zip 은 커밋하지 않는다
 ```
 
 ## 4. 기술 핵심
@@ -51,6 +52,8 @@ shader-gallery/
 - 웹: `?raw` 로 같은 파일을 읽고 호환 매크로(`float3`->`vec3`, `lerp`->`mix`, `frac`->`fract`, `saturate` 등)를 앞에 붙여 WebGL2 로 컴파일한다.
 - 양쪽의 동작이 갈리는 문법은 규격에서 금지한다: 행렬 생성과 `mul`, 암시적 형변환, 스칼라->벡터 승격, 배열 초기화, `%`, `fmod`. 2D 회전 같은 것은 공통 헬퍼로 제공한다.
 - 공통 문법으로 안 되는 종류만 웹용 GLSL 을 따로 두고 사유를 남긴다.
+- 규격의 전체 내용은 `docs/specimen-guide.md`. 진입점은 `float4 sgEffect(SgInput i)` 하나이고, 무대별 입력(`SgInput`)은 래퍼와 앱이 채운다. 단계 보기는 `SG_STEP` 매크로, 효과 끄기는 `#ifdef SG_OFF` 분기로 같은 파일에 들어 있다. Unity 에서는 둘 다 아무 일도 하지 않는다.
+- **헬퍼는 공통 파일로 두지 않고 표본마다 복사한다** (당초 계획 변경). 폴더 하나만 복사해도 동작해야 수강생과 AI 가 쓰기 쉽고, 상대 경로 include 가 깨지지 않는다. 복사할 헬퍼는 가이드 3-3절에 있다.
 
 ### 표본은 데이터 + 셰이더
 UI 표본은 React 코드 때문에 평균 +114KB 였다. 셰이더 표본은 **React 컴포넌트 없이** 메타 데이터와 셰이더 파일만 둔다. 앱을 깨뜨릴 위험과 구현 비용이 함께 준다. 미리보기 무대는 앱이 4종으로 제공한다: 메시, 스프라이트, 깊이 사용, 전체 화면.
@@ -58,14 +61,16 @@ UI 표본은 React 코드 때문에 평균 +114KB 였다. 셰이더 표본은 **
 ### 컴파일과 스크린샷은 실제 Unity 로
 UI 갤러리는 Unity 코드 컴파일을 끝내 자동화하지 못했다. 이번에는 처음부터 자동으로 확인한다.
 
-- `ShaderUtil.GetShaderMessages` 등으로 컴파일 오류를 수집하고, 고정된 촬영 씬에서 표본마다 스크린샷을 찍는다.
-- 같은 C# 진입점을 **열린 에디터**와 **배치 모드(`-executeMethod`)** 양쪽에서 호출할 수 있게 한다. Unity 가 프로젝트를 열고 있으면 같은 프로젝트로 배치 모드를 실행할 수 없기 때문이다.
-- 웹 쪽은 헤드리스 Chrome 에서 셰이더 컴파일 로그를 확인한다.
+- `SgVerify.Run` 이 `ShaderUtil.GetShaderMessages` 와 패스별 `ShaderData.Pass.CompileVariant`(D3D11, Vulkan, GLES3, Metal)로 컴파일 오류를 수집하고, 프리뷰 씬에 고정 무대를 꾸며 표본마다 스크린샷을 찍는다. 열린 씬과 프로젝트 설정은 건드리지 않는다.
+- 같은 C# 진입점을 **열린 에디터**(`SgBridge` 가 `Temp/ShaderGalleryBridge/command.json` 감시)와 **배치 모드(`-executeMethod`)** 양쪽에서 호출한다. `tools/unity.mjs` 가 경로를 고른다. 에디터가 열려 있고 응답이 없으면 `~/.sg-unity/<리포 이름>` 복사본을 배치로 돌린다.
+- 웹 쪽은 `tools/check.mjs` 가 헤드리스 Chrome 에서 표본마다 최종과 `SG_OFF` 를 컴파일하고 로그를 확인한다.
 
 ### 웹 앱
 - UI 갤러리와 같은 Vite + React 19 + TypeScript + three.js 단일 HTML. `file://` 와 Pages 에서 똑같이 동작하고, 실행 중 외부 URL 을 참조하지 않는다.
 - 용량 예산은 HTML 1개 원본 5MB, gzip 1.5MB.
-- 홈 카드는 **정적 썸네일**을 쓰고 호버 때만 공유 캔버스로 실행한다. WebGL 컨텍스트 제한과, UI 갤러리에서 홈 카드 실시간 렌더가 첫 화면을 가장 많이 늦췄던 경험 때문이다. 직접 렌더한 이미지는 내장해도 된다.
+- 홈 카드는 **정적 썸네일**을 쓰고 호버 때만 공유 캔버스로 실행한다. WebGL 컨텍스트 제한과, UI 갤러리에서 홈 카드 실시간 렌더가 첫 화면을 가장 많이 늦췄던 경험 때문이다. 직접 렌더한 이미지는 내장해도 된다. 썸네일은 Unity 실측 스크린샷(720×405 WebP)을 그대로 쓴다.
+- 색이 Unity 와 맞도록 선형 HDR 버퍼에 그린 뒤 마지막에 sRGB 로 내보낸다. 무대 배치, 조명, 색은 `web/src/stage/layout.ts` 와 `SgCapture.cs` 가 같은 숫자를 쓴다.
+- 샘플 4개 기준 HTML 1.1MB, gzip 0.39MB. 그중 셸이 약 1MB 이다.
 
 ## 5. 상세 페이지
 
@@ -114,8 +119,8 @@ UI 갤러리의 무대, 값 조절, 프리셋, 재생 바, 발표 모드, 딥링
 | 0-1 | `claude` CLI 설치, `claude auth login` | Jay | 대기 |
 | 0-2 | 개인 계정: 조직 연결, 과금 차단 확인, Workspace와 상한, 키 발급 | Jay | 대기 |
 | 0-3 | 조직 계정: 같은 절차 | Jay | 대기 |
-| 0-4 | Unity 컴파일·촬영 자동화 시험 | 구독 | |
-| 0-5 | 효과 하나의 `core.hlsl` 을 Unity와 WebGL 양쪽에서 컴파일 | 구독 | |
+| 0-4 | Unity 컴파일·촬영 자동화 시험 | 구독 | 완료 (11절). 실제 열린 에디터 경로만 창 포커스 대기 |
+| 0-5 | 효과 하나의 `core.hlsl` 을 Unity와 WebGL 양쪽에서 컴파일 | 구독 | 완료 (11절) |
 | 0-6 | 키별 `claude -p` 크레딧 차감 실측 | 구독 + Jay | 0-2 뒤 |
 | 0-7 | 0-6 실패 시 별도 터미널 워커 구조로 변경 | 구독 | |
 | **1** | **도구 v0** (`JayDispatch`) | | |
@@ -131,13 +136,13 @@ UI 갤러리의 무대, 값 조절, 프리셋, 재생 바, 발표 모드, 딥링
 | 2-3 | 약 24개 목록과 선정 근거 문서 `docs/shader-selection.md` | 구독 | |
 | 2-4 | **목록 확인** | Jay | |
 | **3** | **갤러리 초안** | | |
-| 3-1 | UI 갤러리 셸을 `web/` 으로 복사, 불필요한 부분 정리 | 구독 | |
-| 3-2 | 표본 규격 v1: `core.hlsl`, 래퍼, 메타 데이터, 호환 매크로 → `docs/specimen-guide.md` | 구독 | |
-| 3-3 | 미리보기 무대 4종 | 구독 | |
-| 3-4 | 홈과 상세: 값 조절, 단계 보기, AI 지시 세트 | 구독 | |
-| 3-5 | Unity 촬영 씬과 검증 진입점 | 구독 | |
-| 3-6 | 샘플 4개: 디졸브, 스프라이트 외곽선 + 피격 번쩍임, 역장 교차, 화면 전환 | 구독 | |
-| 3-7 | Skill과 zip 생성 스크립트 | 구독 | |
+| 3-1 | UI 갤러리 셸을 `web/` 으로 복사, 불필요한 부분 정리 | 구독 | 완료 |
+| 3-2 | 표본 규격 v1: `core.hlsl`, 래퍼, 메타 데이터, 호환 매크로 → `docs/specimen-guide.md` | 구독 | 완료 |
+| 3-3 | 미리보기 무대 4종 | 구독 | 완료 |
+| 3-4 | 홈과 상세: 값 조절, 단계 보기, AI 지시 세트 | 구독 | 완료 |
+| 3-5 | Unity 촬영 씬과 검증 진입점 | 구독 | 완료 |
+| 3-6 | 샘플 4개: 디졸브, 스프라이트 외곽선 + 피격 번쩍임, 역장 교차, 화면 전환 | 구독 | 완료 |
+| 3-7 | Skill과 zip 생성 스크립트 | 구독 | 완료 |
 | 3-8 | 프롬프트만으로 변형을 시키는 시험 | API 저가 (연결 전 구독) | |
 | 3-9 | 독립 리뷰와 수정 | 구독 | |
 | 3-10 | **형식과 샘플 확인** | Jay | |
@@ -168,3 +173,34 @@ UI 갤러리의 무대, 값 조절, 프리셋, 재생 바, 발표 모드, 딥링
 - 브라우저 패널이 화면에 안 보이면 rAF 가 0 이다. 애니메이션 확인은 헤드리스로.
 - WebSearch 는 세션당 한도(약 200회)가 있다. 대량 리서치 전에 예산을 나눈다. 차단한 사이트는 우회하지 않는다.
 - Unity 코루틴 함정: `OnDisable` 에서 `StopAllCoroutines` 와 상태 변수 초기화.
+- Bash 도구에서 `cd` 는 다음 명령까지 이어지고 병렬 호출과 섞이면 예상과 다른 폴더에서 돈다. 절대 경로를 쓴다. 긴 인라인 스크립트는 따옴표가 깨지기 쉬우니 파일로 만들어 실행한다.
+- Unity 에디터는 창에 포커스가 와야 새 C# 을 import 한다. VS 메시징 UDP 포트는 열려 있지 않아 밖에서 Refresh 를 보낼 수 없었다. 포커스 없이 하려면 복사본 배치 실행을 쓴다.
+
+## 11. 0-4, 0-5 시험 기록과 바뀐 가정 (2026-11-02)
+
+**확인한 것 (Unity 6000.3.20f1, URP 17.3)**
+
+- 배치 모드는 그래픽을 켠 채(`-nographics` 없이) 동작한다. Direct3D12 로 컴파일과 촬영 모두 통과. 첫 실행 약 1분 30초, 이후 약 1분.
+- 에디터가 프로젝트를 열고 있어도 복사본(`~/.sg-unity/shader-gallery`)으로 배치 실행이 가능하다. Jay 의 창 클릭 없이 전 과정을 돌릴 수 있다.
+- 파일 명령 경로(`SgBridge`)는 복사본을 종료 없는 `-batchmode` 로 띄워 시험했다. 명령 파일 -> 실행 -> 결과 파일까지 통과. 일부러 깨뜨린 셰이더는 줄 번호와 함께 오류로 잡혔다.
+- `core.hlsl` 공통 문법은 성립한다. 샘플 4개가 D3D11, Vulkan, GLES3, Metal 과 WebGL2 에서 모두 컴파일되고, 웹과 Unity 스크린샷이 눈으로 같아 보인다. 한글 주석도 양쪽에서 문제없다 (웹은 주석을 지우고 넘긴다).
+- 임시 표본으로 규격의 나머지도 양쪽에서 확인했다: `sgVertex` 정점 변형, 표본 폴더 텍스처(선형, 반복, 포인트), `sgSceneColor` 씬 색상, 스프라이트 `_MainTex` 교체. 시험 표본은 지웠다.
+
+**2D Renderer (`shader-selection.md` 6절 8번, 7절 2번)**
+
+- Full Screen Pass Renderer Feature 는 2D Renderer 에서 동작한다. 복사본에서 `Renderer2DData` 파이프라인으로 바꿔 `screen-transition-wipe` 를 촬영해 확인했다. UI RawImage 대안은 필요 없다.
+- 스프라이트 표본의 `Universal2D` 패스가 2D Renderer 에서 그려진다 (촬영 확인). `Render2DLightingPass` 소스의 태그 목록은 `SRPDefaultUnlit`, `Universal2D` 뿐이라 `UniversalForward` 만 있는 메시, 깊이 표본은 2D Renderer 에서 그려지지 않는다.
+- `Renderer2DRendergraph` 소스에 Opaque Texture 복사가 없다. 씬 색상을 쓰는 표본은 2D Renderer 에서 안 된다고 보고, 대안은 Camera Sorting Layer Texture 다. 이것은 소스만 읽었고 촬영으로 시험하지는 않았다.
+
+**깨진 가정과 바꾼 것**
+
+| 가정 | 실제 | 조치 |
+|---|---|---|
+| `GetShaderMessages` 면 오류를 모을 수 있다 | import 단계는 일부 조합만 검사한다 | 패스별 `CompileVariant` 를 4개 플랫폼에 직접 호출 |
+| 2D 회전 등은 공통 헬퍼로 제공 | 공통 파일을 include 하면 폴더 복사만으로 동작하지 않는다 | 표본마다 복사. 가이드 3-3절 |
+| `_MainTex_TexelSize` 로 외곽선 두께를 맞춘다 | SpriteRenderer 는 텍스처를 렌더러 단위로 넘겨 값이 틀어진다. 두 번째 촬영에서 외곽선이 수십 배로 나왔다 | 래퍼가 `GetDimensions` 로 크기를 묻고 `i.texelSize` 로 넘긴다 |
+| 전체 화면 UV 는 D3D 에서 위아래를 뒤집어야 한다 | 중간 텍스처에 그리는 동안은 어느 API 든 위쪽이 1 이다. 뒤집으니 대각선 쓸기가 거꾸로 나왔다 | 뒤집기 제거 |
+| 무대 4종이면 충분하다 | 씬 색상, 텍스처, 정점 변형, 원기둥과 쿼드가 목록에 필요하다 (`shader-selection.md`) | 무대 규격에 추가하고 양쪽에서 시험 |
+| 샘플 ID 는 `dissolve` 등 짧은 이름 | `shader-selection.md` 가 영구 ID 를 제안 | 그 제안을 따랐다. 2-4 에서 바뀌면 폴더 이름도 바꾼다 |
+
+**아직 안 된 것**: 표본 가이드 9절의 앱 확장 3건(두 패스 그리기, ZTest Greater, 전체 화면 깊이·법선)은 해당 묶음을 만들 때 구독 세션이 추가한다.
