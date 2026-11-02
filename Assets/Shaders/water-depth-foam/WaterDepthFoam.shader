@@ -121,7 +121,7 @@ Shader "ShaderGallery/WaterDepthFoam"
                 i.viewWS = GetWorldSpaceNormalizeViewDir(v.positionWS);
                 i.screenUV = GetNormalizedScreenSpaceUV(v.positionCS);
 
-                // 카메라 시선 축의 거리 차이: 수면 뒤 씬 표면의 깊이 - 이 수면 픽셀의 깊이 (미터).
+                // 눈 깊이(카메라 정면 축 방향의 거리) 차이: 수면 뒤 씬 표면의 눈 깊이 - 이 수면 픽셀의 눈 깊이 (미터).
                 // 수직 물 깊이가 아니다. 같은 물도 낮은 각도로 볼수록 값이 커진다.
                 float sceneEye = LinearEyeDepth(SampleSceneDepth(i.screenUV), _ZBufferParams);
                 float selfEye = LinearEyeDepth(v.positionWS, UNITY_MATRIX_V);
