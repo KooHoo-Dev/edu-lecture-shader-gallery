@@ -8,6 +8,17 @@
 // 저체력 맥동의 빠르기(Hz). 반복해서 넓은 면이 변하므로 1Hz 아래로 고정한다. 배속 2 에서도 2Hz 를 넘지 않는다.
 #define VIGNETTE_PULSE_HZ 0.8
 
+// 피격 펄스의 한도. 피격은 화면이 크게 바뀌는 순간이라 면적과 색을 함께 묶어 둔다.
+// 반경은 최대 0.1 만 당기고, 이미 0.3 보다 좁은 반경(터널링, 저체력)은 더 당기지 않는다.
+#define VIGNETTE_HIT_PULL 0.1
+#define VIGNETTE_HIT_MIN_RADIUS 0.3
+// 피격 색은 화면 모양 타원의 가장자리 띠(0.75 에서 시작해 1.15 에서 다 찬다)에만, 최대 85% 까지만 섞는다.
+// 피격 색 기본값(#6d3d3d)은 선형 R - G - B 가 0.06 이라 WCAG 의 포화된 빨강 기준(0.0625 초과)에 들지 않는다.
+// 저체력 색(#4d1414, 0.06)도 기준 아래라 둘을 섞은 가장자리도 기준을 넘지 않는다.
+#define VIGNETTE_HIT_BAND 0.75
+#define VIGNETTE_HIT_BAND_WIDTH 0.4
+#define VIGNETTE_HIT_MAX 0.85
+
 // 화면 중심에서의 거리. 위아래 가장자리가 1 이 되도록 2 를 곱한다.
 // roundness 1 이면 가로에 화면비를 곱해 원이 되고, 0 이면 보정하지 않아 화면 모양을 따른 타원이 된다.
 float vignetteDistance(float2 uv, float aspect, float roundness)
@@ -34,15 +45,22 @@ float4 sgEffect(SgInput i)
     // 저체력은 반경을 조금 안쪽으로 당기고 느리게 숨 쉬듯 움직인다. 진폭을 작게 두어 번쩍임이 되지 않게 한다.
     // frac 으로 한 주기 안에 감싸 오래 켜 두어도 시간 값이 커져 떨리지 않게 한다.
     float breath = 0.5 + 0.5 * sin(frac(i.time * VIGNETTE_PULSE_HZ) * 6.2831853);
-    // 피격은 반경을 크게 당겨 가장자리가 순간 넓게 덮이게 한다.
-    float radius = _Radius - low * (0.12 + 0.05 * breath) - hit * 0.35;
-    float strength = saturate(_Intensity + low * 0.15 + hit * 0.4);
+    float radius = _Radius - low * (0.12 + 0.05 * breath);
+    // 피격은 반경을 조금만 당긴다. 하한 아래로는 당기지 않고, 원래 하한보다 좁으면 그대로 둔다.
+    radius = min(radius, max(radius - hit * VIGNETTE_HIT_PULL, VIGNETTE_HIT_MIN_RADIUS));
+    float strength = saturate(_Intensity + low * 0.15 + hit * 0.15);
+
+    // 덮는 색: 기본 색에서 저체력 색으로 옮겨 간다.
+    float3 tint = lerp(_VignetteColor.rgb, _LowHealthColor.rgb, low);
+    // 피격 색 띠: 비네트 모양과 상관없이 1 단계의 화면 모양 타원 거리(1 이 네 변의 가운데)로 가장자리에만 둔다.
+    // 반경이나 터널링 값이 어떻든 피격 색이 화면 가운데까지 넓게 덮이지 않는다.
+    float hitMask = smoothstep(VIGNETTE_HIT_BAND, VIGNETTE_HIT_BAND + VIGNETTE_HIT_BAND_WIDTH, rawDistance) * hit * VIGNETTE_HIT_MAX;
 
 #ifdef SG_OFF
-    // 흔한 실수: smoothstep 없이 거리를 그대로 세기로 쓴다. 가운데 말고는 화면 전체가 어두워지고
-    // 반경과 부드러움으로 가장자리를 정할 수 없다.
+    // 흔한 실수: smoothstep 없이 거리를 그대로 세기로 쓴다 (color *= 1 - 거리 와 같은 모양).
+    // 가운데 말고는 화면 전체가 어두워지고 반경과 부드러움으로 가장자리를 정할 수 없다.
     float rawAmount = saturate(d) * strength;
-    return float4(lerp(scene, _VignetteColor.rgb, rawAmount), 1.0);
+    return float4(lerp(lerp(scene, tint, rawAmount), _HitColor.rgb, hitMask), 1.0);
 #endif
 
     // 3. 부드러운 마스크: 반경 안은 0, 반경에서 부드러움 폭만큼 지나면 1. 세기를 곱해 얼마나 덮을지 정한다.
@@ -50,8 +68,7 @@ float4 sgEffect(SgInput i)
     float mask = smoothstep(radius, radius + soft, d) * strength;
     SG_STEP(3, float3(mask, mask, mask));
 
-    // 최종: 기본 색에서 저체력 색, 피격 색 순으로 옮겨 가며 장면 위에 마스크만큼 덮는다.
-    float3 tint = lerp(_VignetteColor.rgb, _LowHealthColor.rgb, low);
-    tint = lerp(tint, _HitColor.rgb, hit);
-    return float4(lerp(scene, tint, mask), 1.0);
+    // 최종: 장면 위에 마스크만큼 덮는 색을 덮고, 피격 중이면 그 위 가장자리 띠에 피격 색을 섞는다.
+    float3 color = lerp(scene, tint, mask);
+    return float4(lerp(color, _HitColor.rgb, hitMask), 1.0);
 }

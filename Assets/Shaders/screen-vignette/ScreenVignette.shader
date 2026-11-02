@@ -12,7 +12,7 @@ Shader "ShaderGallery/ScreenVignette"
         _LowHealth ("저체력", Range(0, 1)) = 0
         _LowHealthColor ("저체력 색", Color) = (0.302, 0.078, 0.078, 1)
         _HitPulse ("피격 펄스", Range(0, 1)) = 0
-        _HitColor ("피격 색", Color) = (0.62, 0.122, 0.122, 1)
+        _HitColor ("피격 색", Color) = (0.427, 0.239, 0.239, 1)
     }
 
     SubShader
@@ -67,7 +67,9 @@ Shader "ShaderGallery/ScreenVignette"
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(v);
 
                 SgInput i;
-                // XR 에서는 눈마다 따로 그리므로 uv 의 중심이 각 눈의 중심이 된다.
+                // XR 주의: uv (0.5, 0.5) 는 눈의 정면이 아니다. HMD 투영은 눈마다 비대칭이라
+                // 비네트 중심이 두 눈에서 어긋날 수 있다 (실기기 미확인). URP 내장 Vignette 는 투영 행렬로 보정하므로
+                // XR 에서는 XRI TunnelingVignetteController 나 Volume 의 Vignette 를 먼저 쓴다.
                 i.uv = v.texcoord;
                 i.aspect = _ScreenParams.x / _ScreenParams.y;
                 i.time = _Time.y;
