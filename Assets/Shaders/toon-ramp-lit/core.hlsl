@@ -5,7 +5,7 @@
 #define SG_STEP(n, rgb)
 #endif
 
-// 세 채널 중 가장 큰 값. 래퍼가 넘기는 lightColor 는 '빛 색 x 세기 x 받는 그림자' 라서 이 값이 빛의 양이 된다.
+// 세 채널 중 가장 큰 값. 래퍼가 넘기는 lightColor 는 '빛 색 x 세기 x 거리 감쇠 x 받는 그림자' 라서 이 값이 빛의 양이 된다.
 float toonMax3(float3 c)
 {
     return max(c.r, max(c.g, c.b));
@@ -41,17 +41,18 @@ float4 sgEffect(SgInput i)
     // 빛 색은 가장 큰 채널을 1 로 맞춘 색조만 쓴다. 빛이 완전히 막힌 곳은 나눌 수 없으니 흰색으로 둔다.
     float3 lightHue = lerp(float3(1.0, 1.0, 1.0), i.lightColor / max(lightAmount, 0.0001), step(0.0001, lightAmount));
 
-    // 그늘 넓이: 경계를 빛 쪽(+)이나 뒤쪽(-)으로 민다. 음수면 dot(N, L) 이 0 아래인 곳까지 빛이 감싼다.
+    // 그늘 넓이: 경계를 빛 쪽(+)으로 밀어 그늘을 넓히거나, 명암선 쪽(-)으로 내려 빛 면을 넓힌다.
+    // 첫 경계는 dot(N, L) = s + (1 - s) / N 이다 (s 는 그늘 넓이, N 은 띠 수). s 의 최소값 -0.25 에서 N = 5 여도 0 이라
+    // 명암선을 넘지 않는다. 넘기면 Unity 에서는 물체가 자기 뒤쪽에 드리운 그림자가 그 띠를 잘라 웹과 달라진다.
     // 그림자 감쇠는 띠로 끊기 전에 곱한다. 그래야 받는 그림자도 부드러운 회색이 아니라 같은 띠로 끊긴다.
     float level = saturate((ndl - _ShadeShift) / (1.0 - _ShadeShift)) * shadow;
 
 #ifdef SG_OFF
-    // 흔한 실수: 환경광과 빛 세기가 이미 섞인 lighting 을 채널마다 띠로 끊는다 (조명 결과에 Posterize 를 거는 것과 같다).
-    // 뒤쪽도 환경광만큼 밝아 0 이 되지 않고 빛 세기가 1 을 넘으니 경계가 모두 그늘 쪽으로 밀린다.
-    // 환경광은 채널마다 세기가 달라(푸른 하늘빛) 채널마다 경계가 어긋나고, 경계에 색 줄무늬가 생긴다.
-    float3 mixedLevel = saturate((i.lighting - float3(_ShadeShift, _ShadeShift, _ShadeShift)) / (1.0 - _ShadeShift));
-    float3 mixedBand = float3(toonBands(mixedLevel.r), toonBands(mixedLevel.g), toonBands(mixedLevel.b));
-    return float4(_BaseColor.rgb * lerp(_ShadeColor.rgb, lightHue, mixedBand), 1.0);
+    // 흔한 실수: 조명이 끝난 최종 색(기본 색 x lighting)을 채널마다 띠로 끊는다. Lit 결과에 Posterize 를 거는 것과 같다.
+    // 그늘 쪽은 채널 값이 첫 경계보다 낮아 검정으로 떨어지고, 빛 쪽은 R, G, B 가 따로 끊겨 엉뚱한 색 덩어리가 된다.
+    // 그늘 색을 거치지 않으므로 그늘 색 슬라이더도 아무 일을 하지 않는다.
+    float3 litColor = _BaseColor.rgb * i.lighting;
+    return float4(toonBands(litColor.r), toonBands(litColor.g), toonBands(litColor.b), 1.0);
 #endif
 
     // 2. 띠로 끊기: 매끈한 밝기가 몇 개의 평평한 단계가 된다. 경계에서만 짧게 바뀐다.
