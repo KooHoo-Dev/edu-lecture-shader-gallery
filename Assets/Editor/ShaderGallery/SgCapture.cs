@@ -71,7 +71,9 @@ namespace ShaderGallery.EditorTools
 
                 RenderTexture previous = RenderTexture.active;
                 RenderTexture.active = renderTexture;
-                read = new Texture2D(width, height, TextureFormat.RGBA32, false);
+                // 화면 사진이므로 알파는 버린다. 알파 혼합 물체는 렌더 타깃의 알파까지 섞어(SrcAlpha OneMinusSrcAlpha) 1 보다 작게 남기고,
+                // 그대로 PNG 에 넣으면 밝은 페이지 위에서 사진이 바래 보인다 (water-wave-surface 에서 발견, 2026-11-03).
+                read = new Texture2D(width, height, TextureFormat.RGB24, false);
                 read.ReadPixels(new Rect(0, 0, width, height), 0, 0);
                 read.Apply();
                 RenderTexture.active = previous;
