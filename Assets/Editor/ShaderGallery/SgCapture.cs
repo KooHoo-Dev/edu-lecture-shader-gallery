@@ -268,14 +268,20 @@ namespace ShaderGallery.EditorTools
                     stage.temporary.Add(grass);
                     go = AddMesh(stage, "SgGrass", grass, material, Vector3.zero, depth ? 1.4f : 1.6f);
                     break;
+                case "grid":
+                    // 내장 메시가 아니라 SgGrid 가 만든다. 10 m 넓이로 화면 아래쪽을 호수처럼 덮는다.
+                    Mesh grid = SgGrid.Build();
+                    stage.temporary.Add(grid);
+                    go = AddMesh(stage, "SgGrid", grid, material, new Vector3(0f, 0.3f, 0f), 1f);
+                    break;
                 default:
                     go = AddMesh(stage, "New-Sphere.fbx", material, new Vector3(0f, depth ? 0.55f : 0.85f, 0f), depth ? 2.2f : 1.5f);
                     break;
             }
             // 시작 회전. 웹 layout.ts 의 meshYawDeg 와 같다. 정면만 찍으면 큐브 같은 물체의 효과가 썸네일에 드러나지 않는다.
-            // 웹의 depth 무대 물체와 quad, plane, grass 는 돌지 않으므로 여기서도 돌리지 않는다.
+            // 웹의 depth 무대 물체와 quad, plane, grass, grid 는 돌지 않으므로 여기서도 돌리지 않는다.
             // grass 는 바람 같은 월드 방향 효과를 위해 오브젝트 공간과 월드 공간의 방향을 같게 둔다.
-            if (!depth && mesh != "quad" && mesh != "plane" && mesh != "grass")
+            if (!depth && mesh != "quad" && mesh != "plane" && mesh != "grass" && mesh != "grid")
             {
                 go.transform.rotation = Quaternion.Euler(0f, MeshYawDeg, 0f);
             }

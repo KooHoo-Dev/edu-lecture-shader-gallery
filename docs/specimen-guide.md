@@ -176,7 +176,7 @@ float effectNoise(float2 p)
 
 | 무대 (`stage.kind`) | 무대 내용 | `SgInput` 필드 | 쓰는 함수 | 기준 샘플 |
 |---|---|---|---|---|
-| `mesh` | 바닥과 물체 하나 (`stage.mesh`). Y 30도에서 시작해 천천히 돈다 (`quad`, `plane`, `grass` 는 돌지 않는다) | `uv positionOS positionWS normalOS normalWS viewWS lightDirWS lightColor lighting time` | | 디졸브 |
+| `mesh` | 바닥과 물체 하나 (`stage.mesh`). Y 30도에서 시작해 천천히 돈다 (`quad`, `plane`, `grass`, `grid` 는 돌지 않는다) | `uv positionOS positionWS normalOS normalWS viewWS lightDirWS lightColor lighting time` | | 디졸브 |
 | `sprite` | 정사영 카메라, 드론 스프라이트(또는 `stage.textures._MainTex`), 2유닛 높이 | `uv color texelSize time` | `SG_TEX(_MainTex, uv)` | 스프라이트 |
 | `depth` | 바닥, 상자, 공, 그 위를 덮는 물체 (`stage.mesh`). `plane` 이면 소품을 가르는 수면 높이에 놓인다 | `uv color positionOS positionWS normalOS normalWS viewWS cameraRightWS cameraUpWS screenUV depthDelta time` | `sgSceneColor(uv)`, `sgSceneDepth(uv)` | 역장 |
 | `fullscreen` | 바닥, 상자, 공을 그린 화면 전체 | `uv aspect texelSize time` | `sgSource(uv)`, `sgSceneDepth(uv)`, `sgSceneNormal(uv)` | 전환 |
@@ -203,7 +203,8 @@ float effectNoise(float2 p)
   법선을 읽는 래퍼는 `#pragma multi_compile_fragment _ _GBUFFER_NORMALS_OCT` 를 둔다 (Deferred 의 정확한 G-buffer 노멀은 8면체로 인코딩되어, 이 변형 없이 읽으면 매끈한 면에도 얼룩 선이 생긴다). Requirements 의 Normal 은 불투명 물체를 DepthNormals 패스로 한 번 더 그리는 프리패스를 강제하고 깊이도 그 패스에서 나온다. 그 패스가 없는 직접 만든 셰이더의 물체는 깊이와 법선 모두에서 빠진다. 이 점과 그 비용(불투명 물체를 한 번 더 그림)을 `unity.pitfalls` 에 적는다. 2D Renderer 는 법선 텍스처를 만들지 않는다 (소스 확인).
 - `positionOS` 는 오브젝트 공간. `sphere` 반지름 0.5, `capsule`, `cylinder` 높이 2, `cube`, `quad` 한 변 1 (`quad` 는 카메라 쪽으로 서 있다), `plane` 은 XZ 로 누운 한 변 10 이다. `plane` 은 Unity 기본 메시라 정점 간격이 1 이다. 정점 변형은 그만큼 거칠다.
 - Unity 기본 Plane 은 위에서 볼 때 UV 가 180도 돌아 있다. u 는 −X(카메라에서 보면 왼쪽), v 는 −Z(카메라 쪽)로 커진다. 웹도 같게 맞췄다 (촬영으로 확인). 텍스처 위쪽으로 흐르게 그린 맵은 기본 Plane 에서 카메라 쪽으로 흐르므로, UV 방향이 중요한 표본은 이 점을 `unity.pitfalls` 에 단정해서 적는다 (Y 180도 회전이나 Quad 로 맞춘다).
-- 웹도 위치, 법선, 방향을 Unity 좌표로 넘긴다 (three.js 의 z 를 뒤집는다). 월드나 오브젝트 좌표로 만든 무늬와 방향(바람 방향 등)이 두 화면에서 같다. 웹 무대의 메시는 three.js 가 만든 것이라 정점 수가 Unity 기본 메시와 다르다. `cube` 와 `grass` 만 같다. 정점을 미는 표본은 Unity 의 정점 간격을 기준으로 정한다.
+- 웹도 위치, 법선, 방향을 Unity 좌표로 넘긴다 (three.js 의 z 를 뒤집는다). 월드나 오브젝트 좌표로 만든 무늬와 방향(바람 방향 등)이 두 화면에서 같다. 웹 무대의 메시는 three.js 가 만든 것이라 정점 수가 Unity 기본 메시와 다르다. `cube`, `grass`, `grid` 만 같다. 정점을 미는 표본은 Unity 의 정점 간격을 기준으로 정한다.
+- `grid` 는 앱이 웹과 Unity 에서 같게 만드는 촘촘한 평면이다 (`ShaderStage.ts`, `SgGrid.cs`). 크기(한 변 10)와 UV 방향은 Unity 기본 Plane 과 같고 칸만 100 × 100 이라 정점 간격이 0.1 이다. 두 무대 모두 y = 0.3 에 크기 1 로 놓여 카메라 아래를 지나 화면 아래쪽을 호수처럼 덮는다 (먼 가장자리 z = 5 가 화면 가운데 조금 위). 정점을 미는 수면처럼 기본 Plane 이 너무 성긴 표본에 쓴다. Unity 에는 이런 내장 메시가 없으므로, 쓰는 표본은 수강생이 촘촘한 평면을 얻는 방법(표본의 C# 로 메시를 만들거나 ProBuilder, DCC 툴)을 `unity.setup` 에 적는다. 웹과 Unity 를 UV 색 격자로 비교해 같은 것을 확인했다 (2026-11-03).
 - `grass` 는 앱이 웹과 Unity 에서 같은 계산으로 만드는 풀 다발이다 (`web/src/stage/grass.ts`, `SgGrass.cs`). 잎 36장, 높이 0.7~1.2, 잎마다 세로 5칸, 뿌리가 y = 0, `uv.y` 는 뿌리 0 에서 끝 1, 법선은 잎의 앞쪽. 잎은 얇은 판이라 래퍼의 모든 패스를 `Cull Off` 로 하고 `stage.doubleSided: true` 로 둔다. 돌지 않으므로 오브젝트 공간 방향이 월드 방향과 같다.
 - 스프라이트는 높이 2 유닛에 맞고 폭은 텍스처 비율을 따른다.
 - `time` 은 초. 웹에서는 배속과 일시정지가 반영된다. `sin(time * 빠른 값)` 처럼 넓은 면이 깜빡이는 코드는 9절 안전 규칙을 본다.

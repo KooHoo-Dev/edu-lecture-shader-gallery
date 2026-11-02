@@ -32,6 +32,8 @@ export const LAYOUT = {
     quad: { position: [0, 0.85, 0], scale: 1.6, shadow: 0.1 },
     plane: { position: [0, 0.5, 0], scale: 0.3, shadow: 0 },
     grass: { position: [0, 0, 0], scale: 1.6, shadow: 0.6 },
+    // 10 m 넓이로 카메라 아래를 지나 화면 아래쪽을 호수처럼 덮는다
+    grid: { position: [0, 0.3, 0], scale: 1, shadow: 0 },
   },
   /** depth 무대의 물체 배치. 같은 값이 SgCapture.PlaceEffectMesh 에 있다 */
   depthPlacement: {
@@ -43,6 +45,7 @@ export const LAYOUT = {
     quad: { position: [0, 0.95, 0], scale: 1.6 },
     plane: { position: [0, 0.3, 0], scale: 0.35 },
     grass: { position: [0, 0, 0], scale: 1.4 },
+    grid: { position: [0, 0.3, 0], scale: 1 },
   },
   /**
    * stage.occluded 의 벽 (Unity 큐브를 늘린 것). 카메라와 물체 사이에서 물체의 왼쪽 아래를 가린다.

@@ -67,7 +67,7 @@ function paramToUniform(def: ParamDef, value: unknown): number | THREE.Vector4 {
  * mesh 무대에서 물체를 돌릴지. 납작한 quad, plane 은 돌리면 옆면이 되어 사라지고,
  * grass 는 바람 같은 월드 방향 효과를 위해 오브젝트 공간과 월드 공간의 방향을 같게 둔다. SgCapture 도 같은 규칙이다
  */
-const spins = (shape: string | undefined) => shape !== 'quad' && shape !== 'plane' && shape !== 'grass'
+const spins = (shape: string | undefined) => shape !== 'quad' && shape !== 'plane' && shape !== 'grass' && shape !== 'grid'
 
 /** Unity 기본 Plane 은 위에서 볼 때 UV 가 180도 돌아 있다 (u 는 -X, v 는 -Z 쪽으로 커진다). 같게 맞춘다 */
 function unityPlaneUv(geometry: THREE.BufferGeometry) {
@@ -337,6 +337,8 @@ class ShaderStage {
     if (shape === 'quad') return new THREE.PlaneGeometry(1, 1, 32, 32)
     if (shape === 'plane') return unityPlaneUv(new THREE.PlaneGeometry(10, 10, 64, 64).rotateX(-Math.PI / 2))
     if (shape === 'grass') return grassGeometry()
+    // SgGrid.cs 와 같은 촘촘한 평면. 칸 수까지 같아 정점을 미는 수면이 두 화면에서 같게 휜다
+    if (shape === 'grid') return unityPlaneUv(new THREE.PlaneGeometry(10, 10, 100, 100).rotateX(-Math.PI / 2))
     // 정점을 미는 표본은 Unity 기본 구와 비슷한 밀도로 그려 Unity 에서 보일 계단을 미리보기도 보여 준다
     return specimen.meta.stage.vertex ? new THREE.SphereGeometry(0.5, 24, 16) : new THREE.SphereGeometry(0.5, 96, 64)
   }
