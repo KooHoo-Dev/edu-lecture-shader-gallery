@@ -2,6 +2,7 @@
 // 정점 단계(sgVertex)가 사인파 세 개를 더한 높이로 평면을 오르내리게 하고,
 // 픽셀 단계(sgEffect)가 같은 식의 도함수로 법선을 다시 구해 프레넬과 반사광을 칠한다.
 // 파도는 오브젝트 공간 xz 로 계산한다. 평면을 키우면 파도도 함께 커지고, 평면을 Y 로 돌리면 파도 방향도 함께 돈다.
+// 값은 한 변 10 m, 100 칸(정점 간격 0.1 m)인 평면을 크기 1 로 둔 호수에 맞췄다 (WaterSurfaceGrid.cs 가 만드는 메시).
 
 // SG_STEP: 웹의 '단계 보기'가 중간 결과를 꺼내는 표시. Unity 에서는 아무 일도 하지 않는다.
 #ifndef SG_STEP
@@ -9,8 +10,8 @@
 #endif
 
 // 오브젝트 공간 법선을 월드로 바꾸는 자리. 행렬은 공통 문법에서 쓸 수 없어 Unity 래퍼가 include 앞에서
-// TransformObjectToWorldNormal 로 정의한다. 웹 무대의 평면은 돌지 않고 고르게 0.3 배 줄였을 뿐이라
-// 오브젝트 축과 월드 축의 방향이 같으므로 그대로 둔다.
+// TransformObjectToWorldNormal 로 정의한다. 웹 무대의 평면은 돌지 않고 크기도 1 이라
+// 오브젝트 축과 월드 축이 같으므로 그대로 둔다.
 #ifndef WAVE_NORMAL_TO_WORLD
 #define WAVE_NORMAL_TO_WORLD(n) (n)
 #endif
@@ -38,7 +39,9 @@ float3 waveOne(float2 xz, float angleDeg, float lambda, float amp, float speed, 
 // 방향을 엇갈려 두어야 마루가 한 줄로 늘어선 골판지 모양이 되지 않는다.
 // 둘째는 55도 돌고 파장 0.77 배, 셋째는 -40도 돌고 파장 0.58 배다. 진폭도 함께 줄여 짧은 파도가 덜 가파르게 했다.
 // 깊은 물에서는 긴 파도가 빠르다(속도가 파장의 제곱근에 비례). 그래서 속도도 0.88 배, 0.76 배로 줄였다.
-// 가장 짧은 셋째 파장 = 첫 파장 * 0.58. 첫 파장의 최솟값 7 에서 약 4 로, Unity 기본 Plane 의 정점 간격(1) 의 4 배다.
+// 가장 짧은 셋째 파장 = 첫 파장 * 0.58. 첫 파장의 최솟값 0.8 에서 약 0.46 으로, 100 칸 평면의 정점 간격(0.1)의 4 배가 넘는다.
+// 정점 간격 1 인 Unity 기본 Plane 에서는 첫 파장을 4 m 이상으로 올려야 짧은 파도가 정점 사이에서 깨지지 않는다.
+// 그래도 가장 짧은 파도(약 2.3 m)에 정점이 두세 개뿐이라 윤곽이 조금 꺾이므로 촘촘한 평면을 권한다.
 float3 waveSum(float2 xz, float time)
 {
     float3 w = waveOne(xz, _WaveAngle, _WaveLength, _WaveHeight, _WaveSpeed, time);
@@ -79,7 +82,7 @@ float4 sgEffect(SgInput i)
     float3 specColorOff = i.lightColor * specOff;
     float3 colorOff = lerp(_DeepColor.rgb, _SkyColor.rgb, fresnelOff) + specColorOff;
     float specAlphaOff = max(specColorOff.r, max(specColorOff.g, specColorOff.b));
-    return float4(colorOff, saturate(0.6 + fresnelOff * 1.2 + specAlphaOff));
+    return float4(colorOff, saturate(0.35 + fresnelOff * 1.2 + specAlphaOff));
 #endif
 
     // 2. 파도 법선: 높이 y = h(x, z) 인 면의 법선은 (-dh/dx, 1, -dh/dz) 방향이다.
@@ -101,11 +104,12 @@ float4 sgEffect(SgInput i)
     SG_STEP(4, specColor);
 
     // 최종: 프레넬로 물빛과 하늘빛을 섞고 반사광을 더한다.
-    // 알파도 프레넬로 정한다. 내려다보는 앞쪽은 반투명해 아래 바닥이 비치고, 비스듬한 먼 쪽은 하늘이 덮어 불투명해진다.
+    // 알파도 프레넬로 정한다. 내려다보는 앞쪽은 프레넬이 거의 0 이라 알파가 0.35 쯤으로 아래 바닥이 비치고,
+    // 비스듬한 먼 쪽은 프레넬이 커져 하늘이 덮어 불투명해진다.
     // 반사광은 알파에도 더해 반투명한 곳에서도 반짝임이 흐려지지 않게 한다.
     // 그림자가 곱해진 반사광 색의 가장 밝은 채널을 더해, 그늘에서는 알파도 올라가지 않는다.
     float3 color = lerp(_DeepColor.rgb, _SkyColor.rgb, fresnel) + specColor;
     float specAlpha = max(specColor.r, max(specColor.g, specColor.b));
-    float alpha = saturate(0.6 + fresnel * 1.2 + specAlpha);
+    float alpha = saturate(0.35 + fresnel * 1.2 + specAlpha);
     return float4(color, alpha);
 }
