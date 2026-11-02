@@ -23,7 +23,8 @@ float4 sgEffect(SgInput i)
     float2 uvTL = i.uv + i.texelSize * float2(-lo, hi);
 
     // 1. 깊이 윤곽: 대각선 두 쌍의 깊이 차이. 같은 각도의 바닥이라도 멀수록 한 픽셀 사이의 깊이 차이가 커지므로
-    //    가장 가까운 샘플까지의 거리로 나눈 '상대 차이'로 잰다. 그래야 가까운 곳과 먼 곳에 같은 기준이 통한다.
+    //    가장 가까운 샘플까지의 거리로 나눈 '상대 차이'로 잰다. 그래야 같은 각도로 보이는 면이면 가깝든 멀든 같은 기준이 통한다.
+    //    아주 비스듬히 보이는 면은 그래도 차이가 크다. 정석 해결은 문턱을 1 / dot(N, V) 만큼 키우는 것이다 (여기서는 하지 않는다).
     float dBL = sgSceneDepth(uvBL);
     float dTR = sgSceneDepth(uvTR);
     float dBR = sgSceneDepth(uvBR);
