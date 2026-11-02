@@ -10,7 +10,8 @@ export type GroupId = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G'
 
 /** 미리보기 무대 4종 */
 export type StageKind = 'mesh' | 'sprite' | 'depth' | 'fullscreen'
-export type MeshShape = 'sphere' | 'capsule' | 'cube' | 'cylinder' | 'quad' | 'plane'
+/** grass 는 앱이 만드는 풀 다발 (web/src/stage/grass.ts, SgGrass.cs). 나머지는 Unity 기본 메시 */
+export type MeshShape = 'sphere' | 'capsule' | 'cube' | 'cylinder' | 'quad' | 'plane' | 'grass'
 /** URP 에셋에서 켜야 하는 것. 프롬프트의 설정 단계에 자동으로 들어간다 */
 export type Requirement = 'depth' | 'opaque'
 /** cutout: 알파 0.5 미만을 잘라 낸다 · alpha: 알파 혼합 · additive: 더하기 혼합 */

@@ -174,7 +174,7 @@ float effectNoise(float2 p)
 
 | 무대 (`stage.kind`) | 무대 내용 | `SgInput` 필드 | 쓰는 함수 | 기준 샘플 |
 |---|---|---|---|---|
-| `mesh` | 바닥과 물체 하나 (`stage.mesh`). 천천히 돈다 (`quad`, `plane` 은 돌지 않는다) | `uv positionOS positionWS normalOS normalWS viewWS lightDirWS lightColor lighting time` | | 디졸브 |
+| `mesh` | 바닥과 물체 하나 (`stage.mesh`). Y 30도에서 시작해 천천히 돈다 (`quad`, `plane`, `grass` 는 돌지 않는다) | `uv positionOS positionWS normalOS normalWS viewWS lightDirWS lightColor lighting time` | | 디졸브 |
 | `sprite` | 정사영 카메라, 드론 스프라이트(또는 `stage.textures._MainTex`), 2유닛 높이 | `uv color texelSize time` | `SG_TEX(_MainTex, uv)` | 스프라이트 |
 | `depth` | 바닥, 상자, 공, 그 위를 덮는 물체 (`stage.mesh`). `plane` 이면 소품을 가르는 수면 높이에 놓인다 | `uv positionOS positionWS normalOS normalWS viewWS screenUV depthDelta time` | `sgSceneColor(screenUV)` | 역장 |
 | `fullscreen` | 바닥, 상자, 공을 그린 화면 전체 | `uv aspect time` | `sgSource(uv)` | 전환 |
@@ -185,6 +185,8 @@ float effectNoise(float2 p)
 - `depthDelta` = 카메라에서 씬 표면까지 거리 - 카메라에서 이 픽셀까지 거리 (미터). 물체가 닿는 곳에서 0 에 가까워진다.
 - `fullscreen` 의 `uv` 는 왼쪽 아래가 (0, 0) 이고 위쪽이 1 이다. 화면비 보정은 `float2(aspect, 1.0)` 을 곱한다.
 - `positionOS` 는 오브젝트 공간. `sphere` 반지름 0.5, `capsule`, `cylinder` 높이 2, `cube`, `quad` 한 변 1 (`quad` 는 카메라 쪽으로 서 있다), `plane` 은 XZ 로 누운 한 변 10 이다. `plane` 은 Unity 기본 메시라 정점 간격이 1 이다. 정점 변형은 그만큼 거칠다.
+- 웹도 위치, 법선, 방향을 Unity 좌표로 넘긴다 (three.js 의 z 를 뒤집는다). 월드나 오브젝트 좌표로 만든 무늬와 방향(바람 방향 등)이 두 화면에서 같다. 웹 무대의 메시는 three.js 가 만든 것이라 정점 수가 Unity 기본 메시와 다르다. `cube` 와 `grass` 만 같다. 정점을 미는 표본은 Unity 의 정점 간격을 기준으로 정한다.
+- `grass` 는 앱이 웹과 Unity 에서 같은 계산으로 만드는 풀 다발이다 (`web/src/stage/grass.ts`, `SgGrass.cs`). 잎 36장, 높이 0.7~1.2, 잎마다 세로 5칸, 뿌리가 y = 0, `uv.y` 는 뿌리 0 에서 끝 1, 법선은 잎의 앞쪽. 잎은 얇은 판이라 래퍼의 모든 패스를 `Cull Off` 로 하고 `stage.doubleSided: true` 로 둔다. 돌지 않으므로 오브젝트 공간 방향이 월드 방향과 같다.
 - 스프라이트는 높이 2 유닛에 맞고 폭은 텍스처 비율을 따른다.
 - `time` 은 초. 웹에서는 배속과 일시정지가 반영된다. `sin(time * 빠른 값)` 처럼 넓은 면이 깜빡이는 코드는 9절 안전 규칙을 본다.
 

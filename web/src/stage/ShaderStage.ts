@@ -3,6 +3,7 @@ import { requestFlash } from '../core/flash'
 import { STAGE_SPRITE_URL } from './assets'
 import type { Ease, ParamDef, ParamValues, Specimen, Track } from '../core/types'
 import { buildProgram, defaultBlend, LIT_FRAGMENT, LIT_VERTEX, PRESENT_FRAGMENT, PRESENT_VERTEX, SHADOW_PLAIN_FRAGMENT, textureNames } from './glsl'
+import { grassGeometry } from './grass'
 import { hexToLinear, LAYOUT, linear3, toThree } from './layout'
 
 /**
@@ -59,6 +60,12 @@ function paramToUniform(def: ParamDef, value: unknown): number | THREE.Vector4 {
   if (def.type === 'select') return Number(value)
   return Number(value)
 }
+
+/**
+ * mesh 무대에서 물체를 돌릴지. 납작한 quad, plane 은 돌리면 옆면이 되어 사라지고,
+ * grass 는 바람 같은 월드 방향 효과를 위해 오브젝트 공간과 월드 공간의 방향을 같게 둔다. SgCapture 도 같은 규칙이다
+ */
+const spins = (shape: string | undefined) => shape !== 'quad' && shape !== 'plane' && shape !== 'grass'
 
 class ShaderStage {
   readonly canvas: HTMLCanvasElement
@@ -167,7 +174,7 @@ class ShaderStage {
     this.elevation = 0
     // Unity 촬영과 같은 각도에서 시작한다. three.js 의 y 회전은 Unity 와 부호가 반대다
     const shape = specimen.meta.stage.mesh
-    const turns = specimen.meta.stage.kind === 'mesh' && shape !== 'quad' && shape !== 'plane'
+    const turns = specimen.meta.stage.kind === 'mesh' && spins(shape)
     this.spin = turns ? (-LAYOUT.meshYawDeg * Math.PI) / 180 : 0
     this.dragging = false
     this.framesRendered = 0
@@ -312,6 +319,7 @@ class ShaderStage {
     if (shape === 'cylinder') return new THREE.CylinderGeometry(0.5, 0.5, 2, 64, 24)
     if (shape === 'quad') return new THREE.PlaneGeometry(1, 1, 32, 32)
     if (shape === 'plane') return new THREE.PlaneGeometry(10, 10, 64, 64).rotateX(-Math.PI / 2)
+    if (shape === 'grass') return grassGeometry()
     return new THREE.SphereGeometry(0.5, 96, 64)
   }
 
@@ -514,9 +522,8 @@ class ShaderStage {
       const dt = Math.min(0.1, (now - this.last) / 1000) * this.settings.speed
       this.time += dt
       if (this.settings.auto) this.demoTime += dt
-      // 납작한 물체는 돌리면 옆면이 되어 사라지므로 돌리지 않는다
       const shape = this.specimen?.meta.stage.mesh
-      if (this.specimen?.meta.stage.kind === 'mesh' && shape !== 'quad' && shape !== 'plane' && !this.dragging) this.spin += dt * 0.25
+      if (this.specimen?.meta.stage.kind === 'mesh' && spins(shape) && !this.dragging) this.spin += dt * 0.25
       this.fireDemoEvents()
       this.dirty = true
     }

@@ -240,13 +240,20 @@ namespace ShaderGallery.EditorTools
                 case "plane":
                     go = AddMesh(stage, "New-Plane.fbx", material, new Vector3(0f, depth ? 0.3f : 0.5f, 0f), depth ? 0.35f : 0.3f);
                     break;
+                case "grass":
+                    // 내장 메시가 아니라 SgGrass 가 만든다. 뿌리가 y = 0 이라 바닥에 둔다.
+                    Mesh grass = SgGrass.Build();
+                    stage.temporary.Add(grass);
+                    go = AddMesh(stage, "SgGrass", grass, material, Vector3.zero, depth ? 1.4f : 1.6f);
+                    break;
                 default:
                     go = AddMesh(stage, "New-Sphere.fbx", material, new Vector3(0f, depth ? 0.55f : 0.85f, 0f), depth ? 2.2f : 1.5f);
                     break;
             }
             // 시작 회전. 웹 layout.ts 의 meshYawDeg 와 같다. 정면만 찍으면 큐브 같은 물체의 효과가 썸네일에 드러나지 않는다.
-            // 웹의 depth 무대 물체와 quad, plane 은 돌지 않으므로 여기서도 돌리지 않는다.
-            if (!depth && mesh != "quad" && mesh != "plane")
+            // 웹의 depth 무대 물체와 quad, plane, grass 는 돌지 않으므로 여기서도 돌리지 않는다.
+            // grass 는 바람 같은 월드 방향 효과를 위해 오브젝트 공간과 월드 공간의 방향을 같게 둔다.
+            if (!depth && mesh != "quad" && mesh != "plane" && mesh != "grass")
             {
                 go.transform.rotation = Quaternion.Euler(0f, MeshYawDeg, 0f);
             }
@@ -293,8 +300,13 @@ namespace ShaderGallery.EditorTools
 
         static GameObject AddMesh(Stage stage, string builtinMesh, Material material, Vector3 position, float scale)
         {
-            GameObject go = NewObject(stage, builtinMesh);
-            go.AddComponent<MeshFilter>().sharedMesh = Resources.GetBuiltinResource<Mesh>(builtinMesh);
+            return AddMesh(stage, builtinMesh, Resources.GetBuiltinResource<Mesh>(builtinMesh), material, position, scale);
+        }
+
+        static GameObject AddMesh(Stage stage, string name, Mesh sharedMesh, Material material, Vector3 position, float scale)
+        {
+            GameObject go = NewObject(stage, name);
+            go.AddComponent<MeshFilter>().sharedMesh = sharedMesh;
             var meshRenderer = go.AddComponent<MeshRenderer>();
             meshRenderer.sharedMaterial = material;
             go.transform.position = position;

@@ -1,7 +1,9 @@
 import type { SpecimenMeta, StageKind } from '../core/types'
 
 /* core.hlsl 을 WebGL2 로 컴파일할 수 있게 앞뒤를 붙인다. 호환 매크로와 무대별 입력(SgInput)을 앱이 제공하므로
- * 표본은 웹 전용 코드가 없다. 무대별 입력 필드는 docs/specimen-guide.md 의 표와 .shader 래퍼에 있는 것과 같다. */
+ * 표본은 웹 전용 코드가 없다. 무대별 입력 필드는 docs/specimen-guide.md 의 표와 .shader 래퍼에 있는 것과 같다.
+ * three.js 는 오른손 좌표계라 z 가 Unity 와 반대다. core.hlsl 에 넘기는 위치, 법선, 방향은 SG_FLIP 으로 Unity 좌표로 바꾼다.
+ * 모든 벡터를 함께 뒤집으므로 내적(조명, 프레넬)은 그대로이고, 월드·오브젝트 좌표를 쓰는 무늬와 방향이 Unity 와 같아진다. */
 
 const COMPAT = `precision highp float;
 precision highp int;
@@ -16,6 +18,7 @@ precision highp sampler2D;
 #define ddx dFdx
 #define ddy dFdy
 #define SG_TEX(name, uv) texture(name, uv)
+#define SG_FLIP(v) ((v) * vec3(1.0, 1.0, -1.0))
 uniform int _SgStep;
 #define SG_STEP(n, rgb) if (_SgStep == (n)) { return float4((rgb), 1.0); }
 `
@@ -49,12 +52,12 @@ out vec4 sgOut;
 void main() {
   SgInput i;
   i.uv = vUv;
-  i.positionOS = vPositionOS;
-  i.positionWS = vPositionWS;
-  i.normalOS = normalize(vNormalOS);
-  i.normalWS = normalize(vNormalWS);
-  i.viewWS = normalize(cameraPosition - vPositionWS);
-  i.lightDirWS = uLightDir;
+  i.positionOS = SG_FLIP(vPositionOS);
+  i.positionWS = SG_FLIP(vPositionWS);
+  i.normalOS = normalize(SG_FLIP(vNormalOS));
+  i.normalWS = normalize(SG_FLIP(vNormalWS));
+  i.viewWS = normalize(SG_FLIP(cameraPosition - vPositionWS));
+  i.lightDirWS = SG_FLIP(uLightDir);
   i.lightColor = uLightColor;
   i.lighting = uLightColor * saturate(dot(i.normalWS, uLightDir)) + uAmbient;
   i.time = uTime;
@@ -92,11 +95,11 @@ float sgLinearEye(float raw) {
 void main() {
   SgInput i;
   i.uv = vUv;
-  i.positionOS = vPositionOS;
-  i.positionWS = vPositionWS;
-  i.normalOS = normalize(vNormalOS);
-  i.normalWS = normalize(vNormalWS);
-  i.viewWS = normalize(cameraPosition - vPositionWS);
+  i.positionOS = SG_FLIP(vPositionOS);
+  i.positionWS = SG_FLIP(vPositionWS);
+  i.normalOS = normalize(SG_FLIP(vNormalOS));
+  i.normalWS = normalize(SG_FLIP(vNormalWS));
+  i.viewWS = normalize(SG_FLIP(cameraPosition - vPositionWS));
   i.screenUV = gl_FragCoord.xy / uViewport;
   i.depthDelta = sgLinearEye(texture(_SgSceneDepth, i.screenUV).r) - vEyeDepth;
   i.time = uTime;
@@ -129,7 +132,7 @@ out vec3 vNormalOS;
 out vec3 vNormalWS;
 out float vEyeDepth;
 void main() {
-  vec3 p = ${displace ? 'sgVertex(position, normal, uv, uTime)' : 'position'};
+  vec3 p = ${displace ? 'SG_FLIP(sgVertex(SG_FLIP(position), SG_FLIP(normal), uv, uTime))' : 'position'};
   vec4 world = modelMatrix * vec4(p, 1.0);
   vec4 view = viewMatrix * world;
   vUv = uv;
