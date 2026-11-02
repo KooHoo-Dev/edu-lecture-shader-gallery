@@ -12,12 +12,14 @@
 
 // 레이어 두 장을 곱해 밝기를 만든다. 두 무늬의 밝은 곳이 겹치는 자리만 빛나므로 겹침이 시시각각 바뀐다.
 // warp 는 왜곡 오프셋. 단계 보기에서는 0 을 넘겨 왜곡 전 모습을 보여 준다.
+// 흐름 오프셋은 frac 으로 0~1 에 감싼다. 텍스처 주기가 1 이고 화면 전체에 같은 값이라 결과와 미분이 같고,
+// 에디터를 오래 켜 두어 시간이 커져도 UV 에 큰 수가 더해지지 않아, float 정밀도가 떨어져 빠른 흐름이 떨리는 일이 없다.
 float scrollEnergyLayers(float2 base, float t, float2 warp)
 {
     // 레이어 A: 위로 흐른다. UV 에서 시간을 빼면 무늬는 +v 쪽(위)으로 움직여 보인다.
-    float2 uvA = base * float2(SCROLL_ENERGY_WRAP_A, _Tiling) + float2(0.0, -t) + warp;
+    float2 uvA = base * float2(SCROLL_ENERGY_WRAP_A, _Tiling) + float2(0.0, frac(-t)) + warp;
     // 레이어 B: 더 잘고 아래로 흐른다. 속도와 크기를 다르게 해야 같은 무늬가 겹쳐 보이지 않는다.
-    float2 uvB = base * float2(SCROLL_ENERGY_WRAP_B, _Tiling * 1.7) + float2(0.13, t * 0.7) + warp * 1.5;
+    float2 uvB = base * float2(SCROLL_ENERGY_WRAP_B, _Tiling * 1.7) + float2(0.13, frac(t * 0.7)) + warp * 1.5;
     float a = SG_TEX(_NoiseTex, uvA).r;
     float b = SG_TEX(_NoiseTex, uvB).r;
     return a * b * 2.0;
@@ -29,10 +31,12 @@ float4 sgEffect(SgInput i)
     // 길이를 위치로 구하면 메시마다 다른 뚜껑(캡) UV 에 상관없이 끝단 마스크가 정확히 양 끝에서 0 이 된다.
     float along = i.positionOS.y * 0.5 + 0.5;
     float2 base = float2(i.uv.x, along);
+    // 흐른 거리 = 시간 * 속도. 실행 중에 속도를 바꾸면 그동안 흐른 시간에 변화량이 곱해져 무늬가 한 번에 튄다.
+    // 속도를 연출로 바꾸려면 C# 에서 속도 * deltaTime 을 쌓은 오프셋을 넘겨 이 자리에 쓴다.
     float t = i.time * _ScrollSpeed;
 
     // 1. 레이어 하나: 텍스처 한 장을 위로 흘린다. 무늬가 그대로 미끄러질 뿐 모양은 변하지 않는다.
-    float2 uvOne = base * float2(SCROLL_ENERGY_WRAP_A, _Tiling) + float2(0.0, -t);
+    float2 uvOne = base * float2(SCROLL_ENERGY_WRAP_A, _Tiling) + float2(0.0, frac(-t));
     float one = SG_TEX(_NoiseTex, uvOne).r;
     SG_STEP(1, float3(one, one, one));
 
@@ -41,8 +45,11 @@ float4 sgEffect(SgInput i)
     SG_STEP(2, float3(plain, plain, plain));
 
     // 3. 왜곡: 같은 텍스처를 크게, 느리게 흘려 읽은 값으로 두 레이어의 UV 를 흔든다.
-    // 0.5 를 빼 -0.5~0.5 로 바꿔야 한쪽으로만 밀리지 않는다. 두 축에 다른 자리를 읽어 대각선으로만 흔들리지 않게 한다.
-    float2 uvWarp = base * float2(1.0, _Tiling * 0.5) + float2(0.0, -t * 0.35);
+    // 일렁임을 만드는 것은 노이즈가 자리마다 다른 부분이다. 0.5 를 빼든 안 빼든 그 부분은 같고 차이는 상수 이동뿐인데,
+    // 반복 텍스처에서 상수 이동은 보이지 않는다. 0.5 를 빼 두는 까닭은 그 이동량이 세기에 비례하기 때문이다.
+    // 빼지 않으면 왜곡 세기를 움직일 때 무늬 전체가 함께 미끄러진다. 고정된 배경을 미는 화면 왜곡이라면 화면이 통째로 밀린다.
+    // 두 축에 다른 자리를 읽어 대각선으로만 흔들리지 않게 한다.
+    float2 uvWarp = base * float2(1.0, _Tiling * 0.5) + float2(0.0, frac(-t * 0.35));
     float warpX = SG_TEX(_NoiseTex, uvWarp).r - 0.5;
     float warpY = SG_TEX(_NoiseTex, uvWarp + float2(0.37, 0.61)).r - 0.5;
     float2 warp = float2(warpX, warpY) * _DistortStrength;
