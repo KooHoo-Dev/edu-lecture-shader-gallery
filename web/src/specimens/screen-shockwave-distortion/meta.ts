@@ -1,0 +1,111 @@
+import type { SpecimenMeta } from '../../core/types'
+
+export const meta: SpecimenMeta = {
+  id: 'screen-shockwave-distortion',
+  title: '충격파 왜곡',
+  titleEn: 'Screen Shockwave Distortion',
+  group: 'D',
+  order: 2,
+  oneLiner: '퍼지는 고리 모양으로 화면을 왜곡한다',
+  goals: [
+    '중심 거리와 반경을 비교해 부드러운 고리 마스크를 만들 수 있다.',
+    '고리 안에서 바깥 방향으로 uv 를 밀어 화면을 왜곡하고, 화면비를 보정해 원을 지킬 수 있다.',
+    '반경에 따른 감쇠와 색수차로 충격파의 힘과 결을 조절할 수 있다.',
+    '월드 위치를 화면 좌표로 바꿔 폭발 지점에서 충격파를 시작할 수 있다.',
+  ],
+  tags: ['전체 화면', 'UV 왜곡', '고리 마스크', '색수차', 'Full Screen Pass'],
+  difficulty: 3,
+  shaderFile: 'ScreenShockwaveDistortion.shader',
+  stage: { kind: 'fullscreen' },
+  // 화면을 밀어 읽을 뿐 밝기를 바꾸지 않는다. 넓은 면의 번쩍임이 아니라 제한기를 거치지 않는다.
+  flashes: false,
+  params: [
+    { key: '_CenterX', label: '중심 X', type: 'range', min: 0, max: 1, step: 0.01, default: 0.5, hint: '화면 왼쪽 0, 오른쪽 1. C# 이 폭발 지점의 화면 좌표를 넣는다' },
+    { key: '_CenterY', label: '중심 Y', type: 'range', min: 0, max: 1, step: 0.01, default: 0.35, hint: '화면 아래 0, 위 1' },
+    { key: '_Radius', label: '반경', type: 'range', min: 0, max: 1.5, step: 0.01, default: 0.45, unit: ' 화면 높이', hint: '고리가 얼마나 퍼졌는지. 클수록 감쇠로 약해진다' },
+    { key: '_Width', label: '고리 폭', type: 'range', min: 0.01, max: 0.4, step: 0.005, default: 0.12, hint: '반경에서 이 거리까지 일렁인다. 두 고리에 함께 쓰인다' },
+    { key: '_Strength', label: '세기', type: 'range', min: 0, max: 0.15, step: 0.005, default: 0.06, hint: '고리 위 화면을 얼마나 밀지. 0 이면 멈춘 고리가 사라진다' },
+    { key: '_FadeRadius', label: '사라지는 반경', type: 'range', min: 0.3, max: 3, step: 0.05, default: 1.5, hint: '고리가 이 반경에 닿으면 세기가 0 이 된다. 작을수록 빨리 약해진다' },
+    { key: '_Chroma', label: '색수차', type: 'range', min: 0, max: 1, step: 0.01, default: 0.35, hint: '빨강은 더, 파랑은 덜 밀어 고리 가장자리에 색이 갈린다' },
+    { key: '_Haze', label: '아지랑이', type: 'range', min: 0, max: 1, step: 0.01, default: 0, hint: '위로 흐르는 노이즈로 화면 아래쪽을 약하게 흔든다' },
+    { key: '_BlastRadius', label: '폭발 반경', type: 'range', min: 0, max: 1.5, step: 0.01, default: 0, hint: '이벤트 전용. 폭발 세기가 0 보다 커야 보인다. C# 이 0 에서 키운다' },
+    { key: '_BlastStrength', label: '폭발 세기', type: 'range', min: 0, max: 0.15, step: 0.005, default: 0, hint: '이벤트 전용. C# 이 짧게 올렸다가 퍼지는 동안 0 으로 줄인다' },
+  ],
+  presets: [
+    { id: 'shockwave', name: '충격파', look: '굵은 고리 하나가 화면을 바깥으로 민다', values: {} },
+    { id: 'heavy-impact', name: '강한 충격', look: '넓고 센 고리, 진한 색 갈림', values: { _Width: 0.2, _Strength: 0.1, _Chroma: 0.6 } },
+    { id: 'ripple', name: '잔잔한 물결', look: '가는 고리가 멀리 퍼진 모습. 색수차 없음', values: { _Radius: 0.6, _Width: 0.05, _Strength: 0.05, _Chroma: 0 } },
+    { id: 'heat-haze', name: '열기 아지랑이', look: '고리 없이 화면 아래가 위로 일렁인다', values: { _Strength: 0, _Chroma: 0, _Haze: 0.6 } },
+  ],
+  events: [
+    {
+      id: 'blast',
+      label: '폭발',
+      tracks: [
+        { key: '_BlastRadius', frames: [[0, 0], [1.5, 1.4], [1.55, 0]], ease: 'outQuad' },
+        { key: '_BlastStrength', frames: [[0, 0], [0.08, 0.15], [1.5, 0]], ease: 'linear' },
+      ],
+    },
+  ],
+  demo: { fire: [{ event: 'blast', every: 3 }] },
+  steps: [
+    { n: 1, label: '중심 거리', body: '중심에서 멀수록 밝다. 화면비를 곱했기 때문에 같은 밝기가 **원**을 이룬다. 가운데의 어두운 점이 중심이다.' },
+    { n: 2, label: '고리 마스크', body: '`abs(거리 - 반경)` 이 고리 폭보다 작은 곳만 흰 띠로 남는다. 반경을 움직이면 띠가 퍼지고, 고리 폭을 움직이면 띠가 굵어진다.' },
+    { n: 3, label: '밀기 방향', body: '중심에서 바깥쪽 방향을 색으로, 미는 양을 밝기로 보였다. 오른쪽은 노랑과 주황, 위는 연두, 왼쪽은 초록, 아래로 갈수록 어두운 빨강이다. 반경을 키우면 감쇠 때문에 고리 전체가 어두워진다.' },
+    { n: 4, label: '밀어 읽기', body: '각 픽셀이 조금 안쪽 화면을 읽어 와서 고리 위의 공 윗부분과 상자가 바깥으로 부풀고 바닥 격자가 물결처럼 휜다. 색수차는 아직 없다.' },
+  ],
+  offNote: '화면비를 빼고 uv 그대로 거리를 잰 실수. 고리가 가로로 늘어난 타원이 되고 미는 방향도 비뚤어진다. 넓은 화면일수록 심하다.',
+  mistakes: [
+    { title: '고리가 가로로 늘어난 타원이 된다', body: 'uv 는 가로세로가 모두 0~1 이라 그대로 거리를 재면 화면비만큼 찌그러진다. 중심과의 차이에 `float2(aspect, 1.0)` 을 곱해 높이 단위로 재고, 민 양은 다시 화면비로 나눠 uv 로 되돌린다.' },
+    { title: '화면 끝까지 같은 세기로 찢어진다', body: '반경이 커져도 세기가 그대로면 고리가 화면 가장자리에서까지 크게 일그러진다. 반경에 따라 줄어드는 감쇠(`사라지는 반경`)를 곱하고, C# 에서도 퍼지는 동안 세기를 0 으로 내린다.' },
+    { title: '폭발 지점과 고리 중심이 어긋난다', body: '`WorldToScreenPoint` 는 픽셀 단위라 그대로 넣으면 중심이 화면 밖으로 나간다. `Camera.WorldToViewportPoint` 의 x, y(0~1)를 넣는다. 카메라 뒤(z < 0)의 폭발은 좌표가 뒤집히므로 세기를 0 으로 둔다.' },
+    { title: '폭발 두 개가 겹치면 앞의 고리가 사라진다', body: '머티리얼 하나에는 폭발 고리 값이 하나뿐이라 `ScreenShockwaveController` 는 마지막 폭발로 다시 시작한다. 동시에 여러 개가 필요하면 `_BlastRadius` 같은 값을 `float4` 몇 개로 늘려 고리를 더하거나, 머티리얼을 복제해 Full Screen Pass 를 하나 더 둔다.' },
+    { title: '플레이를 멈췄는데 화면에 고리가 남는다', body: '머티리얼 에셋의 값은 플레이를 멈춰도 남는다. 컨트롤러가 `OnDisable` 에서 시작 전 값으로 되돌린다. 직접 값을 고치는 코드를 따로 쓰면 같은 처리를 넣는다.' },
+  ],
+  unity: {
+    setup: [
+      '`ScreenShockwaveDistortion.shader`, `core.hlsl`, `ScreenShockwaveController.cs` 를 `Assets/Shaders/screen-shockwave-distortion/` 에 둔다.',
+      '셰이더를 우클릭해 Create > Material 로 머티리얼을 만든다.',
+      '사용 중인 렌더러 에셋(Universal Renderer Data 또는 Renderer 2D Data)의 Add Renderer Feature 에서 Full Screen Pass Renderer Feature 를 추가한다.',
+      'Pass Material 에 머티리얼을 넣고 Injection Point 를 Before Rendering Post Processing 으로, Fetch Color Buffer 를 켠다.',
+      '빈 오브젝트에 `ScreenShockwaveController` 를 붙이고 머티리얼을 연결한다. 폭발 순간 `Play(폭발 위치)` 를 호출한다. 플레이 중에는 머티리얼의 멈춘 고리(세기)를 끄고 폭발 고리만 보인다.',
+      '열기 아지랑이로 쓰려면 머티리얼의 세기를 0, 아지랑이를 0.5~0.8 로 둔다.',
+    ],
+    verify: '머티리얼의 반경을 0 에서 1 로 올리면 Game 뷰에서 둥근 고리가 퍼지며 고리 위의 물체 윤곽이 바깥으로 휘고, 반경이 클수록 일렁임이 약해진다.',
+    pitfalls: [
+      'XR 에서는 권장하지 않는다. 시야 전체가 일렁이면 멀미를 부를 수 있다. 쓴다면 세기와 고리 폭을 줄이고 짧게 끝낸다.',
+      'XR 은 눈마다 uv 가 따로라 한 중심값으로는 두 눈의 고리가 어긋난다. `WorldToViewportPoint(위치, Camera.MonoOrStereoscopicEye.Left)` 와 `Right` 로 중심을 두 개 구해 넘기고 셰이더에서 `unity_StereoEyeIndex` 로 고른다. 이 표본은 중심을 하나만 받는다.',
+      'Renderer Feature 는 그 렌더러를 쓰는 모든 카메라에 적용된다. 폭발이 없어도 패스 비용(화면 텍스처 세 번 읽기)이 든다.',
+      'Screen Space - Overlay Canvas 는 이 패스가 끝난 뒤에 그려져 일렁이지 않는다. UI 까지 흔들려면 Canvas 를 Screen Space - Camera 로 바꾼다.',
+      '2D Renderer 도 Renderer 2D Data 에 같은 기능을 추가하면 된다 (전환 표본에서 촬영으로 확인한 방식).',
+      '컨트롤러는 `Time.deltaTime` 을 따른다. 히트 스톱으로 `timeScale` 을 0 으로 두면 고리도 멈춘다. 멈추지 않게 하려면 `Time.unscaledDeltaTime` 으로 바꾼다.',
+    ],
+    graph: 'Shader Graph 에서는 Fullscreen 타깃을 쓰고 URP Sample Buffer 노드(BlitSource)가 `sgSource` 역할을 한다. 밀기 양은 Custom Function 으로 `shockwavePush` 를 불러 쓰고, 밀린 uv 로 BlitSource 를 다시 읽는다.',
+  },
+  prompt: {
+    goal: '폭발 지점에서 둥근 충격파가 퍼지며 화면을 일그러뜨리는 효과를 넣는다. 내장 Full Screen Pass Renderer Feature 에 머티리얼로 연결하고 C# 으로 폭발 위치와 고리 반경, 세기를 움직인다.',
+    adaptIdeas: [
+      '폭발 여러 개가 동시에 각자 고리를 퍼뜨리게 하고 싶다.',
+      '용암이나 불 근처에서만 열기 아지랑이가 보이게 하고 싶다.',
+      '고리 테두리에 밝은 빛 띠도 함께 넣고 싶다.',
+      '카메라 흔들림과 충격파를 같은 순간에 시작하고 싶다.',
+      '2D 탑다운 게임에서 피격 지점마다 작은 충격파를 쓰고 싶다.',
+    ],
+  },
+  captures: [
+    { name: 'heavy-impact', label: '강한 충격', values: { _Width: 0.2, _Strength: 0.1, _Chroma: 0.6 } },
+    { name: 'heat-haze', label: '열기 아지랑이', values: { _Strength: 0, _Chroma: 0, _Haze: 0.6 } },
+  ],
+  inspiredBy: [],
+  original: '특정 게임의 재현이 아니라 범용 기법이다. 코드는 이 갤러리에서 새로 작성했다. 수업 자료로는 3D 의 HeatDepthFixed(FORGE3D)와 2D 15 Mini Defence 의 폭발 연출이 같은 원리를 쓴다.',
+  references: [
+    { label: 'Delt06: Opaque Texture 셰이더 예제 (화면 공간 충격파)', url: 'https://github.com/Delt06/opaque-texture-shaders' },
+    { label: 'Unity 토론: URP 전체 화면 셰이더', url: 'https://discussions.unity.com/t/full-screen-shaders-in-urp/869111' },
+    { label: 'Unity 문서: Shader Graph Production Ready 후처리 샘플', url: 'https://docs.unity3d.com/Packages/com.unity.shadergraph@17.4/manual/Shader-Graph-Sample-Production-Ready-Post.html' },
+  ],
+  related: [
+    { id: 'screen-transition-wipe', why: '같은 Full Screen Pass 방식. 원형 닫힘에서 화면비 보정을 같은 식으로 한다' },
+    { id: 'force-field-intersection', why: '충돌 순간 퍼지는 맥동 고리를 물체 표면에서 만든다' },
+    { id: 'scroll-distort-energy', why: '노이즈로 uv 를 밀어 일렁이게 하는 원리를 메시에 쓴다' },
+  ],
+}
