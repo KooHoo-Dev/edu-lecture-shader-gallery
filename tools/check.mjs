@@ -176,11 +176,23 @@ function checkMeta(id, meta, core, wrapper) {
     if (!word.test(core) && !word.test(wrapperBody)) err(`${where}: ${key} 를 셰이더 어디에서도 쓰지 않는다`)
   }
 
-  // 메타의 무대 설정과 셰이더 내용이 맞아야 웹과 Unity 가 갈리지 않는다
-  const hasVertex = /\bfloat3\s+sgVertex\s*\(/.test(core)
-  if (hasVertex !== Boolean(meta.stage.vertex)) err(`${where}: core.hlsl 의 sgVertex 와 stage.vertex 가 맞지 않다`)
+  // 메타의 무대 설정과 셰이더 내용이 맞아야 웹과 Unity 가 갈리지 않는다.
+  // 외곽선 표본은 SG_OUTLINE 블록에 외곽선 패스의 sgVertex 가 하나 더 있다.
+  const vertexCount = [...core.matchAll(/\bfloat3\s+sgVertex\s*\(/g)].length
+  const outline = Boolean(meta.stage.outline)
+  const hasVertex = vertexCount > 0
+  if (vertexCount - (outline ? 1 : 0) !== (meta.stage.vertex ? 1 : 0)) err(`${where}: core.hlsl 의 sgVertex 와 stage.vertex, stage.outline 이 맞지 않다`)
   if (hasVertex && !wrapper.includes('sgVertex(')) err(`${id}/${meta.shaderFile}: 래퍼의 vert 가 sgVertex 를 부르지 않는다`)
   if (hasVertex && !['mesh', 'depth'].includes(meta.stage.kind)) err(`${where}: sgVertex 는 mesh, depth 무대에서만 쓴다`)
+  if (outline) {
+    if (!/#\s*if(def)?\s+(defined\s*\(\s*)?SG_OUTLINE\b/.test(core)) err(`${where}: stage.outline 이면 core.hlsl 에 #ifdef SG_OUTLINE 블록이 있어야 한다`)
+    if (!/#define\s+SG_OUTLINE\b/.test(wrapper)) err(`${id}/${meta.shaderFile}: 외곽선 패스에서 core.hlsl 앞에 #define SG_OUTLINE 을 둔다`)
+    if (!/Cull\s+Front\b/.test(wrapper)) err(`${id}/${meta.shaderFile}: 외곽선 패스는 Cull Front 다`)
+    if (!/"LightMode"\s*=\s*"SRPDefaultUnlit"/.test(wrapper)) err(`${id}/${meta.shaderFile}: 외곽선 패스의 LightMode 는 SRPDefaultUnlit 이다`)
+    if (!['mesh', 'depth'].includes(meta.stage.kind)) err(`${where}: stage.outline 은 mesh, depth 무대에서만 쓴다`)
+  } else if (/\bSG_OUTLINE\b/.test(core)) {
+    err(`${where}: core.hlsl 에 SG_OUTLINE 이 있으면 stage.outline 을 true 로 둔다`)
+  }
   if (/\bsgSceneColor\s*\(/.test(core) && !meta.requires?.includes('opaque')) err(`${where}: 씬 색상을 쓰면 requires 에 'opaque' 를 넣는다`)
   if (/\bdepthDelta\b/.test(core) && !meta.requires?.includes('depth')) err(`${where}: 깊이를 쓰면 requires 에 'depth' 를 넣는다`)
   for (const m of core.matchAll(/\bSG_TEX\s*\(\s*(\w+)/g)) if (!textures.has(m[1])) err(`${where}: 텍스처 ${m[1]} 이 stage.textures 에 없다`)

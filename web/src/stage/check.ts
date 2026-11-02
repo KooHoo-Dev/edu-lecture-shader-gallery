@@ -15,11 +15,13 @@ window.__sgCompileAll = () => {
   const gl = document.createElement('canvas').getContext('webgl2')
   if (!gl) return [{ id: '(전체)', variant: 'webgl2', errors: ['WebGL2 를 쓸 수 없습니다'] }]
   return SPECIMENS.flatMap(s =>
-    [false, true].map(off => ({
-      id: s.meta.id,
-      variant: off ? 'SG_OFF' : 'final',
-      errors: compileProgram(gl, buildProgram(s.meta, s.core, off)),
-    })),
+    [false, true].flatMap(off =>
+      (s.meta.stage.outline ? [false, true] : [false]).map(outline => ({
+        id: s.meta.id,
+        variant: `${off ? 'SG_OFF' : 'final'}${outline ? '+SG_OUTLINE' : ''}`,
+        errors: compileProgram(gl, buildProgram(s.meta, s.core, off, outline)),
+      })),
+    ),
   )
 }
 

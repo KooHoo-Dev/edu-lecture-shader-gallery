@@ -172,13 +172,15 @@ export interface ProgramSources {
 
 export const defaultBlend = (meta: SpecimenMeta) => meta.stage.blend ?? (meta.stage.kind === 'mesh' ? 'cutout' : 'alpha')
 
-export function buildProgram(meta: SpecimenMeta, core: string, off: boolean): ProgramSources {
+/** outline 은 외곽선 패스(stage.outline). SG_OUTLINE 블록의 sgVertex 로 항상 정점을 밀고 불투명으로 그린다 */
+export function buildProgram(meta: SpecimenMeta, core: string, off: boolean, outline = false): ProgramSources {
   const kind = meta.stage.kind
   const body = stripComments(core)
-  const common = `${COMPAT}${off ? '#define SG_OFF\n' : ''}${uniformDeclarations(meta)}\n${INPUT[kind]}\n`
-  const fragment = `${common}${body}\n${FRAGMENT_MAIN[kind](defaultBlend(meta) === 'cutout')}\n`
+  const defines = `${off ? '#define SG_OFF\n' : ''}${outline ? '#define SG_OUTLINE\n' : ''}`
+  const common = `${COMPAT}${defines}${uniformDeclarations(meta)}\n${INPUT[kind]}\n`
+  const fragment = `${common}${body}\n${FRAGMENT_MAIN[kind](outline || defaultBlend(meta) === 'cutout')}\n`
   if (kind === 'fullscreen') return { vertex: FULLSCREEN_VERTEX, fragment }
-  const displace = Boolean(meta.stage.vertex)
+  const displace = outline || Boolean(meta.stage.vertex)
   const vertexHead = displace ? `#define SG_VERTEX_STAGE\n${common}uniform float uTime;\n${body}\n` : 'precision highp float;\n'
   return { vertex: `${vertexHead}${WORLD_VERTEX(displace)}\n`, fragment }
 }

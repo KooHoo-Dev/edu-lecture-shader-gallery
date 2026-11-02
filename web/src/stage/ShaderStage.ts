@@ -91,6 +91,9 @@ class ShaderStage {
   private scene = new THREE.Scene()
   private effect: THREE.Mesh | null = null
   private materials: (THREE.RawShaderMaterial | null)[] = [null, null]
+  /** stage.outline: 같은 메시를 뒷면만 그리는 자식. 래퍼의 Cull Front 패스에 해당한다 */
+  private outline: THREE.Mesh | null = null
+  private outlineMaterials: (THREE.RawShaderMaterial | null)[] = [null, null]
   private litMaterials: THREE.RawShaderMaterial[] = []
   private textures = new Map<string, THREE.Texture>()
 
@@ -323,6 +326,7 @@ class ShaderStage {
       mesh.scale.setScalar(place.scale)
       this.scene.add(mesh)
       this.effect = mesh
+      this.addOutline(mesh)
       if (cutout) this.aimShadowMask(floor, mesh, specimen)
     } else if (kind === 'depth') {
       this.addFloor(this.propShadows())
@@ -334,6 +338,7 @@ class ShaderStage {
       mesh.renderOrder = 10
       this.scene.add(mesh)
       this.effect = mesh
+      this.addOutline(mesh)
     } else if (kind === 'sprite') {
       const mesh = new THREE.Mesh(new THREE.PlaneGeometry(LAYOUT.sprite.height, LAYOUT.sprite.height), material)
       this.scene.add(mesh)
@@ -349,12 +354,22 @@ class ShaderStage {
     }
   }
 
-  private effectMaterial(off: boolean): THREE.RawShaderMaterial {
+  /** 자식으로 두어 위치, 크기, 회전을 그대로 따라간다. 지오메트리도 같이 쓴다 */
+  private addOutline(mesh: THREE.Mesh) {
+    if (!this.specimen!.meta.stage.outline) return
+    const outline = new THREE.Mesh(mesh.geometry, this.effectMaterial(false, true))
+    outline.renderOrder = mesh.renderOrder
+    mesh.add(outline)
+    this.outline = outline
+  }
+
+  private effectMaterial(off: boolean, outline = false): THREE.RawShaderMaterial {
+    const slots = outline ? this.outlineMaterials : this.materials
     const slot = off ? 1 : 0
-    const existing = this.materials[slot]
+    const existing = slots[slot]
     if (existing) return existing
     const { meta, core } = this.specimen!
-    const sources = buildProgram(meta, core, off)
+    const sources = buildProgram(meta, core, off, outline)
     const uniforms: Record<string, THREE.IUniform> = {
       _SgStep: { value: 0 },
       uTime: { value: 0 },
@@ -379,13 +394,13 @@ class ShaderStage {
       vertexShader: sources.vertex,
       fragmentShader: sources.fragment,
       uniforms,
-      side: meta.stage.kind === 'sprite' || meta.stage.doubleSided ? THREE.DoubleSide : THREE.FrontSide,
+      side: outline ? THREE.BackSide : meta.stage.kind === 'sprite' || meta.stage.doubleSided ? THREE.DoubleSide : THREE.FrontSide,
     })
     const blend = defaultBlend(meta)
     if (meta.stage.kind === 'fullscreen') {
       material.depthTest = false
       material.depthWrite = false
-    } else if (blend !== 'cutout') {
+    } else if (blend !== 'cutout' && !outline) {
       material.transparent = true
       material.depthWrite = false
       material.blending = blend === 'additive' ? THREE.CustomBlending : THREE.NormalBlending
@@ -394,7 +409,7 @@ class ShaderStage {
         material.blendDst = THREE.OneFactor
       }
     }
-    this.materials[slot] = material
+    slots[slot] = material
     return material
   }
 
@@ -405,7 +420,7 @@ class ShaderStage {
     const url = specimen.textureUrls[name] ?? STAGE_SPRITE_URL
     const key = `${url}|${config?.linear ?? false}|${config?.repeat ?? false}|${config?.point ?? false}`
     const setTexelSize = (image: { width: number; height: number }) => {
-      for (const material of this.materials) material?.uniforms[`${name}_TexelSize`]?.value.set(1 / image.width, 1 / image.height, image.width, image.height)
+      for (const material of [...this.materials, ...this.outlineMaterials]) material?.uniforms[`${name}_TexelSize`]?.value.set(1 / image.width, 1 / image.height, image.width, image.height)
       // 스프라이트는 높이 2 유닛에 맞춘다. 정사각형이 아니면 Unity 와 같이 폭이 늘어난다
       if (name === '_MainTex' && specimen.meta.stage.kind === 'sprite') this.effect?.scale.set(image.width / image.height, 1, 1)
       this.dirty = true
@@ -429,11 +444,13 @@ class ShaderStage {
       if (object instanceof THREE.Mesh && object.geometry !== this.triangle) object.geometry.dispose()
     })
     this.scene.clear()
-    for (const material of this.materials) material?.dispose()
+    for (const material of [...this.materials, ...this.outlineMaterials]) material?.dispose()
     this.materials = [null, null]
+    this.outlineMaterials = [null, null]
     for (const material of this.litMaterials) material.dispose()
     this.litMaterials = []
     this.effect = null
+    this.outline = null
     this.maskFloor = null
   }
 
@@ -515,22 +532,24 @@ class ShaderStage {
     }
   }
 
-  /** 슬라이더 값 위에 자동 데모와 이벤트를 덮어 쓴 현재 유니폼 값 */
-  private applyUniforms(material: THREE.RawShaderMaterial) {
+  /** 슬라이더 값 위에 자동 데모와 이벤트를 덮어 쓴 현재 유니폼 값. 외곽선 패스가 있으면 같은 값을 함께 넣는다 */
+  private applyUniforms(...materials: THREE.RawShaderMaterial[]) {
     const meta = this.specimen!.meta
-    for (const def of meta.params) {
-      const value = paramToUniform(def, this.settings.values[def.key] ?? def.default)
-      const uniform = material.uniforms[def.key]
-      if (value instanceof THREE.Vector4) uniform.value.copy(value)
-      else uniform.value = value
+    const set = (key: string, value: number | THREE.Vector4) => {
+      for (const material of materials) {
+        const uniform = material.uniforms[key]
+        if (value instanceof THREE.Vector4) uniform.value.copy(value)
+        else uniform.value = value
+      }
     }
+    for (const def of meta.params) set(def.key, paramToUniform(def, this.settings.values[def.key] ?? def.default))
 
     const live = new Map<string, number>()
     if (this.settings.auto) {
       for (const track of meta.demo?.loops ?? []) {
         const end = Math.max(0.001, trackEnd(track))
         const value = evalTrack(track, this.demoTime % end)
-        material.uniforms[track.key].value = value
+        set(track.key, value)
         live.set(track.key, value)
       }
     }
@@ -538,17 +557,19 @@ class ShaderStage {
     for (const a of this.active) {
       for (const track of a.tracks) {
         const value = evalTrack(track, this.time - a.start)
-        material.uniforms[track.key].value = value
+        set(track.key, value)
         live.set(track.key, value)
       }
     }
     for (const key of new Set([...live.keys(), ...this.liveKeys])) this.callbacks.onLive?.(key, live.get(key) ?? null)
     this.liveKeys = new Set(live.keys())
 
-    material.uniforms._SgStep.value = this.settings.step
-    material.uniforms.uTime.value = this.time
-    material.uniforms.uAspect.value = this.canvas.width / Math.max(1, this.canvas.height)
-    material.uniforms.uViewport.value.set(this.hdr.width, this.hdr.height)
+    for (const material of materials) {
+      material.uniforms._SgStep.value = this.settings.step
+      material.uniforms.uTime.value = this.time
+      material.uniforms.uAspect.value = this.canvas.width / Math.max(1, this.canvas.height)
+      material.uniforms.uViewport.value.set(this.hdr.width, this.hdr.height)
+    }
   }
 
   /**
@@ -562,10 +583,13 @@ class ShaderStage {
     material.uniforms._SgStep.value = 0
     effect.material = this.settings.off ? this.shadowPlain : material
     floor.visible = false
+    // Unity 의 외곽선 패스(SRPDefaultUnlit)는 그림자를 드리우지 않는다
+    if (this.outline) this.outline.visible = false
     renderer.setClearColor(0x000000, 0)
     renderer.setRenderTarget(this.shadowMask)
     renderer.render(this.scene, this.shadowCamera)
     floor.visible = true
+    if (this.outline) this.outline.visible = true
     effect.material = material
     material.uniforms._SgStep.value = this.settings.step
   }
@@ -611,7 +635,13 @@ class ShaderStage {
     const kind = this.specimen.meta.stage.kind
     const material = this.effectMaterial(this.settings.off)
     if (this.effect.material !== material) this.effect.material = material
-    this.applyUniforms(material)
+    if (this.outline) {
+      const outlineMaterial = this.effectMaterial(this.settings.off, true)
+      if (this.outline.material !== outlineMaterial) this.outline.material = outlineMaterial
+      this.applyUniforms(material, outlineMaterial)
+    } else {
+      this.applyUniforms(material)
+    }
     const stepping = this.settings.step > 0
     const blend = defaultBlend(this.specimen.meta)
     if (kind !== 'fullscreen' && blend !== 'cutout') {

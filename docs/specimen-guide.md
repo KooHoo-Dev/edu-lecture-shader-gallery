@@ -218,6 +218,16 @@ float effectNoise(float2 p)
 
 - 전체 화면 표본은 C# 렌더러 기능을 새로 만들지 않는다. 내장 Full Screen Pass Renderer Feature 에 머티리얼을 넣는 방식만 쓴다. 2D Renderer 에서도 동작한다 (촬영으로 확인).
 
+### 외곽선 패스 (`stage.outline`)
+
+껍데기 외곽선처럼 같은 물체를 한 번 더 그리는 표본용이다. mesh, depth 무대에서만 쓴다.
+
+- `core.hlsl` 은 `#ifdef SG_OUTLINE` 블록에 외곽선 패스의 `sgVertex`(정점을 미는 함수)와 `sgEffect`(외곽선 색)를, `#else` 블록에 본체를 둔다. `SG_STEP`, `SG_OFF` 는 블록마다 따로 쓴다.
+- 래퍼는 `core.hlsl` 을 `HLSLINCLUDE` 가 아니라 패스마다 include 한다. 외곽선 패스만 include 앞에 `#define SG_OUTLINE` 을 둔다.
+- 외곽선 패스는 `Tags { "LightMode" = "SRPDefaultUnlit" }`, `Cull Front`, 정점에서 `sgVertex` 를 부른다. URP 17.3 은 이 태그를 Forward, Deferred(Forward 전용 목록), 2D Renderer 모두에서 그린다 (패키지 소스 확인). 그림자와 깊이 패스는 본체만 둔다.
+- 웹은 같은 메시를 자식으로 하나 더 두고 뒷면만 그린다. 외곽선은 그림자를 드리우지 않는다.
+- `meta.stage.outline: true` 로 적는다. `tools/check.mjs` 가 블록, `#define`, `Cull Front`, 태그를 확인하고 외곽선 프로그램도 WebGL 로 컴파일한다.
+
 ### 속성 형식 대응
 
 `meta.params` 와 `.shader` 의 `Properties` 는 이름과 기본값이 같아야 한다. `tools/check.mjs` 가 대조한다.
@@ -334,7 +344,7 @@ node tools/check.mjs
 
 | 필요한 것 | 해당 표본 | 상태 |
 |---|---|---|
-| 웹에서 한 물체를 패스 두 개로 그리기 (`Cull Front`) | `inverted-hull-outline` | 앱 확장 필요 |
+| 웹에서 한 물체를 패스 두 개로 그리기 (`Cull Front`) | `inverted-hull-outline` | 지원. 4절 "외곽선 패스" |
 | 웹에서 `ZTest Greater` 로 가려진 부분만 그리기 | `xray-occluded-silhouette` | 앱 확장 필요 |
 | 전체 화면 무대에서 깊이, 법선 읽기 | `depth-normal-edge-outline` | 앱 확장 필요 |
 | 촘촘한 수면 메시 (`plane` 은 정점 간격 1) | `water-depth-foam` 의 파도 | 파도가 거칠면 요청 |

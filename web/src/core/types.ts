@@ -132,6 +132,11 @@ export interface SpecimenStage {
   vertex?: boolean
   /** 래퍼가 Cull Off 이면 true */
   doubleSided?: boolean
+  /**
+   * 외곽선 패스가 있으면 true (mesh, depth 무대). core.hlsl 의 `#ifdef SG_OUTLINE` 블록에 그 패스의 sgVertex 와 sgEffect 를 둔다.
+   * 웹은 같은 물체를 뒷면만 한 번 더 그린다. 래퍼의 두 번째 패스(Cull Front, SRPDefaultUnlit)에 해당한다
+   */
+  outline?: boolean
   /** 표본 폴더에 둔 텍스처. sprite 무대에서 _MainTex 를 적지 않으면 앱이 스테이지 스프라이트를 넣는다 */
   textures?: Record<string, StageTexture>
 }
