@@ -59,7 +59,7 @@ void main() {
   i.viewWS = normalize(SG_FLIP(cameraPosition - vPositionWS));
   i.lightDirWS = SG_FLIP(uLightDir);
   i.lightColor = uLightColor;
-  i.lighting = uLightColor * saturate(dot(i.normalWS, uLightDir)) + uAmbient;
+  i.lighting = uLightColor * saturate(dot(i.normalWS, i.lightDirWS)) + uAmbient;
   i.time = uTime;
   vec4 c = sgEffect(i);
   ${writeColor(cutout)}
