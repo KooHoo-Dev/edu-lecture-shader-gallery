@@ -8,9 +8,9 @@
 #endif
 
 #define UISDF_PI 3.14159265
-// 윤곽과 부드러운 가장자리가 이미지 밖으로 잘리지 않게 남기는 여백 (이미지 높이에 대한 비율)
+// 윤곽과 부드러운 가장자리가 이미지 밖으로 잘리지 않게 남기는 여백 (이미지 짧은 변에 대한 비율)
 #define UISDF_MARGIN 0.06
-// 링 트랙의 두께 (이미지 높이에 대한 비율)
+// 링 트랙의 두께 (이미지 짧은 변에 대한 비율)
 #define UISDF_RING_WIDTH 0.2
 // 아직 안 채운 자리를 채움 색으로 얼마나 비치게 할지. 진행 바의 빈 칸이 보여야 얼마나 남았는지 읽힌다
 #define UISDF_TRACK_ALPHA 0.25
@@ -72,13 +72,19 @@ float4 uiSdfCompose(float fillA, float innerA, float shapeA, float4 tint)
 
 float4 sgEffect(SgInput i)
 {
-    // 0. 좌표: 가운데가 원점이고 세로가 -0.5 ~ 0.5 인 공간. 가로는 이미지의 실제 가로세로 비만큼 넓힌다.
+    // 0. 좌표: 가운데가 원점이고 이미지의 짧은 변이 1 인 공간. 긴 변은 실제 가로세로 비만큼 길다.
     //    셰이더는 Image 의 크기를 모른다. uv 가 화면 한 픽셀에 얼마나 변하는지(ddx, ddy)로 가로세로 비를 직접 잰다.
     //    가로 uv 는 폭 W 픽셀 동안 0 에서 1 로 변하므로 한 픽셀에 1/W, 세로는 1/H. 둘의 비가 W/H 다.
+    //    Image 가 화면에서 납작해지면(카드 뒤집기, X 스케일 0) 비율이 0 으로 가므로 0 으로 나누지 않게 아래를 막는다.
     float2 du = float2(ddx(i.uv.x), ddy(i.uv.x));
     float2 dv = float2(ddx(i.uv.y), ddy(i.uv.y));
-    float aspect = length(dv) / max(length(du), 0.000001);
-    float2 p = (i.uv - float2(0.5, 0.5)) * float2(aspect, 1.0);
+    float aspect = max(length(dv) / max(length(du), 0.000001), 0.0001);
+    // 짧은 변을 1 로 맞춘다. 높이를 1 로 두면 세로로 긴 Image 에서 도형이 폭보다 커져 링 구멍이 막히고,
+    // 비율이 아주 작으면 들어갈 크기가 음수가 되어 도형이 사라진다.
+    float unit = min(aspect, 1.0);
+    float2 p = (i.uv - float2(0.5, 0.5)) * float2(aspect, 1.0) / unit;
+    // 이미지의 반 크기 (같은 단위). 짧은 쪽이 0.5 다
+    float2 halfImage = float2(aspect, 1.0) * 0.5 / unit;
 
     float isCircle = step(0.5, _Shape) * step(_Shape, 1.5);
     float isRing = step(1.5, _Shape);
@@ -87,16 +93,21 @@ float4 sgEffect(SgInput i)
     float stroke = _OutlineWidth;
 
     // 1. 도형의 거리
-    // 둥근 사각형과 원: 가로세로 비가 _Aspect 인 상자를 이미지 안에 들어가는 가장 큰 크기로 놓는다.
-    float halfH = min(0.5 - UISDF_MARGIN, (aspect * 0.5 - UISDF_MARGIN) / _Aspect);
-    float2 halfSize = float2(halfH * _Aspect, halfH);
+    // 둥근 사각형과 원이 놓일 상자. _Aspect 가 0 이면 Image 를 꽉 채운다 (여백만 남긴다).
+    // 400x40 체력 바처럼 Image 크기가 곧 막대 크기일 때 쓴다. 세로로 긴 Image 면 세로 게이지가 된다.
+    // 0 보다 크면 가로세로 비가 _Aspect 인 상자를 Image 안에 들어가는 가장 큰 크기로 놓는다.
+    float fitMode = step(0.001, _Aspect);
+    float safeAspect = max(_Aspect, 0.001);
+    float halfFitH = min(halfImage.y - UISDF_MARGIN, (halfImage.x - UISDF_MARGIN) / safeAspect);
+    float2 halfFit = float2(halfFitH * safeAspect, halfFitH);
+    float2 halfSize = lerp(halfImage - float2(UISDF_MARGIN, UISDF_MARGIN), halfFit, fitMode);
     float shortHalf = min(halfSize.x, halfSize.y);
     // 원은 모서리 반경이 짧은 변의 절반인 둥근 사각형이다. 가로로 늘리면 타원이 아니라 캡슐이 된다
     float corner = lerp(_Radius * shortHalf, shortHalf, isCircle);
     float dBox = uiSdfRoundBox(p, halfSize, corner);
-    // 링: 원 둘레까지의 거리에서 반 두께를 빼면 띠가 된다.
+    // 링: 원 둘레까지의 거리에서 반 두께를 빼면 띠가 된다. 짧은 변(반 크기 0.5)에 맞춘 원이다.
     float ringHalf = UISDF_RING_WIDTH * 0.5;
-    float ringRadius = min(0.5, aspect * 0.5) - UISDF_MARGIN - ringHalf;
+    float ringRadius = 0.5 - UISDF_MARGIN - ringHalf;
     float dRing = abs(length(p) - ringRadius) - ringHalf;
     float d = lerp(dBox, dRing, isRing);
 
@@ -108,10 +119,14 @@ float4 sgEffect(SgInput i)
     SG_STEP(1, field);
 
     // 2. 채움 영역의 거리. 윤곽 두께만큼 안쪽(d + stroke)에서 진행 정도만큼만 남긴다.
-    // 사각형은 왼쪽부터, 원은 아래부터 채운다. 반평면도 거리장이고, 두 거리장의 max 는 교집합이다
-    float edgeX = -halfSize.x + 2.0 * halfSize.x * fillAmount;
-    float edgeY = -halfSize.y + 2.0 * halfSize.y * fillAmount;
-    float dProgress = lerp(p.x - edgeX, p.y - edgeY, isCircle);
+    // 가로로 긴 사각형은 왼쪽부터, 원과 세로로 긴 사각형(세로 게이지)은 아래부터 채운다.
+    // 반평면도 거리장이고, 두 거리장의 max 는 교집합이다.
+    // 진행 경계는 윤곽 안쪽 크기로 잰다. 바깥 크기로 재면 0% 와 100% 근처에서 경계가 윤곽 속에 숨어 화면이 변하지 않는다
+    float2 innerHalf = max(halfSize - float2(stroke, stroke), float2(0.0, 0.0));
+    float vertical = max(isCircle, step(halfSize.x + 0.0001, halfSize.y));
+    float edgeX = -innerHalf.x + 2.0 * innerHalf.x * fillAmount;
+    float edgeY = -innerHalf.y + 2.0 * innerHalf.y * fillAmount;
+    float dProgress = lerp(p.x - edgeX, p.y - edgeY, vertical);
     float dFillBox = max(dBox + stroke, dProgress);
     // 링은 12시에서 시계 방향으로 호를 늘린다. 모서리 반경이 호 끝의 둥글기다.
     // 끝을 cap 만큼 둥글게 하려면 호를 cap 만큼 가늘고 짧게 만든 뒤 거리에서 cap 을 뺀다 (거리장을 부풀리면 모서리가 둥글어진다)
