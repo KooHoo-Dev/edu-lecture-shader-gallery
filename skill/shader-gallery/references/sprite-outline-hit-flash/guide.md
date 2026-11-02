@@ -51,4 +51,4 @@
 - 무적 시간에 깜빡이는 효과를 추가하고 싶다. 초당 3회를 넘지 않게.
 
 ## Shader Graph 에서 쓰기
-Shader Graph 의 Sprite Unlit 타깃에서 Custom Function 노드로 `outlineNeighborAlpha` 를 부를 수 있다. 다만 이 함수는 `SG_TEX` 매크로와 `_MainTex` 선언이 필요해 그래프의 Texture2D 입력을 받도록 고쳐야 한다.
+Shader Graph 의 Sprite Unlit 타깃에서 Custom Function 노드로 `outlineNeighborAlpha` 를 부를 수 있다. 다만 이 함수는 `SG_TEX` 매크로와 `_MainTex` 선언이 필요하므로, 새 `.hlsl` 파일에서 `void OutlineNeighborAlpha_float(UnityTexture2D Tex, float2 UV, float2 Offset, out float Alpha)` 로 바꾸고 `SG_TEX(_MainTex, p)` 를 `SAMPLE_TEXTURE2D(Tex, Tex.samplerstate, p)` 로 바꾼다 (`core.hlsl` 을 File 모드로 통째로 지정하면 `SgInput` 과 머티리얼 값 선언이 없어 컴파일되지 않는다).

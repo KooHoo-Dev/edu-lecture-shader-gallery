@@ -56,4 +56,4 @@
 - 2D Renderer 프로젝트에서 UI RawImage 로 같은 효과를 쓰고 싶다.
 
 ## Shader Graph 에서 쓰기
-Shader Graph 에서는 Fullscreen 타깃을 쓰고 URP Sample Buffer 노드(BlitSource)가 `sgSource` 역할을 한다. 순서 값은 Custom Function 으로 `transitionOrder` 를 불러 쓴다.
+Shader Graph 에서는 Fullscreen 타깃을 쓰고 URP Sample Buffer 노드(BlitSource)가 `sgSource` 역할을 한다. 순서 값은 `core.hlsl` 의 `transitionOrder` 함수를 Custom Function 노드의 String 모드에 복사하고 `void TransitionOrder_float(float2 uv, float aspect, out float order)` 로 감싸 쓴다 (`core.hlsl` 을 File 모드로 통째로 지정하면 `SgInput` 과 속성 선언이 없어 컴파일되지 않는다). 함수 안에서 쓰는 `_Pattern`, `_Cells` 는 같은 이름의 그래프 속성으로 만든다.

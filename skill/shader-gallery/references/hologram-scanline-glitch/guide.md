@@ -61,4 +61,4 @@ Play 하면 윤곽이 하늘색으로 빛나고 수평 줄이 위로 흐르며, 
 - 바닥의 투영기에서 빛줄기가 올라오는 느낌을 더하고 싶다.
 
 ## Shader Graph 에서 쓰기
-Shader Graph 에서는 Fresnel Effect 노드로 테두리를, Position(World) 노드의 Y 를 간격으로 나눠 Fraction 노드로 스캔라인을 만든다. 정점 글리치는 Custom Function 노드에서 `sgVertex` 를 불러 Vertex Position 에 연결하고, Time 노드의 Time 을 그대로 넘긴다. `sgVertex` 가 안에서 `floor(time * 10.0)` 으로 끊으므로 미리 Floor 로 끊어 넘기면 띠가 1 초에 한 번만 바뀐다.
+Shader Graph 에서는 Fresnel Effect 노드로 테두리를, Position(World) 노드의 Y 를 간격으로 나눠 Fraction 노드로 스캔라인을 만든다. 정점 글리치는 새 `.hlsl` 파일에 `hologramHash`, `hologramGlitchStrength`, `hologramBand`, `hologramGlitch`, `sgVertex` 를 복사하고, 안에서 읽는 `_GlitchStrength`, `_Dropout` 은 같은 이름의 그래프 속성으로 만든 뒤 `void HologramVertex_float(float3 Position, float3 Normal, float2 UV, float Time, out float3 Out) { Out = sgVertex(Position, Normal, UV, Time); }` 로 감싸 Custom Function 노드의 File 모드로 부른다 (`core.hlsl` 을 File 모드로 통째로 지정하면 `SgInput` 과 머티리얼 값 선언이 없어 컴파일되지 않는다). 결과를 Vertex Position 에 연결하고, Time 노드의 Time 을 그대로 넘긴다. `sgVertex` 가 안에서 `floor(time * 10.0)` 으로 끊으므로 미리 Floor 로 끊어 넘기면 띠가 1 초에 한 번만 바뀐다.

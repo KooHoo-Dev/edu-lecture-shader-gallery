@@ -104,7 +104,7 @@ Shader "ShaderGallery/ForceFieldIntersection"
                 i.viewWS = GetWorldSpaceNormalizeViewDir(v.positionWS);
                 i.screenUV = GetNormalizedScreenSpaceUV(v.positionCS);
 
-                // 카메라에서 씬 표면까지의 거리 - 카메라에서 이 픽셀까지의 거리.
+                // 씬 표면의 눈 깊이 - 이 픽셀의 눈 깊이 (카메라 정면 축 방향 거리).
                 float sceneEye = LinearEyeDepth(SampleSceneDepth(i.screenUV), _ZBufferParams);
                 float selfEye = LinearEyeDepth(v.positionWS, UNITY_MATRIX_V);
                 i.depthDelta = sceneEye - selfEye;

@@ -59,4 +59,4 @@
 - 바닥에 깔리는 안개 벽으로 바꾸고 싶다.
 
 ## Shader Graph 에서 쓰기
-Shader Graph 에서는 Scene Depth 노드(Eye 모드)에서 Screen Position 의 w 를 빼면 같은 `depthDelta` 가 나온다. 무늬만 Custom Function 으로 `forceFieldLines` 를 불러 쓴다.
+Shader Graph 에서는 Scene Depth 노드(Eye 모드)에서 Screen Position 의 w 를 빼면 같은 `depthDelta` 가 나온다. 무늬는 새 `.hlsl` 파일에 `forceFieldLines` 를 복사하고 `void ForceFieldLines_float(float3 Position, float Time, out float Lines) { Lines = forceFieldLines(Position, Time); }` 를 더해 Custom Function 노드의 File 모드로 부른다 (`core.hlsl` 을 File 모드로 통째로 지정하면 `SgInput` 과 머티리얼 값 선언이 없어 컴파일되지 않는다).
