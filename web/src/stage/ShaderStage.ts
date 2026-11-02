@@ -165,7 +165,10 @@ class ShaderStage {
     this.fireClock.clear()
     this.azimuth = 0
     this.elevation = 0
-    this.spin = 0
+    // Unity 촬영과 같은 각도에서 시작한다. three.js 의 y 회전은 Unity 와 부호가 반대다
+    const shape = specimen.meta.stage.mesh
+    const turns = specimen.meta.stage.kind === 'mesh' && shape !== 'quad' && shape !== 'plane'
+    this.spin = turns ? (-LAYOUT.meshYawDeg * Math.PI) / 180 : 0
     this.dragging = false
     this.framesRendered = 0
     this.build(specimen)

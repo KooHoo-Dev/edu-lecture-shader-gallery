@@ -222,28 +222,37 @@ namespace ShaderGallery.EditorTools
         // web/src/stage/layout.ts 의 meshPlacement, depthPlacement 와 같은 값.
         static void PlaceEffectMesh(Stage stage, string mesh, Material material, bool depth)
         {
+            GameObject go;
             switch (mesh)
             {
                 case "capsule":
-                    AddMesh(stage, "New-Capsule.fbx", material, new Vector3(0f, depth ? 0.6f : 1f, 0f), depth ? 1.4f : 1f);
+                    go = AddMesh(stage, "New-Capsule.fbx", material, new Vector3(0f, depth ? 0.6f : 1f, 0f), depth ? 1.4f : 1f);
                     break;
                 case "cylinder":
-                    AddMesh(stage, "New-Cylinder.fbx", material, new Vector3(0f, depth ? 0.6f : 1f, 0f), depth ? 1.4f : 1f);
+                    go = AddMesh(stage, "New-Cylinder.fbx", material, new Vector3(0f, depth ? 0.6f : 1f, 0f), depth ? 1.4f : 1f);
                     break;
                 case "cube":
-                    AddMesh(stage, "Cube.fbx", material, new Vector3(0f, depth ? 0.5f : 0.75f, 0f), depth ? 1.6f : 1.2f);
+                    go = AddMesh(stage, "Cube.fbx", material, new Vector3(0f, depth ? 0.5f : 0.75f, 0f), depth ? 1.6f : 1.2f);
                     break;
                 case "quad":
-                    AddMesh(stage, "Quad.fbx", material, new Vector3(0f, depth ? 0.6f : 0.85f, 0f), depth ? 2.4f : 1.6f);
+                    go = AddMesh(stage, "Quad.fbx", material, new Vector3(0f, depth ? 0.6f : 0.85f, 0f), depth ? 2.4f : 1.6f);
                     break;
                 case "plane":
-                    AddMesh(stage, "New-Plane.fbx", material, new Vector3(0f, depth ? 0.3f : 0.5f, 0f), depth ? 0.35f : 0.3f);
+                    go = AddMesh(stage, "New-Plane.fbx", material, new Vector3(0f, depth ? 0.3f : 0.5f, 0f), depth ? 0.35f : 0.3f);
                     break;
                 default:
-                    AddMesh(stage, "New-Sphere.fbx", material, new Vector3(0f, depth ? 0.55f : 0.85f, 0f), depth ? 2.2f : 1.5f);
+                    go = AddMesh(stage, "New-Sphere.fbx", material, new Vector3(0f, depth ? 0.55f : 0.85f, 0f), depth ? 2.2f : 1.5f);
                     break;
             }
+            // 시작 회전. 웹 layout.ts 의 meshYawDeg 와 같다. 정면만 찍으면 큐브 같은 물체의 효과가 썸네일에 드러나지 않는다.
+            // 웹의 depth 무대 물체와 quad, plane 은 돌지 않으므로 여기서도 돌리지 않는다.
+            if (!depth && mesh != "quad" && mesh != "plane")
+            {
+                go.transform.rotation = Quaternion.Euler(0f, MeshYawDeg, 0f);
+            }
         }
+
+        const float MeshYawDeg = 30f;
 
         static void AddFloor(Stage stage)
         {

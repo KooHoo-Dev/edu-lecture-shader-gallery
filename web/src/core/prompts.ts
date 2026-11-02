@@ -41,6 +41,15 @@ const REQUIRE_STEPS: Record<Requirement, string> = {
   opaque: '사용 중인 URP Asset 의 Opaque Texture 를 켠다. 품질 단계마다 URP Asset 이 다르면 모두 켠다. 카메라의 Opaque Texture 가 Off 이면 Use Pipeline Settings 로 바꾼다.',
 }
 
+/** 표본 폴더 PNG 의 임포트 설정과 머티리얼 칸. 스프라이트의 _MainTex 는 SpriteRenderer 의 스프라이트가 채운다 */
+function textureSteps(meta: SpecimenMeta): string[] {
+  return Object.entries(meta.stage.textures ?? {}).map(([name, t]) => {
+    const settings = `Inspector 에서 sRGB (Color Texture) 를 ${t.linear ? '끄고' : '켜고'}, Wrap Mode 를 ${t.repeat ? 'Repeat' : 'Clamp'}, Filter Mode 를 ${t.point ? 'Point' : 'Bilinear'} 로 둔다`
+    const slot = meta.stage.kind === 'sprite' && name === '_MainTex' ? '스프라이트로 쓴다' : `머티리얼의 \`${name}\` 칸에 넣는다`
+    return `\`${t.file}\` 을 같은 폴더에 두고 ${settings}. ${slot}.`
+  })
+}
+
 export interface PromptSource {
   meta: SpecimenMeta
   files: SpecimenFile[]
@@ -70,7 +79,7 @@ export function buildPrompt(kind: PromptKind, source: PromptSource, values: Para
   const code = codeSection(source, values)
 
   if (kind === 'direct') {
-    const steps = [`아래 파일을 \`Assets/Shaders/${meta.id}/\` 에 그대로 만든다. 코드는 바꾸지 않는다.`, ...(meta.requires ?? []).map(r => REQUIRE_STEPS[r]), ...KIND_STEPS[meta.stage.kind], '머티리얼 값을 아래 표대로 맞춘다.', `확인: ${meta.unity.verify}`]
+    const steps = [`아래 파일을 \`Assets/Shaders/${meta.id}/\` 에 그대로 만든다. 코드는 바꾸지 않는다.`, ...textureSteps(meta), ...(meta.requires ?? []).map(r => REQUIRE_STEPS[r]), ...KIND_STEPS[meta.stage.kind], '머티리얼 값을 아래 표대로 맞춘다.', `확인: ${meta.unity.verify}`]
     return [
       `# Unity 셰이더 추가: ${meta.title}`,
       head,

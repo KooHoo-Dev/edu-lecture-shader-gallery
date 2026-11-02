@@ -17,6 +17,11 @@ export const LAYOUT = {
   lightIntensity: 1.2,
   camera: { position: [0, 1.3, -3.6], target: [0, 0.75, 0], fov: 40, near: 0.1, far: 100 },
   sprite: { orthographicSize: 1.5, height: 2, cameraZ: -5 },
+  /**
+   * mesh 무대 물체의 시작 회전 (Unity Y 회전, 도). SgCapture.MeshYawDeg 와 같다. 촬영과 웹 첫 화면이 같고,
+   * 정면만 보이면 큐브 같은 물체의 효과가 썸네일에 드러나지 않아 둔다. quad, plane 은 돌리지 않는다
+   */
+  meshYawDeg: 30,
   /** mesh 무대의 물체 배치. SgCapture.PlaceEffectMesh 와 같은 값 */
   meshPlacement: {
     sphere: { position: [0, 0.85, 0], scale: 1.5, shadow: 0.75 },
