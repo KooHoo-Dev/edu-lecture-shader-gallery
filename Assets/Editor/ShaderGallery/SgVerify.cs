@@ -28,6 +28,9 @@ namespace ShaderGallery.EditorTools
             new[] { "STEREO_INSTANCING_ON" },
             new[] { "_MAIN_LIGHT_SHADOWS_CASCADE", "_SHADOWS_SOFT" },
             new[] { "SKINNED_SPRITE" },
+            // Forward 전용 노멀 패스. Deferred 의 정확한 G-buffer 노멀과 렌더링 레이어를 켜면 쓰인다.
+            new[] { "_GBUFFER_NORMALS_OCT" },
+            new[] { "_WRITE_RENDERING_LAYERS" },
         };
 
         public static void RunBatch()

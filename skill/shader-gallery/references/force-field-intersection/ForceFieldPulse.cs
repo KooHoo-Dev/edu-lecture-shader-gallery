@@ -24,11 +24,17 @@ namespace ShaderGallery.Samples
         /// <summary>충돌 판정이 난 순간에 호출한다.</summary>
         public void Pulse()
         {
-            if (Time.time - lastPulseTime < minInterval)
+            // 꺼진 오브젝트에서는 StartCoroutine 이 오류를 낸다.
+            if (!isActiveAndEnabled)
             {
                 return;
             }
-            lastPulseTime = Time.time;
+            // 실제 시간으로 센다. Time.time 은 Time.timeScale 을 올리면 빨라져 초당 3 번 제한이 깨진다.
+            if (Time.unscaledTime - lastPulseTime < minInterval)
+            {
+                return;
+            }
+            lastPulseTime = Time.unscaledTime;
             StopAllCoroutines();
             StartCoroutine(Animate());
         }
@@ -46,6 +52,7 @@ namespace ShaderGallery.Samples
         void OnDisable()
         {
             StopAllCoroutines();
+            lastPulseTime = float.NegativeInfinity;
             if (material != null)
             {
                 material.SetFloat(HitPulse, 0f);

@@ -23,6 +23,11 @@ namespace ShaderGallery.Samples
         /// <summary>피격 판정이 난 순간에 호출한다.</summary>
         public void Hit()
         {
+            // 꺼진 오브젝트에서는 StartCoroutine 이 오류를 낸다.
+            if (!isActiveAndEnabled)
+            {
+                return;
+            }
             StopAllCoroutines();
             StartCoroutine(Flash());
         }

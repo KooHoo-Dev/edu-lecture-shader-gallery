@@ -206,13 +206,29 @@ Shader "ShaderGallery/FresnelRimGlow"
             #pragma vertex vert
             #pragma fragment fragNormals
             #pragma multi_compile_instancing
+            // URP Unlit 의 Forward 전용 노멀 패스와 같은 키워드. Deferred 의 정확한 G-buffer 노멀과 렌더링 레이어를 켜면 쓰인다.
+            #pragma multi_compile_fragment _ _GBUFFER_NORMALS_OCT
+            #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/RenderingLayers.hlsl"
 
-            float4 fragNormals(Varyings v) : SV_Target
+            void fragNormals(Varyings v, out float4 outNormalWS : SV_Target0
+            #ifdef _WRITE_RENDERING_LAYERS
+                , out uint outRenderingLayers : SV_Target1
+            #endif
+            )
             {
                 UNITY_SETUP_INSTANCE_ID(v);
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(v);
                 clip(effectAlpha(v) - 0.5);
-                return float4(normalize(v.normalWS), 0.0);
+                float3 normalWS = normalize(v.normalWS);
+                #if defined(_GBUFFER_NORMALS_OCT)
+                    float2 octNormalWS = PackNormalOctQuadEncode(normalWS);
+                    outNormalWS = float4(PackFloat2To888(saturate(octNormalWS * 0.5 + 0.5)), 0.0);
+                #else
+                    outNormalWS = float4(normalWS, 0.0);
+                #endif
+                #ifdef _WRITE_RENDERING_LAYERS
+                    outRenderingLayers = EncodeMeshRenderingLayer();
+                #endif
             }
             ENDHLSL
         }

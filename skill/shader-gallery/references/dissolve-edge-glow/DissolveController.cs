@@ -31,6 +31,11 @@ namespace ShaderGallery.Samples
 
         void Play(float from, float to, bool destroyAtEnd)
         {
+            // 꺼진 오브젝트에서는 StartCoroutine 이 오류를 낸다.
+            if (!isActiveAndEnabled)
+            {
+                return;
+            }
             if (running != null)
             {
                 StopCoroutine(running);

@@ -69,7 +69,7 @@ export const meta: SpecimenMeta = {
       '이 셰이더는 불투명 3D 메시용이다. 패스가 `UniversalForwardOnly` 라 2D Renderer 에서는 그려지지 않는다. 3D 프로젝트에서 쓴다.',
       'XR 에서는 두 눈의 카메라 위치가 다르다. 이 셰이더는 안에서 `GetWorldSpaceNormalizeViewDir` 로 눈마다 시선을 계산하므로 양쪽 림이 맞는다. 시선을 바꾸려고 C# 에서 `Camera.main.transform.position` 같은 카메라 위치 하나를 전역 값으로 넘겨 쓰면 두 눈이 같은 위치를 쓰게 되어 양쪽 림이 어긋난다. 시선은 셰이더 안에서 구한다.',
       '평평한 면만 있는 메시(큐브, 로우폴리)는 면 안에서 법선이 같아 림이 면 단위로 통째로 켜지고 꺼진다. 부드러운 법선을 가진 메시에서 잘 보인다.',
-      '림 세기가 1 을 넘어도 URP Volume 의 Bloom 이 없으면 색이 하얗게 잘릴 뿐 번지지 않는다.',
+      '림 세기가 1 을 넘어도 URP Volume 의 Bloom 이 없으면 색이 하얗게 잘릴 뿐 번지지 않는다. URP Asset 의 HDR 이 꺼져 있으면 1 을 넘는 값이 1 로 잘려 세기를 올려도 더 번지지 않는다.',
       '번쩍일 때 림이 몸 전체로 넓어진다. 연타나 연속 피격에서 넓은 면이 빠르게 깜빡이면 광과민 발작 위험이 있다. `RimHitFlash` 는 `minInterval`(0.34초)로 게임 배속과 상관없이 실제 시간 기준 초당 3회를 넘지 않게 막는다. 이 값을 0.34 아래로 낮추지 않는다.',
     ],
     graph: 'Shader Graph 에는 같은 식의 Fresnel Effect 노드가 있다. Power 에 림 지수를 넣고 결과에 림 색과 세기를 곱해 Lit 타깃의 Emission 에 연결하면 된다. Custom Function 이 필요 없다.',

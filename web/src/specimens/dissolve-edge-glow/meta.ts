@@ -64,7 +64,7 @@ export const meta: SpecimenMeta = {
     pitfalls: [
       '스키닝 캐릭터는 애니메이션이 적용된 뒤의 위치가 셰이더로 들어온다. 움직이는 동안에는 구멍 무늬가 몸 위를 흐른다. 1~2초 연출에서는 잘 보이지 않는다. 무늬를 몸에 붙이려면 UV 로 노이즈를 만들거나 바인드 포즈 위치를 보조 UV 채널에 굽는다.',
       '위에서 쓸기는 오브젝트 공간 y 가 -0.5~0.5 인 메시 기준이다. 피벗이 발밑이거나 키가 다른 메시는 `core.hlsl` 의 `saturate(0.5 - i.positionOS.y)` 를 메시 높이에 맞춰 고친다.',
-      '빛나는 띠가 번지게 하려면 URP Volume 의 Bloom 을 켠다. 값이 1 을 넘어도 Bloom 이 없으면 흰색으로 잘릴 뿐이다.',
+      '빛나는 띠가 번지게 하려면 URP Volume 의 Bloom 을 켠다. 값이 1 을 넘어도 Bloom 이 없으면 흰색으로 잘릴 뿐이다. URP Asset 의 HDR 이 꺼져 있으면 1 을 넘는 값이 1 로 잘려 밝기 값을 올려도 더 번지지 않는다.',
       '메시 스케일이 크면 노이즈 무늬도 함께 커진다. `_NoiseScale` 을 스케일에 맞춰 조절한다.',
     ],
     graph: 'Shader Graph 에서는 Custom Function 노드를 File 모드로 두고 `core.hlsl` 을 지정한 뒤 `dissolveNoise` 를 호출하는 함수를 추가해 노이즈만 가져온다. 그래프의 Alpha Clip Threshold 에 임계값을, Emission 에 띠 색을 연결한다.',

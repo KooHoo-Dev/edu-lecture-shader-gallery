@@ -1,7 +1,8 @@
 ---
 # 표본 구현 잡 템플릿 (plan 4-1). 파일 이름이 _ 로 시작하면 dispatch 가 잡으로 읽지 않는다.
 # 복사해 jobs/<잡 id>.md 로 저장하고 <id>, <Name>, 카드 번호, 아래 "표본별" 칸을 채운다.
-model: claude-sonnet-5-5
+# 구현 모델은 4-4 에서 Opus 5.5 로 정했다.
+model: claude-opus-5-5
 effort: high
 budgetUsd: 10
 verify:
