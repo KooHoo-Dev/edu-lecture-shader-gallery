@@ -249,7 +249,8 @@ function checkMeta(id, meta, core, wrapper) {
   // 이벤트는 C# 이 실제로 하는 일과 같아야 한다 (가이드 5절)
   if (meta.events.some(e => e.tracks?.length) && existsSync(join(SHADERS, id)) && !readdirSync(join(SHADERS, id)).some(f => f.endsWith('.cs'))) warn(`${where}: 이벤트가 있는데 C# 스크립트가 없다. 이벤트는 C# 이 하는 일과 같아야 한다`)
   // Shader Graph 의 Custom Function 은 void 이름_float(..., out ...) 형식만 받는다 (가이드 5절)
-  if (meta.unity.graph && /Custom Function/.test(meta.unity.graph) && !/_float\b/.test(meta.unity.graph) && !/Custom Function\s*(없이|을 쓰지|은 쓰지|는 쓰지)/.test(meta.unity.graph)) warn(`${where}: unity.graph 가 Custom Function 을 말하면 void 이름_float(..., out ...) 형식을 적는다`)
+  // String 모드(본문만), "필요 없다", 통째로 지정하면 컴파일되지 않는다는 안내가 있으면 받아들인다
+  if (meta.unity.graph && /Custom Function/.test(meta.unity.graph) && !/_float\b|String|필요 없|쓰지 않|없이|컴파일되지 않/.test(meta.unity.graph)) warn(`${where}: unity.graph 가 Custom Function 을 말하면 void 이름_float(..., out ...) 형식을 적는다`)
   for (const m of core.matchAll(/\bSG_TEX\s*\(\s*(\w+)/g)) if (!textures.has(m[1])) err(`${where}: 텍스처 ${m[1]} 이 stage.textures 에 없다`)
   // 내장 "gray" 는 sRGB 0.5 라 Linear 프로젝트에서 약 0.21 로 읽힌다. 0.5 를 0 으로 쓰는 데이터 텍스처는 칸이 비면 한쪽으로 쏠린다
   for (const [name, texture] of Object.entries(meta.stage.textures ?? {})) {

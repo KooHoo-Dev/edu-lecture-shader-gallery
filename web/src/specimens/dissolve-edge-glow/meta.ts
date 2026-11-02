@@ -67,7 +67,7 @@ export const meta: SpecimenMeta = {
       '빛나는 띠가 번지게 하려면 URP Volume 의 Bloom 을 켠다. 값이 1 을 넘어도 Bloom 이 없으면 흰색으로 잘릴 뿐이다. URP Asset 의 HDR 이 꺼져 있으면 1 을 넘는 값이 1 로 잘려 밝기 값을 올려도 더 번지지 않는다.',
       '메시 스케일이 크면 노이즈 무늬도 함께 커진다. `_NoiseScale` 을 스케일에 맞춰 조절한다.',
     ],
-    graph: 'Shader Graph 에서는 Custom Function 노드를 File 모드로 두고 `core.hlsl` 을 지정한 뒤 `dissolveNoise` 를 호출하는 함수를 추가해 노이즈만 가져온다. 그래프의 Alpha Clip Threshold 에 임계값을, Emission 에 띠 색을 연결한다.',
+    graph: 'Shader Graph 에서는 노이즈만 Custom Function 으로 가져온다. 새 `.hlsl` 파일에 `core.hlsl` 의 `dissolveHash`, `dissolveValueNoise`, `dissolveNoise` 를 복사하고 `void DissolveNoise_float(float3 Position, out float Noise) { Noise = dissolveNoise(Position); }` 를 더한 뒤, Custom Function 노드를 File 모드로 두고 그 파일과 이름 `DissolveNoise` 를 지정한다 (`core.hlsl` 을 File 모드로 통째로 지정하면 `SgInput` 과 머티리얼 값 선언이 없어 컴파일되지 않는다). 그래프의 Alpha Clip Threshold 에 임계값을, Emission 에 띠 색을 연결한다.',
   },
   prompt: {
     goal: '물체가 노이즈 모양으로 타들어 가며 사라지는 디졸브 셰이더를 넣는다. 가장자리가 빛나고 그림자에도 구멍이 뚫린다.',

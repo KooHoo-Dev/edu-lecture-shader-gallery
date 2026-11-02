@@ -72,7 +72,7 @@ export const meta: SpecimenMeta = {
       'XR 에서는 투명 면이 겹칠수록 픽셀을 여러 번 칠한다(과드로우). 큰 홀로그램 여러 개를 겹치면 모바일 XR 기기에서 프레임이 떨어질 수 있다.',
       'Play 중 셰이더의 `_Time` 은 `Time.timeScale` 을 따른다. 배속 3 이면 셰이더 깜빡임이 3Hz, 글리치가 초당 30 번으로 빨라지고, 0 이면 멈춘다. 배속이 있는 게임에서는 머티리얼의 `_Flicker`(깜빡임 세기)를 0 으로 둔다. `HologramGlitchBurst` 의 제한은 실제 시간으로 세므로 배속과 상관없다.',
     ],
-    graph: 'Shader Graph 에서는 Fresnel Effect 노드로 테두리를, Position(World) 노드의 Y 를 간격으로 나눠 Fraction 노드로 스캔라인을 만든다. 정점 글리치는 Custom Function 노드에서 `sgVertex` 를 불러 Vertex Position 에 연결하고, Time 노드의 Time 을 그대로 넘긴다. `sgVertex` 가 안에서 `floor(time * 10.0)` 으로 끊으므로 미리 Floor 로 끊어 넘기면 띠가 1 초에 한 번만 바뀐다.',
+    graph: 'Shader Graph 에서는 Fresnel Effect 노드로 테두리를, Position(World) 노드의 Y 를 간격으로 나눠 Fraction 노드로 스캔라인을 만든다. 정점 글리치는 새 `.hlsl` 파일에 `hologramHash`, `hologramGlitchStrength`, `hologramBand`, `hologramGlitch`, `sgVertex` 를 복사하고, 안에서 읽는 `_GlitchStrength`, `_Dropout` 은 같은 이름의 그래프 속성으로 만든 뒤 `void HologramVertex_float(float3 Position, float3 Normal, float2 UV, float Time, out float3 Out) { Out = sgVertex(Position, Normal, UV, Time); }` 로 감싸 Custom Function 노드의 File 모드로 부른다 (`core.hlsl` 을 File 모드로 통째로 지정하면 `SgInput` 과 머티리얼 값 선언이 없어 컴파일되지 않는다). 결과를 Vertex Position 에 연결하고, Time 노드의 Time 을 그대로 넘긴다. `sgVertex` 가 안에서 `floor(time * 10.0)` 으로 끊으므로 미리 Floor 로 끊어 넘기면 띠가 1 초에 한 번만 바뀐다.',
   },
   prompt: {
     goal: '3D 물체를 하늘색 홀로그램으로 보이게 하는 투명 셰이더를 넣는다. 윤곽이 빛나고 수평 스캔라인이 흐르며, 가로 띠가 가끔 툭 밀리는 글리치와 깜빡임이 있고, 전송이 끊기는 순간에는 C# 로 글리치를 잠깐 몰아 준다.',

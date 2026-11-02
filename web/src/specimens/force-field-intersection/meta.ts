@@ -68,7 +68,7 @@ export const meta: SpecimenMeta = {
       '이 셰이더에는 `UniversalForward` 패스만 있어 2D Renderer 에서는 그려지지 않는다. 3D 프로젝트용 효과다.',
       '정사영 카메라에서는 `LinearEyeDepth` 공식이 맞지 않는다. 원근 카메라 기준이다.',
     ],
-    graph: 'Shader Graph 에서는 Scene Depth 노드(Eye 모드)에서 Screen Position 의 w 를 빼면 같은 `depthDelta` 가 나온다. 무늬만 Custom Function 으로 `forceFieldLines` 를 불러 쓴다.',
+    graph: 'Shader Graph 에서는 Scene Depth 노드(Eye 모드)에서 Screen Position 의 w 를 빼면 같은 `depthDelta` 가 나온다. 무늬는 새 `.hlsl` 파일에 `forceFieldLines` 를 복사하고 `void ForceFieldLines_float(float3 Position, float Time, out float Lines) { Lines = forceFieldLines(Position, Time); }` 를 더해 Custom Function 노드의 File 모드로 부른다 (`core.hlsl` 을 File 모드로 통째로 지정하면 `SgInput` 과 머티리얼 값 선언이 없어 컴파일되지 않는다).',
   },
   prompt: {
     goal: '투명한 보호막이 바닥이나 다른 물체와 닿는 선을 밝히는 역장 셰이더를 넣는다. 씬 깊이를 읽으므로 URP Asset 설정이 함께 필요하다.',

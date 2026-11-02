@@ -62,7 +62,7 @@ export const meta: SpecimenMeta = {
       '이 셰이더는 2D 조명을 받지 않는다. 2D 라이트가 필요하면 `Universal2D` 패스에 라이팅 코드를 넣어야 한다.',
       'MaterialPropertyBlock 은 쓰지 않는다. SRP Batcher 에서 빠지고, 머티리얼 복사본 방식이 수업 프로젝트와도 같다.',
     ],
-    graph: 'Shader Graph 의 Sprite Unlit 타깃에서 Custom Function 노드로 `outlineNeighborAlpha` 를 부를 수 있다. 다만 이 함수는 `SG_TEX` 매크로와 `_MainTex` 선언이 필요해 그래프의 Texture2D 입력을 받도록 고쳐야 한다.',
+    graph: 'Shader Graph 의 Sprite Unlit 타깃에서 Custom Function 노드로 `outlineNeighborAlpha` 를 부를 수 있다. 다만 이 함수는 `SG_TEX` 매크로와 `_MainTex` 선언이 필요하므로, 새 `.hlsl` 파일에서 `void OutlineNeighborAlpha_float(UnityTexture2D Tex, float2 UV, float2 Offset, out float Alpha)` 로 바꾸고 `SG_TEX(_MainTex, p)` 를 `SAMPLE_TEXTURE2D(Tex, Tex.samplerstate, p)` 로 바꾼다 (`core.hlsl` 을 File 모드로 통째로 지정하면 `SgInput` 과 머티리얼 값 선언이 없어 컴파일되지 않는다).',
   },
   prompt: {
     goal: 'SpriteRenderer 에 쓰는 외곽선과 피격 번쩍임 셰이더를 넣는다. 적마다 따로 번쩍이고 2D Renderer 와 Universal Renderer 양쪽에서 그려진다.',
