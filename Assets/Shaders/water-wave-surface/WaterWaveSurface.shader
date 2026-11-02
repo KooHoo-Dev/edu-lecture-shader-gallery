@@ -6,16 +6,17 @@ Shader "ShaderGallery/WaterWaveSurface"
 {
     Properties
     {
-        // 파도 값은 오브젝트 공간 단위다. 기본 Plane 은 한 변 10, 정점 간격 1 이다.
-        _WaveHeight ("파도 높이", Range(0, 1)) = 0.25
-        _WaveLength ("파장", Range(7, 20)) = 7
-        _WaveSpeed ("파도 속도", Range(0, 6)) = 1.5
+        // 파도 값은 오브젝트 공간 단위(m)다. 기본값은 WaterSurfaceGrid 가 만드는 한 변 10 m, 100 칸(정점 간격 0.1 m) 평면 기준이다.
+        // 정점 간격 1 m 인 Unity 기본 Plane 에 쓰면 파장을 4 m 이상으로 올린다.
+        _WaveHeight ("파도 높이", Range(0, 0.14)) = 0.04
+        _WaveLength ("파장", Range(0.8, 6)) = 2.2
+        _WaveSpeed ("파도 속도", Range(0, 3)) = 0.8
         _WaveAngle ("파도 방향 (Y 회전, 도)", Range(0, 360)) = 225
         _DeepColor ("물빛", Color) = (0.016, 0.165, 0.271, 1)
         _SkyColor ("하늘빛", Color) = (0.439, 0.643, 0.8, 1)
-        _SpecStrength ("반사광 세기", Range(0, 3)) = 2
-        // 갤러리 무대처럼 해가 카메라 뒤에 있으면 반짝임이 카메라 쪽으로 기운 물결 면에만 생겨 낮은 값이라야 보인다.
-        _SpecPower ("반사광 날카로움", Range(4, 256)) = 8
+        _SpecStrength ("반사광 세기", Range(0, 3)) = 1.2
+        // 해가 카메라 맞은편에 있으면 높은 값에서 작은 반짝임이 모여 해 반짝임 길이 된다. 낮추면 넓은 흰 막으로 번진다.
+        _SpecPower ("반사광 날카로움", Range(4, 256)) = 200
     }
 
     SubShader
@@ -29,7 +30,8 @@ Shader "ShaderGallery/WaterWaveSurface"
             Tags { "LightMode" = "UniversalForward" }
 
             // 알파 혼합: 앞쪽은 바닥이 비치고 먼 쪽은 하늘빛이 덮는다. 수면은 깊이를 쓰지 않는다.
-            // 깊이를 쓰면 수면 아래 다른 투명 물체가 가려진다.
+            // 깊이를 쓰면 수면 아래 다른 투명 물체가 가려진다. 대신 한 메시 안에서는 삼각형을 그리는 순서가 곧 앞뒤라
+            // 반대편(+Z)에서 보면 뒤쪽 물결이 앞 마루 위에 그려질 수 있다. 그때는 파도를 낮추거나 ZWrite On 으로 바꾼다.
             Blend SrcAlpha OneMinusSrcAlpha
             ZWrite Off
 
