@@ -11,7 +11,8 @@ namespace ShaderGallery.Samples
 
         [SerializeField] float holdSeconds = 0.12f;
         [SerializeField] float fadeSeconds = 0.68f;
-        // 물체 전체가 어두워졌다 돌아오므로 실제 시간으로 1 초에 3 번을 넘지 않게 막는다. 0.34 아래로 낮추지 않는다.
+        // 물체 전체가 어두워졌다 돌아오므로 실제 시간으로 1 초에 3 번을 넘지 않게 막는다.
+        // Inspector 에서 더 낮춰도 코드가 0.34 초 아래로는 내려가지 않게 한다.
         [SerializeField] float minInterval = 0.34f;
 
         Material material;
@@ -36,7 +37,7 @@ namespace ShaderGallery.Samples
             {
                 return;
             }
-            if (Time.unscaledTime - lastBurstTime < minInterval)
+            if (Time.unscaledTime - lastBurstTime < Mathf.Max(minInterval, 0.34f))
             {
                 return;
             }
@@ -60,8 +61,8 @@ namespace ShaderGallery.Samples
         void OnDisable()
         {
             // 끊기던 중에 꺼져도 글리치가 남지 않게 되돌린다.
+            // lastBurstTime 은 지우지 않는다. 껐다 켜는 것으로 초당 3 회 제한을 피하지 못하게 한다.
             StopAllCoroutines();
-            lastBurstTime = float.NegativeInfinity;
             if (material != null)
             {
                 material.SetFloat(Dropout, 0f);
