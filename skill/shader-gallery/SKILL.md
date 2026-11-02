@@ -20,7 +20,7 @@ metadata:
 | `fresnel-rim-glow` | 프레넬 림 빛 | 메시 | 비스듬히 보이는 가장자리만 밝힌다 |
 | `triplanar-projection` | 삼평면 투영 | 메시 | UV 없이 세 축에서 텍스처를 투영한다 |
 | `dissolve-edge-glow` | 디졸브 | 메시 | 노이즈와 임계값으로 물체를 태워 없앤다. 사망, 소환, 텔레포트 연출의 기본 |
-| `inverted-hull-outline` | 껍데기 외곽선 | 메시 | 부풀린 뒷면을 한 번 더 그려 외곽선을 만든다 |
+| `inverted-hull-outline` | 껍데기 외곽선 | 메시 | 조금 키운 껍데기의 뒷면을 한 번 더 그려 외곽선을 만든다 |
 | `force-field-intersection` | 역장 교차 | 깊이 사용 | 투명한 보호막이 다른 물체와 닿는 선을 깊이 비교로 밝힌다 |
 | `sprite-outline-hit-flash` | 스프라이트 외곽선 + 피격 번쩍임 | 스프라이트 | 이웃 픽셀 알파로 외곽선을 그리고, 맞은 순간 단색으로 번쩍였다 돌아온다 |
 | `screen-transition-wipe` | 화면 전환 와이프 | 전체 화면 | 진행값과 순서 값을 비교해 화면을 덮고 걷는다. 원, 대각선, 마름모 격자를 한 셰이더로 |
