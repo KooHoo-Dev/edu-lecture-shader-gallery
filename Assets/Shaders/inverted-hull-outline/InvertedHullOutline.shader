@@ -1,4 +1,4 @@
-// 껍데기 외곽선: 법선 방향으로 부풀린 껍데기의 뒷면을 한 번 더 그려 외곽선을 만드는 불투명 메시 효과 (URP 17, HLSL).
+// 껍데기 외곽선: 피벗 기준으로 조금 키운(또는 법선 방향으로 민) 껍데기의 뒷면을 한 번 더 그려 외곽선을 만드는 불투명 메시 효과 (URP 17, HLSL).
 // 효과 본체는 core.hlsl 에 있고, 이 파일은 Unity 전용 부분(조명, 패스 구성, Cull, SRP Batcher)만 맡는다.
 // core.hlsl 은 패스마다 include 한다. 외곽선 패스만 그 앞에 SG_OUTLINE 을 정의해 껍데기 쪽 코드를 고른다.
 Shader "ShaderGallery/InvertedHullOutline"
@@ -9,7 +9,7 @@ Shader "ShaderGallery/InvertedHullOutline"
         _OutlineColor ("외곽선 색", Color) = (1, 0.788, 0.302, 1)
         _OutlineWidth ("외곽선 두께", Range(0, 0.15)) = 0.04
         _OutlineAmount ("외곽선 켜기", Range(0, 1)) = 1
-        [Enum(Normal, 0, FromCenter, 1)] _PushDir ("미는 방향", Float) = 1
+        [Enum(Normal, 0, ScaleFromPivot, 1)] _PushDir ("미는 방식", Float) = 1
     }
 
     SubShader
@@ -134,7 +134,8 @@ Shader "ShaderGallery/InvertedHullOutline"
             ENDHLSL
         }
 
-        // 외곽선 패스. 정점을 밀어 부풀린 껍데기를 그리되 앞면은 버리고(Cull Front) 뒷면만 남긴다.
+        // 외곽선 패스. 본체보다 조금 큰 껍데기를 그리되 앞면은 버리고(Cull Front) 뒷면만 남긴다.
+        // 깊이 프리패스(DepthOnly)에는 이 패스가 없다. Depth Priming 이 켜지면 사라질 수 있다 (meta 의 pitfalls 참고).
         // 앞면까지 그리면 껍데기가 본체보다 카메라에 가까워 본체를 통째로 덮는다.
         // 같은 LightMode 태그의 패스가 둘이면 URP 는 첫 패스만 그리므로 본체와 다른 태그를 쓴다.
         // URP 17 은 SRPDefaultUnlit 을 Forward, Deferred, 2D Renderer 에서 모두 그린다.
@@ -154,7 +155,8 @@ Shader "ShaderGallery/InvertedHullOutline"
 
             Varyings vertOutline(Attributes v)
             {
-                // 모든 정점을 sgVertex 로 민다. 두께는 오브젝트 공간 길이라 물체의 스케일과 함께 커진다.
+                // 모든 정점을 sgVertex 로 옮긴다. 두께는 오브젝트 공간 길이라 물체의 스케일과 함께 커진다.
+                // 정적 배칭된 물체는 positionOS 가 월드 위치라 확대 기준이 월드 원점이 된다.
                 float3 p = sgVertex(v.positionOS.xyz, v.normalOS, v.uv, _Time.y);
                 return vertAt(v, p);
             }
