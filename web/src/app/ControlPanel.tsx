@@ -78,7 +78,7 @@ function Control({ def, value, onChange }: { def: ParamDef; value: ParamValue; o
     return (
       <div className="ctl">
         <label htmlFor={id} className="ctl-label" title={def.hint}>
-          {def.label}
+          <Name def={def} />
           <output htmlFor={id} className="ctl-value" data-key={def.key}>
             {fmt(v, def.step)}
             {def.unit}
@@ -93,7 +93,7 @@ function Control({ def, value, onChange }: { def: ParamDef; value: ParamValue; o
     return (
       <div className="ctl">
         <span className="ctl-label" title={def.hint}>
-          {def.label}
+          <Name def={def} />
         </span>
         <div className="seg" role="radiogroup" aria-label={def.label}>
           {def.options.map(o => (
@@ -110,7 +110,7 @@ function Control({ def, value, onChange }: { def: ParamDef; value: ParamValue; o
     return (
       <div className="ctl ctl-row">
         <label htmlFor={id} className="ctl-label" title={def.hint}>
-          {def.label}
+          <Name def={def} />
         </label>
         <input id={id} type="checkbox" className="switch" checked={Boolean(value)} onChange={e => onChange(e.target.checked)} />
         {def.hint && <p className="ctl-hint">{def.hint}</p>}
@@ -120,10 +120,19 @@ function Control({ def, value, onChange }: { def: ParamDef; value: ParamValue; o
   return (
     <div className="ctl ctl-row">
       <label htmlFor={id} className="ctl-label">
-        {def.label}
+        <Name def={def} />
       </label>
       <input id={id} type="color" value={String(value)} onChange={e => onChange(e.target.value)} />
     </div>
+  )
+}
+
+/** 한글 표시 이름 옆에 .shader 속성 이름(영문)을 함께 적어 코드와 Inspector 를 잇는다 */
+function Name({ def }: { def: ParamDef }) {
+  return (
+    <span className="ctl-name">
+      {def.label} <code className="ctl-key">{def.key}</code>
+    </span>
   )
 }
 
