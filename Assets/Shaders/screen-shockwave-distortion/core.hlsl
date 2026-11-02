@@ -58,8 +58,9 @@ float shockwavePush(float dist)
 // 열기 아지랑이: 위로 흐르는 노이즈로 화면을 약하게 흔든다. 아래쪽일수록 세다 (땅에서 올라오는 열).
 float2 shockwaveHaze(float2 uv, float aspect, float time)
 {
-    // 초당 칸 4개씩 위로 흐른다. 시간을 노이즈 주기로 감싸 오래 켜 두어도 떨리지 않는다.
-    float rise = shockwaveMod(time * 4.0, SHOCKWAVE_HAZE_PERIOD);
+    // 초당 칸 3개씩 위로 흐른다. 한 점을 지나는 노이즈 칸이 초당 3개라 흔들림이 3Hz 를 넘지 않는다.
+    // 시간을 노이즈 주기로 감싸 오래 켜 두어도 떨리지 않는다.
+    float rise = shockwaveMod(time * 3.0, SHOCKWAVE_HAZE_PERIOD);
     float2 q = float2(uv.x * aspect, uv.y) * 14.0 - float2(0.0, rise);
     float nx = saturate((shockwaveNoise(q) - 0.2) / 0.6) - 0.5;
     float ny = saturate((shockwaveNoise(q + float2(7.3, 3.1)) - 0.2) / 0.6) - 0.5;
