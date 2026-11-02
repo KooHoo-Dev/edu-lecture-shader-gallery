@@ -34,7 +34,7 @@ float4 sgEffect(SgInput i)
 #endif
 
     // 3. 지수로 좁히기: 0~1 값을 거듭제곱하면 1 근처만 남는다. 지수가 클수록 림이 얇아진다.
-    //    max 는 HLSL 의 pow 음수 밑 경고를 막는다. 0 이상인 값이라 결과는 같다.
+    //    max 는 0 의 거듭제곱을 피한다.
     float rim = pow(max(edge, 0.0001), power);
     SG_STEP(3, float3(rim, rim, rim));
 

@@ -4,7 +4,7 @@ Shader "ShaderGallery/FresnelRimGlow"
 {
     Properties
     {
-        _BaseColor ("기본 색", Color) = (0.337, 0.396, 0.498, 1)
+        _BaseColor ("기본 색", Color) = (0.169, 0.2, 0.259, 1)
         _RimColor ("림 색", Color) = (0.22, 0.784, 1, 1)
         _RimIntensity ("림 세기", Range(0, 6)) = 1.5
         _RimPower ("림 지수", Range(0.5, 10)) = 3

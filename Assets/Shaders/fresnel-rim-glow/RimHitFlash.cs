@@ -11,10 +11,11 @@ namespace ShaderGallery.Samples
 
         [SerializeField] float holdSeconds = 0.08f;
         [SerializeField] float fadeSeconds = 0.32f;
-        // 번쩍일 때 림이 몸 전체로 넓어지므로 1 초에 3 번을 넘지 않게 막는다.
+        // 번쩍일 때 림이 몸 전체로 넓어지므로 실제 시간으로 1 초에 3 번을 넘지 않게 막는다.
         [SerializeField] float minInterval = 0.34f;
 
         Material material;
+        // Time.unscaledTime 기준. Time.time 으로 세면 Time.timeScale 을 올렸을 때 실제로는 초당 3 번을 넘는다.
         float lastFlashTime = float.NegativeInfinity;
 
         void Awake()
@@ -27,14 +28,20 @@ namespace ShaderGallery.Samples
         /// <summary>
         /// 피격 판정이 난 순간에 호출한다. 인자가 없어 Inspector 의 UnityEvent
         /// (예: XR Simple Interactable 의 Select Entered, 체력 컴포넌트의 피격 이벤트)에 바로 연결할 수 있다.
+        /// 오브젝트나 컴포넌트가 꺼져 있으면 아무 일도 하지 않는다.
         /// </summary>
         public void Flash()
         {
-            if (Time.time - lastFlashTime < minInterval)
+            // 꺼진 오브젝트에서는 StartCoroutine 이 오류를 낸다.
+            if (!isActiveAndEnabled)
             {
                 return;
             }
-            lastFlashTime = Time.time;
+            if (Time.unscaledTime - lastFlashTime < minInterval)
+            {
+                return;
+            }
+            lastFlashTime = Time.unscaledTime;
             StopAllCoroutines();
             StartCoroutine(Animate());
         }
