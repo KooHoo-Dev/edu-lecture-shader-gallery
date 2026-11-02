@@ -25,6 +25,9 @@ maxRetries: 2
 `xray-occluded-silhouette` 표본은 이미 있고 Unity 컴파일과 촬영을 통과했다. 독립 리뷰에서 나온 아래 항목만 고친다. 규격은 `docs/specimen-guide.md` 를 따른다. 래퍼의 패스 구성(태그, 큐, Blend, ZTest/ZWrite, SRP Batcher, XR 매크로, 그림자·깊이·노멀 패스), C# 의 복사본·제한기·트랙, 색과 inspiredBy 는 리뷰에서 문제가 없었으니 바꾸지 않는다.
 
 리뷰 뒤 앱과 가이드에서 이미 바뀐 것 (다시 고치지 않는다):
+- 가이드에 리뷰에서 나온 규칙이 들어갔다. 읽고 따른다: 3-4절 텍스처 반복을 range 로 노출, 4절 XR 의 화면 중심(uv 0.5 는 눈 정면이 아님)과 래퍼의 distanceAttenuation 주석, 5절 `steps` 의 마지막 단계와 `unity.graph` 의 Custom Function 형식과 `thumbnail` 의 쓰임, 6절 머티리얼 기본값과 공유 머티리얼 제한기의 `static`, 7절 포화된 빨강의 정의와 느린 맥동.
+- 링크 쿼리 `t=<초>` 로 웹 무대 시간을 멈춘 채 찍을 수 있다 (가이드 8절). `live.mjs` 는 한 번에 `--query` 하나만 받는다.
+- 가이드 4절의 Depth Priming 설명을 바로잡았다 (프라이밍은 두 번째 패스를 ZTest Equal 로 덮어써 사라지게 한다. 자기 겹침은 Deferred 순서와 여러 렌더러·서브메시에서 생긴다). `depthDelta` 정의는 눈 깊이 차로 고쳤다. '그대로 넣기' 프롬프트는 이제 linear·point 텍스처에 Compression None 단계를, Depth 설정에 Depth Texture Mode 안내를 자동으로 넣는다.
 - 웹 그림자 검사가 이제 벽을 숨기고 잰다. 첫 시도에서 캡슐이 실패한 원인은 앱이었다.
 
 ## 필수
