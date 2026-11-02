@@ -11,7 +11,7 @@ export const meta: SpecimenMeta = {
     '월드 높이(`positionWS.y`)로 메시 이음매와 회전에 상관없이 이어지는 스캔라인을 그릴 수 있다.',
     '`floor` 로 시간을 끊어 정점 띠를 툭툭 튀게 미는 글리치를 만들 수 있다.',
     '프레넬, 스캔라인, 깜빡임을 더하기 혼합으로 합쳐 투명한 빛의 물체를 만들 수 있다.',
-    '정점 글리치의 띠 폭이 메시의 정점 간격보다 넓어야 하는 이유를 설명할 수 있다.',
+    '정점을 미는 글리치에서 띠 경계가 찢어지는 이유와 띠 폭을 정점 간격의 두 배 이상으로 두는 이유를 설명할 수 있다.',
   ],
   tags: ['프레넬', '정점 변형', '시간 양자화', '더하기 혼합', '월드 좌표'],
   difficulty: 2,
@@ -24,14 +24,14 @@ export const meta: SpecimenMeta = {
     { key: '_LineSpacing', label: '스캔라인 간격', type: 'range', min: 0.02, max: 0.3, step: 0.005, default: 0.08, unit: ' m', hint: '월드 높이 기준 줄 사이 거리. 물체 크기와 상관없이 같은 간격이다' },
     { key: '_ScanSpeed', label: '스캔라인 속도', type: 'range', min: -1, max: 1, step: 0.01, default: 0.3, unit: ' m/s', hint: '양수면 위로, 음수면 아래로 흐른다' },
     { key: '_GlitchStrength', label: '글리치 세기', type: 'range', min: 0, max: 1, step: 0.01, default: 0.5, hint: '클수록 글리치가 자주 오고 띠가 멀리 밀린다. 0 이면 멈춘다' },
-    { key: '_Flicker', label: '깜빡임 세기', type: 'range', min: 0, max: 1, step: 0.01, default: 0.35, hint: '0.5 초마다 난수로 어두워지는 깊이. 바뀌는 횟수는 초당 2 번으로 고정이다' },
-    { key: '_Dropout', label: '전송 끊김', type: 'range', min: 0, max: 1, step: 0.01, default: 0, hint: 'C# 에서 끊기는 순간 1 로 올렸다 내린다. 글리치가 몰리고 잠깐 어두워진다' },
+    { key: '_Flicker', label: '깜빡임 세기', type: 'range', min: 0, max: 1, step: 0.01, default: 0.35, hint: '0.5 초 칸마다 반반 확률로 어두워지는 깊이. 시간은 게임 배속을 따르므로 배속이 있는 게임에서는 0 으로 둔다' },
+    { key: '_Dropout', label: '전송 끊김', type: 'range', min: 0, max: 1, step: 0.01, default: 0, hint: 'C# 에서 끊기는 순간 1 로 올렸다 내린다. 글리치가 몰리고, 밀린 띠가 하얗게 바래며, 잠깐 어두워진다' },
   ],
   presets: [
     { id: 'projector', name: '투영 홀로그램', look: '하늘색 테두리와 위로 흐르는 줄, 가끔 튀는 띠', values: {} },
     { id: 'unstable-signal', name: '불안정한 신호', look: '띠가 자주 크게 튀고 밝기가 흔들린다', values: { _HoloColor: '#6dffb4', _GlitchStrength: 0.95, _Flicker: 0.8, _ScanSpeed: 0.7, _LineSpacing: 0.12 } },
     { id: 'calm-display', name: '안정된 안내 표시', look: '촘촘하고 느린 호박색 줄, 글리치 없음', values: { _HoloColor: '#ffb347', _GlitchStrength: 0, _Flicker: 0.05, _LineSpacing: 0.035, _ScanSpeed: 0.08, _RimPower: 3 } },
-    { id: 'warning', name: '경고 투영', look: '굵은 빨간 줄이 아래로 내려가고 몸 전체가 붉게 번진다', values: { _HoloColor: '#ff4d5e', _RimPower: 1, _LineSpacing: 0.18, _ScanSpeed: -0.5 } },
+    { id: 'warning', name: '경고 투영', look: '굵은 빨간 줄이 천천히 내려가고 몸 전체가 붉게 번진다. 넓은 빨강이라 줄이 한 점을 지나는 횟수를 초당 2 번 아래로 낮추고 깜빡임을 약하게 했다', values: { _HoloColor: '#ff4d5e', _RimPower: 1, _LineSpacing: 0.18, _ScanSpeed: -0.3, _Flicker: 0.1 } },
   ],
   events: [
     {
@@ -44,16 +44,16 @@ export const meta: SpecimenMeta = {
   steps: [
     { n: 1, label: '프레넬', body: '법선과 시선이 비스듬할수록 밝다. 가운데는 검고 윤곽으로 갈수록 밝아져 테두리가 흰 고리가 된다. 홀로그램이 속이 빈 빛의 껍데기처럼 보이는 바탕이다.' },
     { n: 2, label: '스캔라인', body: '월드 높이 `positionWS.y` 를 간격으로 나눠 `frac` 한 흰 줄과 검은 틈이다. 시간을 빼서 위로 흐른다. 구가 돌아도 줄은 늘 수평이고, 글리치로 밀려난 조각에서도 줄이 월드 높이를 따라 다시 그어진다.' },
-    { n: 3, label: '글리치 띠 마스크', body: '구를 가로 띠 대여섯 개로 나눈 모습이다. 어두운 회색과 조금 밝은 회색이 번갈아 띠 폭을 보여 주고, 지금 옆으로 밀려난 띠만 흰색이다. 시간을 `floor` 로 0.1 초 칸에 끊어 고르므로 흰 띠는 멈춰 있다가 한 번에 바뀐다. 흰 띠가 안 보이면 잠시 기다리거나 전송 끊김 버튼을 누른다.' },
-    { n: 4, label: '합치기', body: '테두리, 옅은 몸통, 스캔라인을 더한 밝기에 깜빡임을 곱했다. 바닥이 비치지 않게 화면에 더해질 빛만 꺼내 본 모습이고, 최종 화면에서는 이 빛이 더하기 혼합으로 바닥 위에 얹힌다. 밀린 띠는 흰빛으로 바래고, 0.5 초마다 몸 전체가 조금 어두워졌다 돌아온다.' },
+    { n: 3, label: '글리치 띠 마스크', body: '구를 가로 띠 네다섯 개로 나눈 모습이다. 어두운 회색과 조금 밝은 회색이 번갈아 띠 폭을 보여 주고, 지금 옆으로 밀려난 띠만 흰색이다. 시간을 `floor` 로 0.1 초 칸에 끊어 고르므로 흰 띠는 멈춰 있다가 한 번에 바뀐다. 흰 띠가 안 보이면 잠시 기다리거나 전송 끊김 버튼을 누른다.' },
+    { n: 4, label: '합치기', body: '테두리, 옅은 몸통, 스캔라인을 더한 밝기에 깜빡임을 곱했다. 바닥이 비치지 않게 화면에 더해질 빛만 꺼내 본 모습이고, 최종 화면에서는 이 빛이 더하기 혼합으로 바닥 위에 얹힌다. 0.5 초 칸마다 반반 확률로 몸 전체가 조금 어두워진다. 밀린 띠가 흰빛으로 바래는 것은 전송 끊김 중일 때뿐이다.' },
   ],
   offNote: '시간을 `floor` 로 끊지 않고 `sin` 에 그대로 넣은 흔한 실수. 띠가 툭툭 튀는 신호 오류가 아니라 구 전체가 젤리처럼 꿈틀대는 물결이 되어 전송이 끊기는 느낌이 사라진다.',
   mistakes: [
     { title: '스캔라인이 메시 이음매에서 끊기거나 물체를 따라 돈다', body: 'UV 로 줄을 그리면 UV 가 잘린 이음매에서 줄이 어긋나고, 물체가 기울면 줄도 같이 기운다. 캐릭터처럼 UV 가 조각난 메시에서는 줄 간격도 부위마다 달라진다. 정점에서 `TransformObjectToWorld` 로 구한 월드 위치의 y 를 쓴다.' },
     { title: '글리치가 디지털 끊김이 아니라 물결처럼 출렁인다', body: '`sin(time)` 처럼 매끄러운 시간을 그대로 쓰면 띠가 부드럽게 미끄러진다. `floor(time * 10.0)` 으로 시간을 칸으로 끊고 그 칸 번호로 난수를 뽑아야 멈춰 있다가 한 번에 튄다.' },
-    { title: 'Unity 에서 띠가 계단으로 튀지 않고 비스듬히 찢어진다', body: '정점을 미는 효과는 정점이 있는 곳만 움직인다. 띠 폭이 메시의 정점 간격보다 좁으면 띠 경계의 삼각형만 늘어나 계단이 사라진다. Unity 기본 구는 위도 간격이 약 0.1 이라 띠 폭을 0.2(`HOLOGRAM_GLITCH_BANDS` 5)로 두었다. 로우폴리 모델은 띠 수를 줄이거나 모델을 더 잘게 나눈다.' },
+    { title: '밀린 띠가 계단이 아니라 혹처럼 꿈틀대 보인다', body: '정점을 미는 효과는 정점만 움직이고 그 사이 삼각형은 늘어난다. 위아래 정점이 서로 다른 띠에 걸친 경계 한 칸은 정점 간격이 얼마든 늘 비스듬히 찢어진다. 그래서 띠 안에 곧게 밀리는 칸이 남도록 띠 폭을 정점 간격의 두 배 이상으로 둔다. Unity 기본 구는 정점 간격이 약 0.1 이라 띠 폭을 0.25(`HOLOGRAM_GLITCH_BANDS` 4)로 두었다. 0.2 로 좁히면 곧은 칸이 거의 없어 띠가 혹처럼 보인다. 로우폴리 모델은 띠 수를 더 줄이거나 모델을 잘게 나눈다.' },
     { title: '뒤에 있는 홀로그램이 사라지거나 겹친 곳이 깨진다', body: '투명 물체가 `ZWrite On` 이면 앞 물체가 깊이를 차지해 뒤 물체가 그려지지 않는다. 이 셰이더는 `ZWrite Off` 와 더하기 혼합이라 순서와 상관없이 빛이 더해진다. 알파 혼합으로 바꾸면 겹친 투명 물체의 정렬 문제가 다시 생긴다.' },
-    { title: '깜빡임이 눈을 찌른다', body: '물체 전체가 빠르게 반복해 밝아졌다 어두워지면 광과민 발작 위험이 있다. 깜빡임은 `HOLOGRAM_FLICKER_RATE` 2(밝기가 초당 2 번까지만 바뀜) 이하로 두고, 끊김 연출은 `HologramGlitchBurst` 의 `minInterval` 로 실제 시간 기준 초당 3 회를 넘지 않게 막는다.' },
+    { title: '깜빡임이 눈을 찌르거나 배속에서 빨라진다', body: '물체 전체가 빠르게 반복해 밝아졌다 어두워지면 광과민 발작 위험이 있다. 셰이더 깜빡임은 `HOLOGRAM_FLICKER_RATE` 2 라 보통 속도에서는 밝기가 초당 2 번까지만 바뀌지만, Play 중 `_Time` 은 `Time.timeScale` 을 따라 배속 3 이면 깜빡임이 3Hz, 글리치가 초당 30 번이 된다. 배속이 있는 게임에서는 `_Flicker` 를 0 으로 둔다. `HologramGlitchBurst` 는 실제 시간으로 세어 초당 3 회를 넘지 않게 막지만 셰이더 깜빡임과 합쳐 세야 하므로 `Burst()` 를 자주 부르면 `_Flicker` 도 낮춘다. 시간만으로 고르므로 같은 머티리얼을 쓰는 홀로그램은 모두 같은 순간에 어두워지고 같은 띠가 튀어, 번쩍이는 면적이 그만큼 커진다. 물체마다 어긋나게 하려면 래퍼에 `_TimeOffset` 속성(CBUFFER 안)을 더해 `_Time.y + _TimeOffset` 을 `sgVertex` 와 `i.time` 에 넘기고, C# `Awake` 에서 `renderer.material` 복사본에 `Random.Range(0f, 10f)` 를 넣는다.' },
   ],
   unity: {
     setup: [
@@ -66,12 +66,13 @@ export const meta: SpecimenMeta = {
     verify: 'Play 하면 윤곽이 하늘색으로 빛나고 수평 줄이 위로 흐르며, 가끔 가로 띠가 옆으로 툭 밀렸다 돌아온다. 물체를 돌려도 줄은 수평을 유지하고, 글리치 세기를 0 으로 내리면 띠가 멈춘다.',
     pitfalls: [
       '이 셰이더에는 `UniversalForward` 패스만 있어 2D Renderer 에서는 그려지지 않는다. 3D 프로젝트용 효과다.',
-      '글리치 띠는 `positionOS` 의 높이로 나눈다. Batching Static 으로 정적 배칭된 물체는 정점이 월드 좌표로 합쳐져 `positionOS` 가 월드 위치가 되므로 띠 폭과 미는 방향이 월드 기준으로 바뀐다. 홀로그램 물체는 Static 에서 Batching Static 을 끈다.',
-      '정점을 옆으로 밀어도 메시의 바운드는 그대로다. 미는 거리가 작아 보통 문제없지만 물체가 화면 가장자리에 걸리면 밀린 띠가 잘려 보일 수 있다.',
+      '글리치 띠는 오브젝트 공간 높이 `positionOS.y` 로 나누고 미는 거리도 오브젝트 공간 값이다 (스캔라인만 월드 기준이라 늘 수평). 캐릭터처럼 Blender 에서 FBX 로 가져온 모델은 Transform 이 회전 X -90, 크기 100 으로 들어오는 일이 많은데, 그러면 띠가 세로로 서거나 정점이 한 띠에 뭉치고 미는 거리가 100 배로 커진다. Blender 의 FBX 내보내기에서 Apply Scalings 를 FBX All 로 두고 Apply Transform 을 켜거나, Unity 모델 Import Settings 의 Bake Axis Conversion 으로 회전을 정점에 굽혀, 물체의 Transform 이 회전 0, 크기 1 이 되게 맞춘다. XR 에서 손에 든 물체가 기울면 띠도 물체를 따라 기울고 스캔라인은 수평으로 남는다. Batching Static 으로 정적 배칭된 물체는 정점이 월드 좌표로 합쳐져 `positionOS` 가 월드 위치가 되므로 홀로그램 물체는 Static 에서 Batching Static 을 끈다.',
+      '정점을 옆으로 밀어도 메시의 바운드는 그대로다. 물체가 화면 가장자리에 있어 바운드가 화면 밖으로 나가면 컬링되어, 화면 안으로 밀려 나온 띠까지 통째로 사라진다. 미는 거리(최대 0.18)가 작아 가장자리에서만 생기지만, 문제가 되면 C# 에서 `Renderer.localBounds` 를 미는 거리만큼 넓힌다.',
       '투명 물체라 그림자를 만들지 않고 깊이 텍스처에도 들어가지 않는다. 깊이를 읽는 다른 효과(역장 교차선 등)는 홀로그램을 보지 못한다.',
       'XR 에서는 투명 면이 겹칠수록 픽셀을 여러 번 칠한다(과드로우). 큰 홀로그램 여러 개를 겹치면 모바일 XR 기기에서 프레임이 떨어질 수 있다.',
+      'Play 중 셰이더의 `_Time` 은 `Time.timeScale` 을 따른다. 배속 3 이면 셰이더 깜빡임이 3Hz, 글리치가 초당 30 번으로 빨라지고, 0 이면 멈춘다. 배속이 있는 게임에서는 머티리얼의 `_Flicker`(깜빡임 세기)를 0 으로 둔다. `HologramGlitchBurst` 의 제한은 실제 시간으로 세므로 배속과 상관없다.',
     ],
-    graph: 'Shader Graph 에서는 Fresnel Effect 노드로 테두리를, Position(World) 노드의 Y 를 간격으로 나눠 Fraction 노드로 스캔라인을 만든다. 정점 글리치는 Custom Function 노드에서 `sgVertex` 를 불러 Vertex Position 에 연결하고, Time 노드에 곱한 값을 Floor 로 끊어 넘긴다.',
+    graph: 'Shader Graph 에서는 Fresnel Effect 노드로 테두리를, Position(World) 노드의 Y 를 간격으로 나눠 Fraction 노드로 스캔라인을 만든다. 정점 글리치는 Custom Function 노드에서 `sgVertex` 를 불러 Vertex Position 에 연결하고, Time 노드의 Time 을 그대로 넘긴다. `sgVertex` 가 안에서 `floor(time * 10.0)` 으로 끊으므로 미리 Floor 로 끊어 넘기면 띠가 1 초에 한 번만 바뀐다.',
   },
   prompt: {
     goal: '3D 물체를 하늘색 홀로그램으로 보이게 하는 투명 셰이더를 넣는다. 윤곽이 빛나고 수평 스캔라인이 흐르며, 가로 띠가 가끔 툭 밀리는 글리치와 깜빡임이 있고, 전송이 끊기는 순간에는 C# 로 글리치를 잠깐 몰아 준다.',
@@ -85,7 +86,7 @@ export const meta: SpecimenMeta = {
   },
   captures: [
     { name: 'dropout', label: '전송 끊김', values: { _Dropout: 0.8 } },
-    { name: 'warning', label: '경고 투영', values: { _HoloColor: '#ff4d5e', _RimPower: 1, _LineSpacing: 0.18, _ScanSpeed: -0.5 } },
+    { name: 'warning', label: '경고 투영', values: { _HoloColor: '#ff4d5e', _RimPower: 1, _LineSpacing: 0.18, _ScanSpeed: -0.3, _Flicker: 0.1 } },
   ],
   inspiredBy: [],
   original: '특정 게임의 재현이 아니라 널리 쓰이는 범용 기법이다. 수업 3D 07 External Assets 에 들어 있는 `Holographic` 셰이더 그래프처럼 원리 없이 쓰던 효과를 프레넬, 월드 스캔라인, 양자화한 정점 글리치, 깜빡임으로 나눠 다시 만들었다. 코드는 이 갤러리에서 새로 작성했다.',

@@ -6,10 +6,11 @@
 #define SG_STEP(n, rgb)
 #endif
 
-// 글리치 띠 개수. 오브젝트 공간 높이 1 에 5 개라 띠 하나의 폭이 0.2 다.
-// Unity 기본 구는 위도 고리 간격이 적도에서 약 0.1 이다. 띠가 그보다 넓어야 한 띠 안에 고리가 두 줄 이상 들어가 계단이 보인다.
-// 더 잘게 나누면 정점이 촘촘한 웹 구에서는 보이는데 Unity 에서는 경계의 삼각형만 비스듬히 늘어나 계단이 사라진다.
-#define HOLOGRAM_GLITCH_BANDS 5.0
+// 글리치 띠 개수. 오브젝트 공간 높이 1 에 4 개라 띠 하나의 폭이 0.25 다.
+// 정점만 움직이므로 위아래 정점이 서로 다른 띠에 걸친 한 칸은 정점 간격과 상관없이 늘 비스듬히 찢어진다.
+// Unity 기본 구는 정점 간격이 약 0.1 이라 폭 0.25 면 찢어진 한 칸 말고도 곧게 밀린 칸이 한두 개 남아 계단으로 읽힌다.
+// 5 개(폭 0.2)는 곧은 칸이 거의 없어 띠가 혹처럼 꿈틀대 보였고, 3 개는 물체 3분의 1 이 통째로 미끄러졌다 (웹 24x16 구로 비교).
+#define HOLOGRAM_GLITCH_BANDS 4.0
 // 띠를 다시 고르는 횟수 (초당). 시간을 이 간격으로 끊어야 띠가 멈춰 있다가 한 번에 툭 튄다.
 #define HOLOGRAM_GLITCH_RATE 10.0
 // 글리치가 몰려 오는 구간을 정하는 횟수 (초당). 0.5 초마다 이번 구간에 글리치를 낼지 정한다.
@@ -17,6 +18,7 @@
 // 띠를 미는 최대 거리 (오브젝트 공간). 구 반지름 0.5 의 약 3분의 1 이다. 더 크면 띠가 몸에서 떨어져 나간 조각처럼 보인다.
 #define HOLOGRAM_GLITCH_MAX 0.18
 // 깜빡임 밝기를 바꾸는 횟수 (초당). 2 면 밝기가 0.5 초마다 한 번만 바뀌어 어두워졌다 돌아오는 주기가 1 초 이상이다 (2Hz 이하 규칙).
+// Play 중 _Time 은 Time.timeScale 을 따르므로 배속 3 이면 이 값도 세 배가 된다. 배속이 있는 게임에서는 _Flicker 를 0 으로 둔다.
 #define HOLOGRAM_FLICKER_RATE 2.0
 
 // 0~1 격자 난수 (2D)
@@ -103,9 +105,10 @@ float4 sgEffect(SgInput i)
     float flicker = (1.0 - _Flicker * 0.7 * dip) * (1.0 - 0.5 * _Dropout);
 
     // 최종: 테두리, 옅은 몸통, 스캔라인을 더해 밝기로 쓴다. 더하기 혼합이라 알파가 곧 밝기다.
-    // 밀린 띠는 흰색 쪽으로 살짝 바래 신호가 어긋난 느낌을 준다.
+    // 전송 끊김 중에만 밀린 띠가 흰색 쪽으로 바랜다. 평소 글리치에도 바래면 띠가 초당 10 번 밝아졌다 돌아와
+    // 같은 머티리얼의 홀로그램이 모두 한꺼번에 번쩍인다. _Dropout 은 C# 제한기를 거치므로 횟수가 묶인다.
     float energy = (rim * 1.2 + 0.07 + lines * 0.35) * flicker;
-    float3 color = lerp(_HoloColor.rgb, float3(1.0, 1.0, 1.0), glitched * 0.35) * (1.0 + energy);
+    float3 color = lerp(_HoloColor.rgb, float3(1.0, 1.0, 1.0), glitched * 0.35 * _Dropout) * (1.0 + energy);
     float alpha = saturate(energy);
     SG_STEP(4, color * alpha);
     return float4(color, alpha);
