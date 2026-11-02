@@ -20,6 +20,7 @@
 # Web
 node_modules/
 web/dist/
+skill/*.zip
 
 # 작업 산출물
 _shots/

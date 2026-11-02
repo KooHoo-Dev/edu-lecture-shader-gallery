@@ -1,0 +1,90 @@
+import type { SpecimenMeta } from '../../core/types'
+
+export const meta: SpecimenMeta = {
+  id: 'force-field-intersection',
+  title: '역장 교차',
+  titleEn: 'Force Field Intersection',
+  group: 'D',
+  order: 1,
+  oneLiner: '투명한 보호막이 다른 물체와 닿는 선을 깊이 비교로 밝힌다',
+  goals: [
+    '씬 깊이와 픽셀 깊이의 차이로 다른 물체와의 거리를 구할 수 있다.',
+    '투명 머티리얼이 씬 깊이를 읽으려면 무엇을 켜야 하는지 설명할 수 있다.',
+    '프레넬, 무늬, 교차선을 더해 에너지 막을 구성할 수 있다.',
+    '넓은 면이 번쩍이는 연출에 제한을 두는 이유를 설명할 수 있다.',
+  ],
+  tags: ['깊이 텍스처', '프레넬', '더하기 혼합', '절차 무늬'],
+  difficulty: 3,
+  shaderFile: 'ForceFieldIntersection.shader',
+  stage: { kind: 'depth', mesh: 'sphere', blend: 'additive' },
+  requires: ['depth'],
+  flashes: true,
+  params: [
+    { key: '_FieldColor', label: '역장 색', type: 'color', default: '#40a6ff' },
+    { key: '_FresnelPower', label: '테두리 좁히기', type: 'range', min: 0.5, max: 8, step: 0.1, default: 3, hint: '클수록 윤곽에만 빛이 남는다' },
+    { key: '_PatternScale', label: '무늬 크기', type: 'range', min: 2, max: 30, step: 0.5, default: 12, hint: '클수록 결이 잘아진다' },
+    { key: '_PatternStrength', label: '무늬 밝기', type: 'range', min: 0, max: 1, step: 0.01, default: 0.3 },
+    { key: '_ContactWidth', label: '교차선 폭', type: 'range', min: 0.02, max: 1, step: 0.01, default: 0.2, unit: ' m', hint: '닿은 곳에서 이 거리만큼 번진다' },
+    { key: '_ContactGlow', label: '교차선 밝기', type: 'range', min: 0, max: 4, step: 0.05, default: 3 },
+    { key: '_HitPulse', label: '맥동', type: 'range', min: 0, max: 1, step: 0.01, default: 0, hint: 'C# 에서 충돌 순간 1 로 올렸다 내린다' },
+  ],
+  presets: [
+    { id: 'shield', name: '보호막', look: '파란 막과 또렷한 교차선', values: {} },
+    { id: 'hazard', name: '위험 구역', look: '붉은 막, 넓게 번지는 교차선', values: { _FieldColor: '#ff5a3c', _ContactWidth: 0.55, _FresnelPower: 2, _PatternScale: 7, _PatternStrength: 0.45 } },
+    { id: 'stealth', name: '희미한 장막', look: '윤곽과 닿은 선만 보인다', values: { _FieldColor: '#9fe8ff', _FresnelPower: 6, _PatternStrength: 0, _ContactWidth: 0.12, _ContactGlow: 3 } },
+  ],
+  events: [
+    {
+      id: 'hit',
+      label: '충돌',
+      tracks: [{ key: '_HitPulse', frames: [[0, 1], [0.7, 0]], ease: 'outQuad' }],
+    },
+  ],
+  demo: { fire: [{ event: 'hit', every: 3 }] },
+  steps: [
+    { n: 1, label: '프레넬', body: '표면이 시선과 비스듬할수록 밝다. 구의 윤곽이 드러나고 가운데는 비어 보인다.' },
+    { n: 2, label: '무늬', body: '자이로이드 곡면의 값이 0 에 가까운 곳을 선으로 쓴다. 텍스처 없이 삼각함수만 쓰고 이음매가 없다.' },
+    { n: 3, label: '교차선', body: '씬 표면까지의 거리(`depthDelta`)가 작을수록 밝다. 바닥과 상자에 닿은 자리에 띠가 생긴다. 이 표본의 핵심이다.' },
+    { n: 4, label: '맥동', body: '충돌 지점에서 고리가 퍼진다. 충돌 버튼을 누르고 슬로모션으로 보면 잘 보인다.' },
+  ],
+  offNote: '깊이를 읽지 않은 모습. 바닥과 상자를 뚫고 들어간 자리가 칼로 자른 듯 끊겨서 막이 물체와 닿아 있다는 느낌이 없다.',
+  mistakes: [
+    { title: '화면 전체가 빛나거나 교차선이 없다', body: 'URP Asset 의 Depth Texture 가 꺼져 있으면 씬 깊이를 읽지 못한다. 모바일용 URP Asset 은 기본으로 꺼져 있어 PC 에서만 되는 경우가 많다.' },
+    { title: '멀어질수록 교차선 폭이 달라 보인다', body: '`LinearEyeDepth` 없이 깊이 버퍼 값을 그대로 빼면 깊이가 비선형이라 거리마다 폭이 달라진다. 두 값을 모두 카메라 거리로 바꿔 뺀다.' },
+    { title: '물체 뒤가 보이지 않는다', body: '`ZWrite On` 이면 막이 깊이를 차지해 뒤쪽 투명 물체가 사라진다. 투명 막은 `ZWrite Off` 로 둔다.' },
+    { title: '번쩍임이 눈을 찌른다', body: '넓은 면이 빠르게 반복해 번쩍이면 광과민 발작 위험이 있다. 맥동은 초당 3회 이하로 제한한다. `ForceFieldPulse` 의 `minInterval` 이 그 역할이다.' },
+  ],
+  unity: {
+    setup: [
+      '`ForceFieldIntersection.shader`, `core.hlsl`, `ForceFieldPulse.cs` 를 `Assets/Shaders/force-field-intersection/` 에 둔다.',
+      '사용 중인 URP Asset(Project Settings > Quality 에 연결된 것)의 Depth Texture 를 켠다.',
+      '셰이더를 우클릭해 Create > Material 로 머티리얼을 만들고 구 메시에 넣는다.',
+      '바닥이나 다른 물체와 겹치게 배치한다. 충돌 연출이 필요하면 `ForceFieldPulse` 를 붙이고 `Pulse()` 를 호출한다.',
+    ],
+    verify: '구를 바닥에 반쯤 묻으면 닿은 둘레에 밝은 띠가 생기고, 구를 움직이면 띠가 따라간다. Scene 뷰가 아니라 Game 뷰에서 확인한다.',
+    pitfalls: [
+      'URP Asset 이 품질 단계마다 따로 있으면 모두 켜야 한다. 수업 프로젝트의 모바일용과 2D용 URP Asset 은 꺼져 있다.',
+      '투명 물체는 깊이 텍스처에 들어가지 않는다. 다른 투명 물체와 닿는 선은 생기지 않는다.',
+      '이 셰이더에는 `UniversalForward` 패스만 있어 2D Renderer 에서는 그려지지 않는다. 3D 프로젝트용 효과다.',
+      '정사영 카메라에서는 `LinearEyeDepth` 공식이 맞지 않는다. 원근 카메라 기준이다.',
+    ],
+    graph: 'Shader Graph 에서는 Scene Depth 노드(Eye 모드)에서 Screen Position 의 w 를 빼면 같은 `depthDelta` 가 나온다. 무늬만 Custom Function 으로 `forceFieldLines` 를 불러 쓴다.',
+  },
+  prompt: {
+    goal: '투명한 보호막이 바닥이나 다른 물체와 닿는 선을 밝히는 역장 셰이더를 넣는다. 씬 깊이를 읽으므로 URP Asset 설정이 함께 필요하다.',
+    adaptIdeas: [
+      '충돌 지점을 스크립트에서 넘겨 그 자리에서 고리가 퍼지게 하고 싶다.',
+      '체력이 줄면 색이 붉어지고 무늬가 흐트러지게 하고 싶다.',
+      '무늬를 육각형으로 바꾸고 싶다.',
+      '바닥에 깔리는 안개 벽으로 바꾸고 싶다.',
+    ],
+  },
+  captures: [{ name: 'hit', label: '충돌 맥동', values: { _HitPulse: 0.55 } }],
+  inspiredBy: [],
+  original: '특정 게임의 재현이 아니라 널리 쓰이는 범용 기법이다. 무늬 함수와 코드는 이 갤러리에서 새로 작성했다.',
+  references: [
+    { label: 'Unity 토론: 깊이 교차 셰이더가 동작하는 이유', url: 'https://discussions.unity.com/t/why-do-depth-intersection-shaders-work/827541' },
+    { label: 'Shader Graph 데모 저장소 (URP 설정 안내 포함)', url: 'https://github.com/alansley/UnityShaderGraphDemos' },
+  ],
+  related: [{ id: 'dissolve-edge-glow', why: '자체 발광 띠를 임계값으로 만드는 짝' }],
+}
