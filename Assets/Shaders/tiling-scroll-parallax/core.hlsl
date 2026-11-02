@@ -14,11 +14,14 @@ float4 sgEffect(SgInput i)
 
     // 2. 오프셋: C# 이 넘긴 카메라 위치와 자동 흐름을 더해 '가상 카메라 위치'를 만들고 층 계수를 곱한다.
     // 계수가 작을수록 덜 움직여 멀어 보인다. 단위는 텍스처 한 장의 폭이다.
-    float offset = (_ScrollOffset + i.time * _ScrollSpeed) * _LayerFactor;
+    // 시간과 카메라 위치로 오프셋은 끝없이 커진다. 값이 크면 float 정밀도가 떨어져 오래 켜 두면 그림이 떨린다.
+    // 그래서 오프셋 한 값만 frac 으로 0~1 에 감싼다. 한 장 단위로 밀어도 같은 그림이고,
+    // 화면 전체에 같은 값이라 픽셀마다 다른 UV 를 감쌀 때와 달리 이음매가 생기지 않는다.
+    float offset = frac((_ScrollOffset + i.time * _ScrollSpeed) * _LayerFactor);
     // 더하기라서 오프셋이 커지면 그림은 왼쪽으로 흐른다. 카메라가 오른쪽으로 가는 것과 같다.
     float scrolledX = uv.x + offset;
-    // frac 은 보여 주기만 한다. 실제 샘플링은 frac 없이 Wrap Mode Repeat 에 맡긴다.
-    // 셰이더에서 frac 을 하면 이음매에서 UV 미분이 튀어 밉맵이 있을 때 세로 줄이 생긴다.
+    // 이 frac 은 보여 주기만 한다. 실제 샘플링은 UV 에 frac 을 하지 않고 Wrap Mode Repeat 에 맡긴다.
+    // 픽셀마다 다른 UV 에 frac 을 하면 이음매에서 UV 미분이 튀어 밉맵이 있을 때 세로 줄이 생긴다.
     SG_STEP(2, float3(frac(scrolledX), i.uv.y, 0.0));
 
     // 세로는 반복하지 않는다. 위 끝(투명)과 아래 끝(땅)이 필터링으로 섞이지 않게 반 텍셀 안쪽에 묶는다.
@@ -28,6 +31,7 @@ float4 sgEffect(SgInput i)
 #ifdef SG_OFF
     // 흔한 실수: 텍스처 Wrap Mode 가 Clamp 이면 0~1 밖에서 끝 열만 계속 읽는다.
     // 처음엔 멀쩡하다가 스크롤할수록 끝 픽셀이 가로 줄무늬로 길게 늘어난다.
+    // 오프셋을 감쌌으므로 한 장을 다 지나면 처음 그림으로 튀어 돌아왔다가 다시 늘어난다.
     float halfTexelX = 0.5 * i.texelSize.x;
     float4 clamped = SG_TEX(_MainTex, float2(clamp(scrolledX, halfTexelX, 1.0 - halfTexelX), v)) * i.color;
     float3 clampedRgb = lerp(clamped.rgb, _HazeColor.rgb, _Haze);
