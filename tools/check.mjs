@@ -8,7 +8,7 @@
 //   2. core.hlsl 공통 문법: 금지 문법, Unity·웹 예약어, include 금지
 //   3. .shader: HLSLPROGRAM, CBUFFER, 금지 API, core.hlsl include, 혼합과 패스 태그
 //   4. 메타와 셰이더 일치: 속성 이름, 범위, 기본값, CBUFFER, SG_STEP 번호, 트랙, 정점 변형, 텍스처, URP 요구 사항
-//   5. 글: 개수 규칙, 게임명이 ID·제목에 없는지, inspiredBy 형식
+//   5. 글: 개수 규칙, 게임명이 inspiredBy 밖(메타 글, 코드 이름)에 없는지, inspiredBy 형식
 //   6. import 대소문자 (Windows 에서 통과해도 Linux CI 에서 깨진다)
 //   7. 페이지: WebGL2 컴파일 로그, 무대가 실제로 그리는지, 이벤트와 자동 데모, 잘라 내기 메시의 그림자, 페이지 오류
 //   8. 전체 검사만: dist 용량 예산, 외부 참조, 네트워크 차단 오프라인 실행, Skill 최신 여부
@@ -337,7 +337,50 @@ function checkMeta(id, meta, core, wrapper) {
   if (meta.flashes && !meta.events.length) warn(`${where}: flashes 인데 이벤트가 없다`)
 }
 
+/**
+ * 모든 표본의 inspiredBy 에서 게임명을 모은다. 연도를 떼고, 부제(":" 앞뒤)와 "-SIGN-" 같은 꼬리를 뗀 이름도 넣는다 (5글자 이상만).
+ * 여기 없는 게임명은 잡지 못한다. 대표작을 확인해 inspiredBy 에 넣는 순간부터 다른 글에서 걸린다
+ */
+async function gameNames() {
+  const names = new Set()
+  for (const id of specimenIds(ROOT)) {
+    for (const item of (await loadMeta(ROOT, id)).inspiredBy) {
+      const full = item.title.replace(/\s*\(\d{4}\)$/, '').trim()
+      const plain = full.replace(/\s+-[^-]+-$/, '').trim()
+      for (const name of [full, plain, ...plain.split(':').map(s => s.trim())]) if (name.length >= 5) names.add(name)
+    }
+  }
+  return [...names]
+}
+
+/** 게임명은 inspiredBy 에만 쓴다 (가이드 7절). 다른 메타 글 전체와 코드의 이름(주석 제외)을 본다 */
+function checkGameNames(id, meta, codeFiles, games) {
+  const where = `${id}/meta.ts`
+  const texts = []
+  const walk = (value, path) => {
+    if (typeof value === 'string') texts.push([path, value])
+    else if (Array.isArray(value)) value.forEach((v, k) => walk(v, `${path}[${k}]`))
+    else if (value && typeof value === 'object') for (const [k, v] of Object.entries(value)) walk(v, path ? `${path}.${k}` : k)
+  }
+  walk({ ...meta, inspiredBy: undefined }, '')
+  for (const [path, text] of texts) {
+    const lower = text.toLowerCase()
+    const hit = games.find(name => lower.includes(name.toLowerCase()))
+    if (hit) err(`${where}: ${path} 에 게임명 "${hit}" 이 있다. 게임명은 inspiredBy 에만 쓴다${path.startsWith('references') ? ' (참고 라벨은 저자와 주제로 쓴다. 예: "Vlachos: 물 흐름 (SIGGRAPH 2010)")' : ''}`)
+  }
+  // 코드는 이름만 본다. 공백과 기호를 지워 overwatchOutline, SeaOfThieves 같은 식별자도 잡는다
+  for (const [file, code] of codeFiles) {
+    const squashed = stripComments(code).toLowerCase().replace(/[^a-z0-9]/g, '')
+    const hit = games.find(name => {
+      const key = name.toLowerCase().replace(/[^a-z0-9]/g, '')
+      return key.length >= 6 && squashed.includes(key)
+    })
+    if (hit) err(`${id}/${file}: 코드에 게임명 "${hit}" 이 있다. 변수, 클래스, 셰이더 이름에 게임명을 쓰지 않는다`)
+  }
+}
+
 async function checkSpecimens(ids) {
+  const games = await gameNames()
   const titles = []
   const classOwners = new Map()
   for (const folder of specimenIds(ROOT)) {
@@ -405,6 +448,8 @@ async function checkSpecimens(ids) {
     const core = checkCore(id, readFileSync(corePath, 'utf8'))
     const wrapper = checkWrapper(id, meta.shaderFile, readFileSync(shaderPath, 'utf8'), meta)
     checkMeta(id, meta, core, wrapper)
+    const codeFiles = readdirSync(folder).filter(f => /\.(hlsl|shader|cs)$/.test(f)).map(f => [f, readFileSync(join(folder, f), 'utf8')])
+    checkGameNames(id, meta, codeFiles, games)
     if (!existsSync(join(WEB, 'src', 'shots', id, 'default.webp'))) warn(`${id}: Unity 스크린샷이 없다. node tools/unity.mjs ${id} 뒤 node tools/shots.mjs ${id}`)
   }
   return titles

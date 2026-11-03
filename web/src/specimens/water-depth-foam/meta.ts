@@ -107,7 +107,7 @@ export const meta: SpecimenMeta = {
   ],
   original: '특정 게임의 재현이 아니라 공개 발표의 원리를 따라 새로 만들었다. 수업 XR 01 Lake Shader(파동, 법선맵 두 장, 프레넬, 반사)에 없는 깊이 거품을 더하는 "Step 8" 확장편이고, XR 10 MR Portal 의 Caustics 를 물 밑에 얹거나 3D 05 Terrain Island 의 바닷가에 쓸 수 있다. 노이즈 텍스처와 코드는 이 갤러리에서 새로 만들었다.',
   references: [
-    { label: 'Ang: The Technical Art of Sea of Thieves (SIGGRAPH 2018)', url: 'https://history.siggraph.org/wp-content/uploads/2022/09/2018-Talks-Ang_The-Technical-Art-of-Sea-of-Thieves.pdf' },
+    { label: 'Ang: 바다 항해 게임의 기술 아트 (SIGGRAPH 2018)', url: 'https://history.siggraph.org/wp-content/uploads/2022/09/2018-Talks-Ang_The-Technical-Art-of-Sea-of-Thieves.pdf' },
     { label: 'Shader Graph Production Ready Water 샘플', url: 'https://docs.unity3d.com/Packages/com.unity.shadergraph@17.4/manual/Shader-Graph-Sample-Production-Ready-Water.html' },
     { label: 'Unity 토론: 깊이 교차 셰이더가 동작하는 이유', url: 'https://discussions.unity.com/t/why-do-depth-intersection-shaders-work/827541' },
   ],
