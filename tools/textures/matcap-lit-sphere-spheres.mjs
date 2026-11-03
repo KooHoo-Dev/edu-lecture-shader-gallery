@@ -3,8 +3,10 @@
 //   G 툰: 같은 빛을 3 단으로 끊은 음영
 //   B 크롬: 위는 밝은 하늘, 수평선 근처 급한 띠, 아래는 어두운 땅, 작은 날카로운 반사점
 // 원판 좌표 (x, y) 는 텍스처 가운데가 0, 가장자리가 ±1, y 는 위쪽이 + 다. 그 점의 법선은 n = (x, y, sqrt(1 - x² - y²)),
-// z 가 카메라 쪽이다. 원판 밖 텍셀은 가장자리 값을 늘여 칠한다 (Bilinear 로 읽을 때 검은 테가 끼지 않게).
-// 값은 sRGB 를 끈 데이터 텍스처로 읽히므로 빛의 세기 그대로(선형) 저장한다.
+// z 가 카메라 쪽이다. 셰이더가 읽는 가장 큰 반지름(0.98) 바깥 텍셀은 그 반지름의 값을 늘여 칠한다
+// (Bilinear 와 밉이 윤곽에 검은 테나 밝은 테를 끌어오지 않게).
+// 회색조 값을 채널에 담은 데이터라 sRGB 를 끄고 읽으며, 빛의 세기 그대로(선형) 저장한다.
+// (그림으로 받은 컬러 매트캡 한 장은 sRGB 로 부호화된 색이라 반대로 sRGB 를 켜고 읽는다.)
 import { smoothstep } from '../lib/texture-kit.mjs'
 
 const norm = ([x, y, z]) => {
@@ -40,13 +42,17 @@ function chrome(n) {
   const r = [2 * n[2] * n[0], 2 * n[2] * n[1], 2 * n[2] * n[2] - 1]
   // 수평선을 조금 아래로 내려 하늘이 더 넓게 비치게 한다
   const h = r[1] + 0.12
-  const sky = 0.55 + 0.4 * smoothstep(0, 0.9, h)
-  const ground = 0.025 + 0.1 * smoothstep(-0.1, -1.1, h)
+  // 하늘은 수평선 0.45 에서 꼭대기 0.75 로 짙어지는 그라데이션. 평평하게 밝으면 흰 플라스틱처럼 보인다
+  const sky = 0.45 + 0.3 * smoothstep(0, 1, h)
+  // 땅은 거의 검게. 금속은 밝고 어두운 반사의 대비가 커야 금속으로 읽힌다
+  const ground = 0.012 + 0.05 * smoothstep(-0.1, -1.1, h)
   const horizon = smoothstep(-0.02, 0.02, h)
-  // 수평선 바로 위의 밝은 띠
-  const glow = 0.4 * Math.exp(-(((h - 0.03) / 0.05) ** 2)) * horizon
+  // 수평선 바로 위의 밝은 띠 (하늘보다 조금 밝게, 해보다는 어둡게)
+  const glow = 0.3 * Math.exp(-(((h - 0.03) / 0.05) ** 2)) * horizon
+  const base = ground + (sky - ground) * horizon + glow
+  // 작은 해 반사점은 1.0 까지 올린다. 주변 하늘(약 0.7)과 차이가 커야 날카로운 점으로 보인다
   const sun = smoothstep(0.988, 0.996, dot(norm(r), SUN))
-  return ground + (sky - ground) * horizon + glow + sun
+  return base + (1 - base) * sun
 }
 
 export default {
@@ -57,10 +63,12 @@ export default {
     let x = u * 2 - 1
     let y = 1 - v * 2
     const r = Math.hypot(x, y)
-    // 원판 밖은 같은 방향의 가장자리 값으로 채운다
-    if (r > 0.999) {
-      x *= 0.999 / r
-      y *= 0.999 / r
+    // 셰이더는 반지름 0.98 (MATCAP_DISK_SCALE 0.49 / 0.5) 까지만 읽는다. 그 바깥은 같은 방향 0.98 의 값으로 채운다.
+    // 0.999 처럼 원판 끝까지 그리면 크롬의 수평선 띠가 끝에서 한 텍셀보다 얇은 밝은 고리가 되고,
+    // 그 값이 바깥 전체로 늘어나 Bilinear 와 밉이 윤곽에 밝은 테를 끌어온다.
+    if (r > 0.98) {
+      x *= 0.98 / r
+      y *= 0.98 / r
     }
     const n = [x, y, Math.sqrt(Math.max(0, 1 - x * x - y * y))]
     return [clay(n), toon(n), chrome(n)]
