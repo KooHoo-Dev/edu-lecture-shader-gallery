@@ -1,9 +1,8 @@
-// 은신: 자식의 모든 Renderer 머티리얼 복사본에서 은신 값(_Cloak)을 함께 올리고 내리며, 피격 때 잠깐 드러낸다(_Reveal).
-// 은신이 절반을 넘으면 그림자를 끄고, 내려오면 원래 그림자 설정으로 돌린다. 캐릭터 루트에 붙여 쓴다.
+// 은신: 자식 Renderer 중 이 셰이더(_Cloak)를 쓰는 것만 머티리얼 복사본을 만들어 은신 값을 함께 올리고 내리며,
+// 피격 때 잠깐 드러낸다(_Reveal). 이 머티리얼은 그림자를 만들지 않는다. 캐릭터 루트에 붙여 쓴다.
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Rendering;
 
 namespace ShaderGallery.Samples
 {
@@ -23,78 +22,96 @@ namespace ShaderGallery.Samples
         [SerializeField] float minRevealInterval = 0.34f;
 
         readonly List<Material> materials = new List<Material>();
-        readonly List<Renderer> renderers = new List<Renderer>();
-        readonly List<ShadowCastingMode> originalShadows = new List<ShadowCastingMode>();
 
         float cloak;
-        bool shadowsHidden;
         Coroutine cloakRoutine;
         Coroutine revealRoutine;
         // Time.unscaledTime 기준. Time.time 으로 세면 Time.timeScale 을 올렸을 때 실제로는 초당 3 번을 넘는다.
         float lastRevealTime = float.NegativeInfinity;
 
-        /// <summary>지금 은신 쪽으로 가고 있거나 은신한 상태인지.</summary>
+        /// <summary>마지막으로 요청한 상태(은신이면 true). 전환 중에 바뀐 요청은 지금 전환이 끝난 뒤 반영된다.</summary>
         public bool IsCloaked { get; private set; }
 
         void Awake()
         {
-            // SkinnedMeshRenderer 를 포함해 자식의 모든 Renderer 를 모은다. 꺼진 자식(무기 등)도 나중에 켜질 수 있어 함께 모은다.
+            // SkinnedMeshRenderer 를 포함해 자식의 모든 Renderer 를 살핀다. 꺼진 자식(무기 등)도 나중에 켜질 수 있어 함께 살핀다.
             foreach (Renderer r in GetComponentsInChildren<Renderer>(true))
             {
-                // materials 는 이 Renderer 전용 복사본 배열을 만든다. 공유 머티리얼을 고치면 같은 머티리얼의 다른 캐릭터도 사라진다.
-                Material[] copies = r.materials;
+                // 먼저 공유 머티리얼(sharedMaterials)로 이 셰이더를 쓰는지 본다. 무기의 Lit, 파티클, 트레일처럼
+                // _Cloak 이 없는 Renderer 까지 materials 를 부르면 쓸데없는 복사본이 생기고,
+                // 그 뒤로는 공유 머티리얼(에셋)을 고쳐도 이 캐릭터에는 반영되지 않는다.
                 bool uses = false;
-                foreach (Material m in copies)
+                foreach (Material m in r.sharedMaterials)
                 {
-                    materials.Add(m);
-                    if (m.HasProperty(CloakId))
+                    if (m != null && m.HasProperty(CloakId))
                     {
                         uses = true;
+                        break;
+                    }
+                }
+                if (!uses)
+                {
+                    continue;
+                }
+                // materials 는 이 Renderer 전용 복사본 배열을 만든다. 공유 머티리얼을 고치면 같은 머티리얼의 다른 캐릭터도 사라진다.
+                // 같은 Renderer 의 다른 머티리얼도 함께 복사되므로 모두 목록에 넣어 OnDestroy 에서 지운다.
+                foreach (Material m in r.materials)
+                {
+                    materials.Add(m);
+                    if (m != null && m.HasProperty(CloakId))
+                    {
                         // 머티리얼 기본값은 미리보기용이라 반쯤 은신해 있다. 보이는 모습으로 시작한다.
                         m.SetFloat(CloakId, 0f);
                         m.SetFloat(RevealId, 0f);
                     }
-                }
-                if (uses)
-                {
-                    renderers.Add(r);
-                    originalShadows.Add(r.shadowCastingMode);
                 }
             }
         }
 
         void OnEnable()
         {
-            // 은신한 채 꺼졌다 켜졌으면 그림자도 은신 상태에 맞춘다.
-            ApplyShadows(cloak > 0.5f);
+            // 전환 도중에 꺼졌다 켜졌으면 마지막 요청 쪽으로 이어 간다.
+            if (cloakRoutine == null && !Mathf.Approximately(cloak, IsCloaked ? 1f : 0f))
+            {
+                cloakRoutine = StartCoroutine(Fade());
+            }
         }
 
-        /// <summary>은신을 켜거나 끈다. 인자가 bool 이라 Toggle 같은 UnityEvent(Dynamic bool)에 바로 연결할 수 있다.</summary>
+        /// <summary>
+        /// 은신을 켜거나 끈다. 인자가 bool 이라 Toggle 같은 UnityEvent(Dynamic bool)에 바로 연결할 수 있다.
+        /// 전환 중에 부르면 요청만 기억하고, 지금 전환이 끝난 뒤 그 방향으로 다시 전환한다.
+        /// </summary>
         public void SetCloaked(bool cloaked)
         {
-            // 꺼진 오브젝트에서는 StartCoroutine 이 오류를 낸다.
+            IsCloaked = cloaked;
+            // 꺼진 오브젝트에서는 StartCoroutine 이 오류를 낸다. 요청은 기억해 두었다가 OnEnable 에서 이어 간다.
             if (!isActiveAndEnabled)
             {
                 return;
             }
-            IsCloaked = cloaked;
-            if (cloakRoutine != null)
+            if (cloakRoutine == null)
             {
-                StopCoroutine(cloakRoutine);
+                cloakRoutine = StartCoroutine(Fade());
             }
-            cloakRoutine = StartCoroutine(Fade(cloaked ? 1f : 0f));
         }
 
-        IEnumerator Fade(float target)
+        IEnumerator Fade()
         {
-            // 도중에 방향을 바꾸면 지금 값에서 이어 가고, 남은 거리만큼만 시간을 쓴다.
+            // 도중에 방향을 바꾸지 않는다. 연타할 때마다 되돌리면 경계 띠가 같은 자리를 빠르게 오가며 깜빡인다(초당 3회를 넘을 수 있다).
+            // 띠는 전환마다 한 자리를 한 번 지나고 전환 하나는 0.8초 이상 걸리므로, 연타해도 평균 초당 1.25회를 넘지 않는다.
+            // 전환은 일시정지에 맞춰 멈추도록 게임 시간(Time.deltaTime)으로 센다. Time.timeScale 을 2 이상으로 올리는 게임은 이 빈도도 그만큼 오른다.
             float duration = Mathf.Clamp(transitionSeconds, 0.8f, 1.2f);
+            float target = IsCloaked ? 1f : 0f;
             while (!Mathf.Approximately(cloak, target))
             {
                 cloak = Mathf.MoveTowards(cloak, target, Time.deltaTime / duration);
                 SetAll(CloakId, cloak);
-                ApplyShadows(cloak > 0.5f);
                 yield return null;
+                // 끝에 닿은 뒤에만 그동안 바뀐 요청을 읽는다.
+                if (Mathf.Approximately(cloak, target))
+                {
+                    target = IsCloaked ? 1f : 0f;
+                }
             }
             cloakRoutine = null;
         }
@@ -149,32 +166,14 @@ namespace ShaderGallery.Samples
             }
         }
 
-        // 은신이 절반을 넘으면 그림자를 끈다. 몸은 사라졌는데 바닥에 그림자만 걸어 다니지 않게 한다.
-        void ApplyShadows(bool hide)
-        {
-            if (hide == shadowsHidden)
-            {
-                return;
-            }
-            shadowsHidden = hide;
-            for (int k = 0; k < renderers.Count; k++)
-            {
-                if (renderers[k] != null)
-                {
-                    renderers[k].shadowCastingMode = hide ? ShadowCastingMode.Off : originalShadows[k];
-                }
-            }
-        }
-
         void OnDisable()
         {
-            // 전환 도중에 꺼져도 코루틴이 남지 않게 멈추고, 노출 값은 0 으로, 그림자는 원래 설정으로 되돌린다.
+            // 전환 도중에 꺼져도 코루틴이 남지 않게 멈추고, 노출 값은 0 으로 되돌린다.
             // 은신 값(cloak)은 그대로 두어 다시 켜면 이어 간다. lastRevealTime 은 지우지 않는다 (껐다 켜서 제한을 피하지 못하게).
             StopAllCoroutines();
             cloakRoutine = null;
             revealRoutine = null;
             SetAll(RevealId, 0f);
-            ApplyShadows(false);
         }
 
         void OnDestroy()

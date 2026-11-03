@@ -33,12 +33,24 @@ float cloakValueNoise(float3 p)
     return lerp(lerp(x00, x10, f.y), lerp(x01, x11, f.y), f.z);
 }
 
-// 큰 결과 잔 결을 섞고 0~1 로 넓힌다. 값 노이즈는 0.5 근처에 몰려 그대로 쓰면 경계가 고르게 지나가지 않는다.
-// 잔 결의 배율을 정확히 2 로 두어야 흐름 거리를 주기로 감쌀 때 두 결이 함께 이어진다.
+// 큰 결과 잔 결을 섞는다. 잔 결의 배율을 정확히 2 로 두어야 흐름 거리를 주기로 감쌀 때 두 결이 함께 이어진다.
+// 결과는 0.5 를 가운데로 한 종 모양 분포다 (표준편차 약 0.14, 98% 가 0.19~0.81).
+float cloakNoiseRaw(float3 p)
+{
+    return cloakValueNoise(p) * 0.7 + cloakValueNoise(p * 2.0 + float3(11.7, 0.0, 7.9)) * 0.3;
+}
+
+// 일렁임과 높이 경계의 흔들림용. 0~1 로 넓힌다.
 float cloakNoise(float3 p)
 {
-    float n = cloakValueNoise(p) * 0.7 + cloakValueNoise(p * 2.0 + float3(11.7, 0.0, 7.9)) * 0.3;
-    return saturate((n - 0.2) / 0.6);
+    return saturate((cloakNoiseRaw(p) - 0.2) / 0.6);
+}
+
+// 노이즈 디졸브의 순서 값용. 0.5 근처에 몰린 값을 그대로 쓰면 진행값이 가운데를 지날 때 띠가 몸의 넓은 곳을 한꺼번에 덮는다.
+// 종 모양 분포의 누적 함수(로지스틱 근사, 1.702 / 0.14 ≈ 12)로 펴서 0~1 의 각 구간에 몸의 비슷한 넓이가 들어가게 한다.
+float cloakNoiseEven(float3 p)
+{
+    return 1.0 / (1.0 + exp(-12.0 * (cloakNoiseRaw(p) - 0.5)));
 }
 
 // 앞 물체 끌림 방지 (screen-refraction-glass 와 같은 가드): 밀린 좌표의 씬 표면이 몸보다 앞(눈 깊이가 작다)이면
@@ -81,13 +93,15 @@ float4 sgEffect(SgInput i)
     }
     else if (_MaskMode < 1.5)
     {
-        // 노이즈 디졸브: 몸 곳곳에서 얼룩처럼 사라진다.
-        order = cloakNoise(i.positionOS * _NoiseScale * 0.5 + float3(5.3, 1.7, 9.1));
+        // 노이즈 디졸브: 몸 곳곳에서 얼룩처럼 사라진다. 값이 0~1 에 고르게 퍼진 노이즈를 쓴다.
+        order = cloakNoiseEven(i.positionOS * _NoiseScale * 0.5 + float3(5.3, 1.7, 9.1));
     }
     else
     {
         // 프레넬 안쪽부터: 정면(시선과 마주한 곳)이 먼저 사라지고 윤곽이 끝까지 남는다.
-        order = 1.0 - facing;
+        // 1 - N·V 는 정면의 넓은 면에서 0 근처로 평평해 띠가 그 면을 한 번에 덮어 번쩍인다.
+        // 시선과 법선 사이 각의 사인(sqrt(1 - (N·V)^2))은 둥근 몸에서 화면상 윤곽까지의 거리에 비례해 고르게 바뀐다.
+        order = sqrt(saturate(1.0 - facing * facing));
     }
     float sweep = progress * (1.0 + 2.0 * _BandWidth) - _BandWidth;
     float ahead = sweep - order;

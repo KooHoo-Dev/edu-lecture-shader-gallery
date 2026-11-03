@@ -126,41 +126,17 @@ Shader "ShaderGallery/CloakRefractionShimmer"
         }
         ENDHLSL
 
-        // 몸의 가장 앞면만 남기는 깊이 패스. 색은 쓰지 않고 깊이만 쓴다 (ZWrite On, ColorMask 0).
-        // URP 는 같은 물체에서 SRPDefaultUnlit 패스를 UniversalForward 보다 먼저 그린다. 그래서 아래 Forward 패스가
-        // 같은 깊이(ZTest LEqual)인 가장 앞면에서만 그려지고, 팔 뒤의 몸통처럼 뒤에 겹친 면은 깊이 시험에서 빠진다.
-        // 알파 1 로 뒤 장면을 덮어 그리므로 이 패스가 없으면 그리는 순서에 따라 뒤쪽 면이 앞면 위에 칠해진다.
-        // 깊이 텍스처는 불투명 뒤에 복사되므로 이 깊이는 굴절 계산(앞 물체 가드)에 섞이지 않는다.
-        Pass
-        {
-            Name "CloakDepth"
-            Tags { "LightMode" = "SRPDefaultUnlit" }
-            ZWrite On
-            ColorMask 0
-
-            HLSLPROGRAM
-            #pragma vertex vert
-            #pragma fragment fragDepth
-            #pragma multi_compile_instancing
-
-            float4 fragDepth(Varyings v) : SV_Target
-            {
-                UNITY_SETUP_INSTANCE_ID(v);
-                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(v);
-                return 0;
-            }
-            ENDHLSL
-        }
-
+        // 패스는 이것 하나다. 투명 큐 셰이더라 그림자(ShadowCaster)와 깊이 전용 패스를 두지 않는다.
         Pass
         {
             Name "Forward"
             Tags { "LightMode" = "UniversalForward" }
 
             // 뒤 장면은 Opaque Texture 에서 직접 읽어 그리므로 평소 알파는 1 이다. 혼합은 갤러리의 효과 끄기(알파 페이드)만 쓴다.
-            // 깊이는 위 CloakDepth 패스가 이미 썼으므로 여기서는 쓰지 않고 같은 깊이만 통과시킨다.
+            // 알파 1 로 덮어 그리므로 깊이를 써도(ZWrite On) 결과가 같고, 이미 그린 앞면보다 뒤에 있는 면은 깊이 시험에서 빠진다.
+            // 깊이 텍스처는 불투명 뒤에 복사되므로 이 깊이는 굴절 계산(앞 물체 가드)에 섞이지 않는다.
             Blend SrcAlpha OneMinusSrcAlpha
-            ZWrite Off
+            ZWrite On
             ZTest LEqual
 
             HLSLPROGRAM
@@ -198,45 +174,6 @@ Shader "ShaderGallery/CloakRefractionShimmer"
 
                 i.time = _Time.y;
                 return sgEffect(i);
-            }
-            ENDHLSL
-        }
-
-        // 보이는 상태의 몸이 그림자를 드리운다. 은신 중에는 CloakController 가 Renderer 의 Cast Shadows 를 끈다.
-        Pass
-        {
-            Name "ShadowCaster"
-            Tags { "LightMode" = "ShadowCaster" }
-            ZWrite On
-            ColorMask 0
-
-            HLSLPROGRAM
-            #pragma vertex vertShadow
-            #pragma fragment fragShadow
-            #pragma multi_compile_instancing
-            #pragma multi_compile_vertex _ _CASTING_PUNCTUAL_LIGHT_SHADOW
-
-            float3 _LightDirection;
-            float3 _LightPosition;
-
-            Varyings vertShadow(Attributes v)
-            {
-                Varyings o = vert(v);
-                #if _CASTING_PUNCTUAL_LIGHT_SHADOW
-                    float3 lightDir = normalize(_LightPosition - o.positionWS);
-                #else
-                    float3 lightDir = _LightDirection;
-                #endif
-                float4 cs = TransformWorldToHClip(ApplyShadowBias(o.positionWS, o.normalWS, lightDir));
-                o.positionCS = ApplyShadowClamping(cs);
-                return o;
-            }
-
-            float4 fragShadow(Varyings v) : SV_Target
-            {
-                UNITY_SETUP_INSTANCE_ID(v);
-                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(v);
-                return 0;
             }
             ENDHLSL
         }
