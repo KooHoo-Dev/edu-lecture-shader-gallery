@@ -5,7 +5,7 @@ Shader "ShaderGallery/ScreenHalftoneDots"
     Properties
     {
         [Enum(Mono, 0, Cell Color, 1, CMYK, 2)] _Mode ("방식", Float) = 1
-        _Rows ("줄 수 (화면 높이의 칸 수)", Range(16, 240)) = 60
+        _Rows ("줄 수 (화면 높이의 칸 수)", Range(16, 240)) = 36
         _Angle ("각도 (흑백, 칸 색)", Range(0, 90)) = 45
         _DotGain ("점 굵기 보정", Range(-0.3, 0.3)) = 0
         _InkStrength ("잉크 세기", Range(0, 1)) = 0.4
@@ -53,9 +53,11 @@ Shader "ShaderGallery/ScreenHalftoneDots"
             };
 
             // 화면 가장자리 칸의 중심은 화면 밖에 있을 수 있다. core 가 uv 를 0~1 로 자르고 Clamp 샘플러로 가장자리 색을 읽는다.
+            // CMYK 는 모드 분기 안에서 판마다 화면을 읽는다. 분기 안의 미분 샘플링은 경고가 나므로 밉 0 으로 읽는다
+            // (화면 텍스처는 밉이 없어 결과가 같다).
             float4 sgSource(float2 uv)
             {
-                return SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv);
+                return SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_LinearClamp, uv, 0);
             }
 
             #include "core.hlsl"
@@ -69,7 +71,7 @@ Shader "ShaderGallery/ScreenHalftoneDots"
                 // XR 에서는 이 패스를 끄고, 같은 원리를 표면 음영(월드 공간)으로 옮긴다.
                 i.uv = v.texcoord;
                 i.aspect = _ScreenParams.x / _ScreenParams.y;
-                // 화면 한 픽셀의 uv 크기. 칸 한 변의 픽셀 수를 구해 너무 작으면 원본으로 섞는 데 쓴다.
+                // 화면 한 픽셀의 uv 크기. 점 가장자리를 한 픽셀만 부드럽게 하는 폭과, 칸이 너무 작을 때 원본으로 섞는 데 쓴다.
                 i.texelSize = _ScreenSize.zw;
                 // 점은 움직이지 않는다. 시간은 쓰지 않지만 공통 입력 형식이라 채워 둔다.
                 i.time = _Time.y;
