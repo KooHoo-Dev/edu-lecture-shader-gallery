@@ -137,7 +137,8 @@ float3 halftoneLift(float3 ink, float3 paper, float ratio)
 // p, cellColor 는 분기 밖에서 대표 판(한 판 모드는 각도 값, CMYK 는 검정 판)의 칸 중심에서 한 번 읽은 것이다.
 float3 halftoneInkFilter(SgInput i, float2 p, float3 cellColor, float rows, float aa, float linearRadius, float3 paper, float ratio)
 {
-    float3 white = float3(1.0, 1.0, 1.0);
+    // 반환은 끝에서 한 번만 한다. 분기 안에서 일찍 돌려주면 Unity 컴파일러가 "초기화되지 않았을 수 있는 변수" 경고를 낸다
+    float3 inkFilter;
     if (_Mode > 1.5)
     {
         // CMYK 네 판: 판마다 다른 각도의 칸 중심에서 따로 읽는다 (검정 판은 분기 밖에서 읽은 색, 나머지 3 번). 이상적인 잉크라
@@ -147,13 +148,17 @@ float3 halftoneInkFilter(SgInput i, float2 p, float3 cellColor, float rows, floa
         float mm = halftonePlate(i.uv, i.aspect, rows, aa, HALFTONE_ANGLE_M, 2.0, linearRadius);
         float my = halftonePlate(i.uv, i.aspect, rows, aa, HALFTONE_ANGLE_Y, 3.0, linearRadius);
         float mk = halftoneDot(p, halftoneRadiusFor(halftoneCoverage(cellColor, 4.0), linearRadius), aa);
-        return halftoneLift(float3(1.0 - mc, 1.0 - mm, 1.0 - my) * (1.0 - mk), paper, ratio);
+        inkFilter = halftoneLift(float3(1.0 - mc, 1.0 - mm, 1.0 - my) * (1.0 - mk), paper, ratio);
     }
-    // 한 판: 흑백은 잉크 색, 칸 색은 칸 중심에서 읽은 색으로 점을 칠한다.
-    // 잉크 색을 먼저 하한까지 올린 뒤 점 마스크로 섞어, 점 가장자리의 한 픽셀 경사가 그대로 남게 한다
-    float dotMask = halftoneDot(p, halftoneRadiusFor(halftoneCoverage(cellColor, 0.0), linearRadius), aa);
-    float3 ink = halftoneLift(lerp(_InkColor.rgb, cellColor, step(0.5, _Mode)), paper, ratio);
-    return lerp(white, ink, dotMask);
+    else
+    {
+        // 한 판: 흑백은 잉크 색, 칸 색은 칸 중심에서 읽은 색으로 점을 칠한다.
+        // 잉크 색을 먼저 하한까지 올린 뒤 점 마스크로 섞어, 점 가장자리의 한 픽셀 경사가 그대로 남게 한다
+        float dotMask = halftoneDot(p, halftoneRadiusFor(halftoneCoverage(cellColor, 0.0), linearRadius), aa);
+        float3 ink = halftoneLift(lerp(_InkColor.rgb, cellColor, step(0.5, _Mode)), paper, ratio);
+        inkFilter = lerp(float3(1.0, 1.0, 1.0), ink, dotMask);
+    }
+    return inkFilter;
 }
 
 float4 sgEffect(SgInput i)

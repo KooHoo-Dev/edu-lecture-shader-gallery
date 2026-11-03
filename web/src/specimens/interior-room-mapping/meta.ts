@@ -94,7 +94,6 @@ export const meta: SpecimenMeta = {
   },
   captures: [
     { name: 'night', label: '밤 불빛', values: { _Night: 0.9, _LightsOn: 0.6, _GlassReflect: 0.3 } },
-    { name: 'shop-window', label: '상점 진열창', values: { _WindowsX: 1, _WindowsY: 1, _RoomDepth: 0.35, _FrameWidth: 0.12, _CurtainAmount: 0, _Night: 0.2, _LightsOn: 0.8 } },
   ],
   inspiredBy: [
     {

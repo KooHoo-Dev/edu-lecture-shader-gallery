@@ -4,9 +4,9 @@
 
 ## 지금 상태
 
-- 표본 30개(선정 24개 + 기본 물·불 + 묶음 7 의 매트캡·클로킹·지면 범위 표시·CRT, plan 24절). 1차 마무리는 26개였다. 배포: https://koohoo-dev.github.io/edu-lecture-shader-gallery/
+- 표본 33개(선정 24개 + 기본 물·불 + 묶음 7 의 매트캡·클로킹·지면 범위 표시·CRT + 묶음 8 의 하프톤·인테리어 매핑·스프라이트 흔들림, plan 24·25절). 1차 마무리는 26개였다. 배포: https://koohoo-dev.github.io/edu-lecture-shader-gallery/
 - main 에 push 하면 Actions(`.github/workflows/deploy.yml`)가 빌드, `tools/check.mjs`, Pages 배포를 한다. `v*` 태그는 Release 에 단일 HTML 을 붙인다.
-- 마지막 전체 검사: 통과, WebGL2 64/64, 오프라인 실행 30개 표시, Skill 124 파일, gzip 1,203KB (예산 1,536KB 의 78%, 24절 뒤). 남은 예산으로 표본 약 8개를 더 넣을 수 있다 (표본당 45KB 기준).
+- 마지막 전체 검사: 통과, WebGL2 70/70, 오프라인 실행 33개 표시, Skill 137 파일, gzip 1,319KB (예산 1,536KB 의 86%, 25절 뒤). 남은 예산으로 표본 4~5개를 더 넣을 수 있다 (표본당 45KB 기준).
 - 문서: 진행 기록과 비용 `docs/plan.md`, 선정 근거 `docs/shader-selection.md`, 표본 규격 `docs/specimen-guide.md`.
 - 결정된 것: 저체력 비네트 색(`screen-vignette`)은 지금 값을 유지한다 (Jay, 2026-11-03).
 
@@ -23,7 +23,7 @@
 ## 비용
 
 - 앱과 도구는 구독 세션이 직접 고친다. JayDispatch 워커 잡(Opus 5.5, effort high, 프로필 `org`)은 표본 단위 작업에 쓴다. 새 표본 하나에 구현과 수정을 합쳐 약 $4~8 이 든다.
-- 회사 플랜 크레딧은 $380 중 약 $122 를 썼다 (묶음 7 까지). 11월 19일(UTC)에 만료되고 이월되지 않는다. `dispatch status` 로 추정 사용액을 본다.
+- 회사 플랜 크레딧은 $380 중 약 $137 를 썼다 (묶음 8 까지). 11월 19일(UTC)에 만료되고 이월되지 않는다. `dispatch status` 로 추정 사용액을 본다.
 - 개인 Ultra 크레딧은 아직 연결되지 않았다. 별도 세션이 Anthropic 지원팀 답을 기다린다. 회사 크레딧이 끝나면 워커는 구독 프로필로 넘어간다.
 
 ## 표본 작업 흐름 (새 표본이나 표본 수정이 필요할 때)
