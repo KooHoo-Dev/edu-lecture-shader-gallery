@@ -6,7 +6,7 @@
 
 - 표본 26개(선정 24개 + 기본 물·불)로 1차 마무리를 했다. 배포: https://koohoo-dev.github.io/edu-lecture-shader-gallery/
 - main 에 push 하면 Actions(`.github/workflows/deploy.yml`)가 빌드, `tools/check.mjs`, Pages 배포를 한다. `v*` 태그는 Release 에 단일 HTML 을 붙인다.
-- 마지막 전체 검사: 통과, WebGL2 56/56, 오프라인 실행 26개 표시, Skill 108 파일, gzip 1,316KB (예산 1,536KB 의 86%).
+- 마지막 전체 검사: 통과, WebGL2 56/56, 오프라인 실행 26개 표시, Skill 108 파일, gzip 1,064KB (예산 1,536KB 의 69%, 19절 용량 정책 뒤).
 - 문서: 진행 기록과 비용 `docs/plan.md`, 선정 근거 `docs/shader-selection.md`, 표본 규격 `docs/specimen-guide.md`.
 - 결정된 것: 저체력 비네트 색(`screen-vignette`)은 지금 값을 유지한다 (Jay, 2026-11-03).
 
@@ -51,7 +51,7 @@ Unity 를 직접 돌릴 때(촬영, 컴파일)는 워커 검증과 겹치지 않
 ## 후속 과제 (권장 순서)
 
 1. ~~**`live.mjs` 연속 촬영** (17절).~~ 끝남 (18절). `burst:<이름>,<장수>,<간격ms>` 가 시트 한 장과 변화량을 남긴다. 리뷰 폴더에도 들어간다.
-2. **용량 정책** (16절). gzip 이 예산의 86% 다. 표본을 더 늘리기 전에 PNG 텍스처와 촬영(webp)의 용량 기준을 정한다. `tools/size.mjs` 로 표본별 증분을 잰다.
+2. ~~**용량 정책** (16절).~~ 끝남 (19절). gzip 69%. 새 표본은 gzip 증분 45KB 이하, 기준은 가이드 7절과 `check.mjs` 에 있다.
 3. **표본 다듬기** (16·17절).
    - 마지막 단계가 최종 화면과 같은 `toon-ramp-lit`, `tiling-scroll-parallax` 를 정리한다.
    - select 값에 따라 쓰이지 않는 조절 값을 숨긴다.

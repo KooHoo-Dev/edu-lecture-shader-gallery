@@ -51,7 +51,36 @@ function encode([width, height], alpha, shade) {
   header.writeUInt32BE(height, 4)
   header[8] = 8
   header[9] = alpha ? 6 : 2
-  return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', header), chunk('IDAT', deflateSync(raw, { level: 9 })), chunk('IEND', Buffer.alloc(0))])
+  // 행 필터를 쓰면 노이즈 PNG 가 1/3 로 준다 (픽셀은 같다). 무늬에 따라 필터 없음이 더 작을 때도 있어 작은 쪽을 쓴다
+  const idat = [raw, filterRows(raw, stride, channels)].map(r => deflateSync(r, { level: 9 })).reduce((a, b) => (b.length < a.length ? b : a))
+  return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', header), chunk('IDAT', idat), chunk('IEND', Buffer.alloc(0))])
+}
+
+/** 행마다 PNG 필터 5종 중 차이의 절댓값 합이 가장 작은 것을 고른다 (libpng 의 일반적인 방법) */
+function filterRows(raw, stride, bpp) {
+  const out = Buffer.alloc(raw.length)
+  const rows = raw.length / stride
+  for (let row = 0; row < rows; row++) {
+    const at = (r, x) => (r < 0 || x < 0 ? 0 : raw[r * stride + 1 + x])
+    let best = null
+    for (let filter = 0; filter < 5; filter++) {
+      const line = Buffer.alloc(stride)
+      line[0] = filter
+      let cost = 0
+      for (let x = 0; x < stride - 1; x++) {
+        const a = at(row, x - bpp), b = at(row - 1, x), c = at(row - 1, x - bpp)
+        const p = a + b - c
+        const paeth = Math.abs(p - a) <= Math.abs(p - b) && Math.abs(p - a) <= Math.abs(p - c) ? a : Math.abs(p - b) <= Math.abs(p - c) ? b : c
+        const predict = [0, a, b, (a + b) >> 1, paeth][filter]
+        const v = (at(row, x) - predict) & 255
+        line[x + 1] = v
+        cost += v < 128 ? v : 256 - v
+      }
+      if (!best || cost < best.cost) best = { cost, line }
+    }
+    best.line.copy(out, row * stride)
+  }
+  return out
 }
 
 const available = readdirSync(DIR).filter(f => f.endsWith('.mjs')).map(f => f.slice(0, -4))

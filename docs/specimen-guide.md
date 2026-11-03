@@ -158,7 +158,7 @@ float effectNoise(float2 p)
 ### 3-4. 텍스처와 정점 변형
 
 - 텍스처는 `SG_TEX(_MyTex, uv)` 로만 읽는다. `_MyTex_TexelSize` 도 쓸 수 있다. 래퍼에는 `Properties` 에 `_MyTex ("이름", 2D) = "white" {}`, 그 아래에 `TEXTURE2D(_MyTex); SAMPLER(sampler_MyTex);` 와 `#define SG_TEX(name, uv) SAMPLE_TEXTURE2D(name, sampler##name, uv)`, `CBUFFER` 안에 `float4 _MyTex_TexelSize;` 를 둔다. 텍스처 파일은 표본 폴더에 두고 `meta.stage.textures` 에 적는다. 텍스처는 `meta.params` 에 넣지 않는다. sRGB 를 끈 데이터 텍스처(`linear: true`)의 기본값은 `"gray"` 가 아니라 `"linearGrey"` 다. `"gray"` 는 sRGB 0.5 라 Linear 프로젝트에서 약 0.21 로 읽혀, 0.5 를 0 으로 쓰는 맵은 칸이 비었을 때 한쪽으로 쏠린다 (`tools/check.mjs` 가 잡는다). 임포트 설정은 촬영 도구가 맞춘다. PNG 는 프롬프트에 넣을 수 없어 Skill zip 으로 전달되므로 `unity.setup` 에 임포트 설정(sRGB, Wrap Mode, Filter Mode)을 적는다.
-- PNG 는 `tools/textures/<이름>.mjs` 에 무늬를 코드로 쓰고 `node tools/gen-texture.mjs <이름>` 으로 만든다. 모듈 형식은 `tools/gen-texture.mjs` 머리말에 있고, 노이즈 같은 공용 도구는 `tools/lib/texture-kit.mjs` 에 있다. 표본 잡은 자기 모듈 경로를 `writePaths` 에 넣고 직접 쓴다. PNG 는 HTML 에 그대로 들어가므로 128 정도로 작게 둔다. 만든 PNG 는 Read 로 열어 눈으로 본다.
+- PNG 는 `tools/textures/<이름>.mjs` 에 무늬를 코드로 쓰고 `node tools/gen-texture.mjs <이름>` 으로 만든다. 모듈 형식은 `tools/gen-texture.mjs` 머리말에 있고, 노이즈 같은 공용 도구는 `tools/lib/texture-kit.mjs` 에 있다. 표본 잡은 자기 모듈 경로를 `writePaths` 에 넣고 직접 쓴다. PNG 는 HTML 에 그대로 들어가므로 128 정도로 작게 둔다 (7절 용량 기준). 만든 PNG 는 Read 로 열어 눈으로 본다.
 - 데이터 텍스처(`linear`)와 포인트 텍스처는 Unity 기본 압축(BC, ASTC)에서 값이 바뀐다. 촬영 도구는 압축하지 않고, '그대로 넣기' 프롬프트도 Compression None 단계를 자동으로 넣는다.
 - 흐르는 무늬의 화면 속도는 오프셋 속도를 반복 횟수로 나눈 값이다. `uv * 2 + t * 1.3` 은 `uv + t * 0.6` 과 화면에서 거의 같은 빠르기로 흐른다. 크기가 다른 층을 다른 빠르기로 흘리려면 오프셋 속도를 반복 횟수만큼 곱해 두고 주석에 화면 속도를 적는다. 움직임을 말하는 단계 본문("재생하면 끓듯이")은 정지 화면으로 확인되지 않으므로 `live.mjs` 의 `burst` 연속 촬영 시트로 확인한다 (8절).
 - 웹은 머티리얼의 Tiling, Offset(`_ST`)을 넘기지 않는다. 수강생이 다른 텍스처를 넣어 쓸 표본은 반복 횟수를 `#define` 이 아니라 range 값으로 노출한다. 구 UV 에 맞춘 비율은 큐브나 Plane 에서 늘어난다.
@@ -375,7 +375,11 @@ UGUI Image 에 쓰는 표본용이다. 미리보기와 촬영은 스프라이트
 
 - 게임 원작의 텍스처, 모델, 셰이더 코드를 추출하거나 옮기지 않는다. 튜토리얼, 블로그, 오픈소스 코드도 복사하지 않고 원리만 참고해 출처를 링크한다. 코드는 새로 쓴다.
 - 게임명은 `inspiredBy` 에만 쓴다. ID, 제목, 프리셋, 변수 이름에는 쓰지 않는다.
-- 텍스처와 노이즈는 직접 생성한다. PNG 가 필요하면 코드로 만들고 한 장에 32KB 이하, 긴 변 512 이하로 둔다 (`tools/check.mjs` 가 32KB 를 넘으면 경고, 48KB 를 넘으면 오류). PNG 는 HTML 에 base64 로 들어가 1.33배가 된다.
+- 텍스처와 노이즈는 직접 생성한다. PNG 가 필요하면 코드로 만들고 긴 변 512 이하로 둔다.
+- **용량 기준** (2026-11-03). 단일 HTML 의 gzip 예산(1.5MB)을 표본들이 나눠 쓴다. 이미지는 base64 로 들어가 1.33배가 되고 gzip 으로도 거의 줄지 않아, 이미지 바이트가 곧 예산을 쓴다.
+  - 표본 하나가 늘리는 gzip 은 45KB 이하. `node tools/size.mjs <id>` 로 잰다.
+  - PNG 한 장 24KB 이하 (`tools/check.mjs` 가 24KB 를 넘으면 경고, 32KB 를 넘으면 오류), 표본당 합 32KB 이하 (경고). `gen-texture.mjs` 가 행 필터를 골라 저장하므로 128 노이즈가 10KB 안팎이다. 넘으면 크기를 줄이거나 채널 하나에 담을 수 있는 값을 합친다.
+  - Unity 촬영은 720×405 WebP 품질 0.75 (`tools/shots.mjs`), 표본당 `captures` 3장 이내. 한 장 16KB 를 넘으면 경고한다. 잔무늬가 화면을 덮는 촬영이 크다.
 - 투명 텍셀에도 이웃 불투명 색을 칠해 둔다. 웹은 Unity 의 Alpha Is Transparency 가 없어 Bilinear 로 읽으면 가장자리에 검은 테가 생긴다.
 - 확인된 대표작의 연도와 제작사는 선정 카드에 적힌 것만 쓴다. 기억으로 채우지 않는다.
 - 넓은 면이 번쩍이는 효과는 `flashes: true` 로 두고, C# 에도 초당 3회 제한을 넣는다 (`ForceFieldPulse` 참고). 반복 맥동은 2Hz 이하.

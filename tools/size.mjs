@@ -17,6 +17,8 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const OUT = join(ROOT, '_shots', 'size')
 const BUDGET = 5 * 1024 * 1024
 const BUDGET_GZIP = 1.5 * 1024 * 1024
+/** 새 표본 하나가 늘리는 gzip 의 기준 (2026-11-03 용량 정책, 가이드 7절) */
+const GZIP_PER_SPECIMEN = 45 * 1024
 const WEB = join(ROOT, 'web')
 const VITE = join(WEB, 'node_modules', 'vite', 'bin', 'vite.js')
 
@@ -50,7 +52,7 @@ rows.sort((a, b) => b.raw - a.raw)
 process.stdout.write('\r'.padEnd(61) + '\r')
 console.log(`셸(표본 0개): 원본 ${kb(base.raw)} KB · gzip ${kb(base.gzip)} KB\n`)
 console.log('표본                           증분KB  gzipKB  (셰이더 폴더 KB)')
-for (const r of rows) console.log(`${r.id.padEnd(30)} ${kb(r.raw)}  ${kb(r.gzip)}  (${kb(r.shader).trim()})`)
+for (const r of rows) console.log(`${r.id.padEnd(30)} ${kb(r.raw)}  ${kb(r.gzip)}  (${kb(r.shader).trim()})${r.gzip > GZIP_PER_SPECIMEN ? '  ← 표본당 gzip 기준 45KB 넘음' : ''}`)
 const avg = k => rows.reduce((n, r) => n + r[k], 0) / rows.length
 console.log(`\n평균 증분: 원본 ${kb(avg('raw')).trim()} KB · gzip ${kb(avg('gzip')).trim()} KB`)
 

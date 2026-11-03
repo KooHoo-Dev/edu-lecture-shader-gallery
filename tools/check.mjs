@@ -325,11 +325,19 @@ async function checkSpecimens(ids) {
     }
     const meta = await loadMeta(ROOT, id)
     titles.push([id, meta.title])
-    // PNG 는 HTML 에 base64 로 들어가 1.33배가 된다 (가이드 7절)
+    // PNG 는 HTML 에 base64 로 들어가 1.33배가 되고 gzip 으로도 거의 줄지 않는다 (가이드 7절의 용량 기준)
+    let pngTotal = 0
     for (const file of readdirSync(folder).filter(f => f.toLowerCase().endsWith('.png'))) {
       const kb = statSync(join(folder, file)).size / 1024
-      if (kb > 48) err(`${id}/${file}: PNG 가 ${kb.toFixed(0)}KB 다. 48KB 이하로 줄인다`)
-      else if (kb > 32) warn(`${id}/${file}: PNG 가 ${kb.toFixed(0)}KB 다. 32KB 이하를 권한다`)
+      pngTotal += kb
+      if (kb > 32) err(`${id}/${file}: PNG 가 ${kb.toFixed(0)}KB 다. 32KB 이하로 줄인다`)
+      else if (kb > 24) warn(`${id}/${file}: PNG 가 ${kb.toFixed(0)}KB 다. 24KB 이하를 권한다`)
+    }
+    if (pngTotal > 32) warn(`${id}: PNG 합이 ${pngTotal.toFixed(0)}KB 다. 표본당 32KB 이하를 권한다`)
+    const shotDir = join(WEB, 'src', 'shots', id)
+    for (const file of existsSync(shotDir) ? readdirSync(shotDir).filter(f => f.endsWith('.webp')) : []) {
+      const kb = statSync(join(shotDir, file)).size / 1024
+      if (kb > 16) warn(`${id}/${file}: 촬영이 ${kb.toFixed(0)}KB 다. 16KB 이하를 권한다 (무대에 잔무늬가 많으면 큰 편이다)`)
     }
     const corePath = join(folder, 'core.hlsl')
     const shaderPath = join(folder, meta.shaderFile)

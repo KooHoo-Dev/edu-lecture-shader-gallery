@@ -1,7 +1,7 @@
 // Unity 가 찍은 PNG(_shots/unity/<id>/<상태>.png)를 앱에 내장할 WebP(web/src/shots/<id>/<상태>.webp)로 바꾼다.
 //   node tools/shots.mjs            # 모든 표본
 //   node tools/shots.mjs dissolve-edge-glow
-// 표본당 이미지 수가 곧 HTML 용량이다. 크기는 720×405 고정. 변환은 헤드리스 Chrome 의 canvas 로 한다 (의존성 없음).
+// 표본당 이미지 수가 곧 HTML 용량이다. 크기는 720×405, 품질 0.75 고정 (가이드 7절 용량 기준). 변환은 헤드리스 Chrome 의 canvas 로 한다 (의존성 없음).
 
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
@@ -14,7 +14,7 @@ const IN = join(ROOT, '_shots', 'unity')
 const OUT = join(ROOT, 'web', 'src', 'shots')
 const WIDTH = 720
 const HEIGHT = 405
-const QUALITY = 0.85
+const QUALITY = 0.75
 
 const ids = process.argv.slice(2).length ? process.argv.slice(2) : specimenIds(ROOT)
 
