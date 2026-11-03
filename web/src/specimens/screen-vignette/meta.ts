@@ -16,7 +16,8 @@ export const meta: SpecimenMeta = {
   tags: ['전체 화면', '마스크', 'Full Screen Pass', '체력 연동', 'XR 터널링'],
   difficulty: 1,
   shaderFile: 'ScreenVignette.shader',
-  stage: { kind: 'fullscreen' },
+  // 검은 비네트가 어두운 무대에 묻히지 않게 밝은 무대에서 보여 준다
+  stage: { kind: 'fullscreen', bright: true },
   flashes: true,
   params: [
     { key: '_VignetteColor', label: '비네트 색', type: 'color', default: '#000000', hint: '평소 가장자리를 덮는 색' },
@@ -93,8 +94,6 @@ export const meta: SpecimenMeta = {
     { name: 'hit', label: '피격 펄스', values: { _HitPulse: 0.8 } },
     { name: 'tunneling', label: 'XR 터널링', values: { _Intensity: 1, _Radius: 0.35, _Softness: 0.2 } },
   ],
-  // 무대 가장자리가 원래 어두워 기본값의 검은 비네트는 썸네일에서 약하다. 맥동 진폭이 작아 시간과 상관없이 보이는 저체력 촬영을 쓴다.
-  thumbnail: 'low-health',
   inspiredBy: [
     {
       title: 'Warhammer 40,000: Space Marine 2 (2024)',

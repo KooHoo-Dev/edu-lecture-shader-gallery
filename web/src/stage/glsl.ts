@@ -24,7 +24,7 @@ uniform int _SgStep;
 `
 
 const INPUT: Record<StageKind, string> = {
-  mesh: `struct SgInput { float2 uv; float4 color; float3 positionOS; float3 positionWS; float3 normalOS; float3 normalWS; float3 viewWS; float3 lightDirWS; float3 lightColor; float3 lighting; float time; };`,
+  mesh: `struct SgInput { float2 uv; float4 color; float3 positionOS; float3 positionWS; float3 normalOS; float3 normalWS; float3 viewWS; float3 lightDirWS; float3 lightColor; float3 lighting; float shadow; float time; };`,
   sprite: `struct SgInput { float2 uv; float4 color; float2 texelSize; float time; };`,
   depth: `uniform sampler2D _SgSceneDepth;
 uniform sampler2D _SgSceneColor;
@@ -49,6 +49,16 @@ float3 sgSceneNormal(float2 uv) { return SG_FLIP(texture(_SgSceneNormal, uv).xyz
 struct SgInput { float2 uv; float aspect; float2 texelSize; float time; };`,
 }
 
+/** 공 하나가 드리우는 그림자 (1 = 빛, 0 = 그림자). s = 공 가운데(xyz, three.js 좌표)와 반지름(w). 바닥과 물체가 같이 쓴다 */
+const SPHERE_SHADOW = `float sphereShadow(vec3 p, vec3 l, vec4 s) {
+  vec3 toCenter = s.xyz - p;
+  float along = dot(toCenter, l);
+  if (along < 0.0) return 1.0;
+  float miss = length(toCenter - l * along);
+  float soft = 0.04 + 0.05 * along;
+  return smoothstep(s.w - soft, s.w + soft, miss);
+}`
+
 const writeColor = (cutout: boolean) => (cutout ? 'if (c.a < 0.5) discard;\n  sgOut = vec4(c.rgb, 1.0);' : 'sgOut = c;')
 
 const FRAGMENT_MAIN: Record<StageKind, (cutout: boolean) => string> = {
@@ -61,8 +71,10 @@ uniform vec3 cameraPosition;
 uniform vec3 uLightDir;
 uniform vec3 uLightColor;
 uniform vec3 uAmbient;
+uniform vec4 uCaster;
 uniform float uTime;
 out vec4 sgOut;
+${SPHERE_SHADOW}
 void main() {
   SgInput i;
   i.uv = vUv;
@@ -72,8 +84,10 @@ void main() {
   i.normalWS = normalize(SG_FLIP(vNormalWS));
   i.viewWS = normalize(SG_FLIP(cameraPosition - vPositionWS));
   i.lightDirWS = SG_FLIP(uLightDir);
-  i.lightColor = uLightColor;
-  i.lighting = uLightColor * saturate(dot(i.normalWS, i.lightDirWS)) + uAmbient;
+  // 받는 그림자 (stage.shadowProp 의 공). Unity 래퍼의 light.shadowAttenuation 에 해당하고, 빛 색에도 곱해 넘긴다
+  i.shadow = uCaster.w > 0.0 ? sphereShadow(vPositionWS, uLightDir, uCaster) : 1.0;
+  i.lightColor = uLightColor * i.shadow;
+  i.lighting = i.lightColor * saturate(dot(i.normalWS, i.lightDirWS)) + uAmbient;
   // 정점 색. 웹 무대 메시는 정점 색이 없어 흰색이다 (Unity 래퍼는 파티클의 Color over Lifetime 등을 넣는다)
   i.color = vec4(1.0);
   i.time = uTime;
@@ -245,14 +259,7 @@ uniform mat4 uShadowMatrix;
 uniform float uShadowMaskOn;
 uniform float uShadowSoft;
 out vec4 sgOut;
-float sphereShadow(vec3 p, vec3 l, vec4 s) {
-  vec3 toCenter = s.xyz - p;
-  float along = dot(toCenter, l);
-  if (along < 0.0) return 1.0;
-  float miss = length(toCenter - l * along);
-  float soft = 0.04 + 0.05 * along;
-  return smoothstep(s.w - soft, s.w + soft, miss);
-}
+${SPHERE_SHADOW}
 float maskShadow(vec3 p) {
   vec2 uv = (uShadowMatrix * vec4(p, 1.0)).xy * 0.5 + 0.5;
   if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) return 1.0;

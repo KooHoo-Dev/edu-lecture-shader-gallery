@@ -12,9 +12,10 @@ export type GroupId = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G'
 export type StageKind = 'mesh' | 'sprite' | 'depth' | 'fullscreen'
 /**
  * grass 는 앱이 만드는 풀 다발 (web/src/stage/grass.ts, SgGrass.cs), grid 는 앱이 만드는 촘촘한 평면
- * (Unity Plane 과 같은 10 × 10 크기와 UV 에 100 × 100 칸, SgGrid.cs). 나머지는 Unity 기본 메시
+ * (Unity Plane 과 같은 10 × 10 크기와 UV 에 100 × 100 칸, SgGrid.cs), torus 는 앱이 만드는 고리 (SgTorus.cs, 볼록하지 않은 메시
+ * 시험용. 돌면 고리의 앞뒤가 겹친다). 나머지는 Unity 기본 메시
  */
-export type MeshShape = 'sphere' | 'capsule' | 'cube' | 'cylinder' | 'quad' | 'plane' | 'grass' | 'grid'
+export type MeshShape = 'sphere' | 'capsule' | 'cube' | 'cylinder' | 'quad' | 'plane' | 'grass' | 'grid' | 'torus'
 /** URP 에셋에서 켜야 하는 것. 프롬프트의 설정 단계에 자동으로 들어간다 */
 export type Requirement = 'depth' | 'opaque' | 'normals'
 /** cutout: 알파 0.5 미만을 잘라 낸다 · alpha: 알파 혼합 · additive: 더하기 혼합 */
@@ -159,8 +160,37 @@ export interface SpecimenStage {
    * Universal2D, UniversalForward 대신 LightMode 없는 패스 하나를 쓴다. 미리보기는 스프라이트 무대 그대로다
    */
   ui?: boolean
+  /**
+   * stage.ui 의 Image 가로세로 비 (폭 / 높이). 기본 1. 4 면 4:1 배너다. 미리보기는 스프라이트를 이 비로 늘리고,
+   * Unity 촬영은 Screen Space - Camera 캔버스의 Image 를 이 비로 만든다 (Image 는 Source Image 비와 상관없이 늘어난다)
+   */
+  uiAspect?: number
+  /**
+   * sprite 무대에서 같은 스프라이트를 뒤에 더 그리는 층. 앞에 적은 것이 가장 멀다. 본체(조절 패널의 값)는 맨 앞에 그린다.
+   * 층마다 본체 값 위에 values 를 덮어쓰고, position(유닛)만큼 옮겨 놓는다. 시차 스크롤처럼 같은 셰이더를 값만 바꿔 겹쳐 쓰는 표본용이다
+   */
+  layers?: SpriteLayer[]
+  /**
+   * mesh 무대: 물체와 해 사이에 작은 공을 띄워 물체에 그림자를 드리운다. 받는 그림자를 보여 주는 표본용이다.
+   * 웹은 SgInput.shadow(그림자 감쇠)와 lightColor, lighting 에 그 그림자를 넣는다
+   */
+  shadowProp?: boolean
+  /**
+   * mesh 무대: 물체를 Z 축으로 이만큼(도, Unity 기준) 옆으로 눕힌 채 Y 축으로 돌린다. 오브젝트 공간과 월드 공간이 달라져
+   * 오브젝트 공간 실수(법선, 높이)가 화면에 드러난다. 90 이면 물체의 위(+Y)가 월드 -X 를 가리킨다. 회전은 Unity 의 Euler(0, yaw, tilt) 과 같다
+   */
+  tilt?: number
+  /** fullscreen 무대: 하늘색 배경과 밝은 바닥. 가장자리를 어둡게 덮는 효과(비네트)가 어두운 무대에 묻히지 않게 한다 */
+  bright?: boolean
   /** 표본 폴더에 둔 텍스처. sprite 무대에서 _MainTex 를 적지 않으면 앱이 스테이지 스프라이트를 넣는다 */
   textures?: Record<string, StageTexture>
+}
+
+export interface SpriteLayer {
+  /** 본체 값 위에 덮어쓰는 값 */
+  values: ParamValues
+  /** 본체에서 옮긴 거리 (x, y 유닛). 스프라이트 높이가 2 유닛이다 */
+  position?: [number, number]
 }
 
 export interface Capture {

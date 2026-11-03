@@ -24,6 +24,8 @@ export interface SpecimenUrlOptions {
   auto?: boolean
   /** p.<속성>=<값>: 프리셋 위에 덮어쓰는 개별 조절 값 */
   params?: Record<string, string>
+  /** s.<무대 옵션>=<값>: 검증용으로 meta.stage 를 덮어쓴다 (예: s.mesh=torus, s.tilt=-60, s.uiAspect=4, s.shadowProp=1) */
+  stage?: Record<string, string>
 }
 
 export function parseHash(hash: string): Route {
@@ -37,6 +39,7 @@ export function parseHash(hash: string): Route {
     const step = Number(params.get('step'))
     const time = params.has('t') ? Number(params.get('t')) : NaN
     const overrides = Object.fromEntries([...params].filter(([k]) => k.startsWith('p.')).map(([k, v]) => [k.slice(2), v]))
+    const stage = Object.fromEntries([...params].filter(([k]) => k.startsWith('s.')).map(([k, v]) => [k.slice(2), v]))
     return {
       name: 'specimen',
       id,
@@ -50,6 +53,7 @@ export function parseHash(hash: string): Route {
         time: Number.isFinite(time) && time >= 0 ? time : undefined,
         auto: flag('auto'),
         params: Object.keys(overrides).length ? overrides : undefined,
+        stage: Object.keys(stage).length ? stage : undefined,
       },
     }
   }

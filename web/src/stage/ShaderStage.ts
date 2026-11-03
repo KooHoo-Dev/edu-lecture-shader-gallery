@@ -1,9 +1,10 @@
 import * as THREE from 'three'
 import { requestFlash } from '../core/flash'
 import { STAGE_SPRITE_URL } from './assets'
-import type { Ease, ParamDef, ParamValues, Specimen, Track } from '../core/types'
+import type { Ease, ParamDef, ParamValues, Specimen, SpriteLayer, Track } from '../core/types'
 import { buildProgram, defaultBlend, type StagePass, LIT_FRAGMENT, LIT_VERTEX, NORMAL_FRAGMENT, PRESENT_FRAGMENT, PRESENT_VERTEX, SHADOW_PLAIN_FRAGMENT, textureNames } from './glsl'
 import { grassGeometry } from './grass'
+import { torusGeometry } from './torus'
 import { hexToLinear, LAYOUT, linear3, toThree } from './layout'
 
 /**
@@ -120,6 +121,12 @@ class ShaderStage {
   private secondMaterials: (THREE.RawShaderMaterial | null)[] = [null, null]
   /** stage.occluded 무대의 벽 */
   private wall: THREE.Mesh | null = null
+  /** stage.shadowProp 의 공 */
+  private caster: THREE.Mesh | null = null
+  /** 효과 물체가 받는 그림자의 공 (three.js 좌표 가운데, 반지름). 반지름 0 이면 없음 */
+  private casterSphere = new THREE.Vector4()
+  /** stage.layers: 본체 뒤에 그리는 층. 머티리얼은 효과 켬·끔 두 벌 */
+  private layers: { layer: SpriteLayer; mesh: THREE.Mesh; materials: (THREE.RawShaderMaterial | null)[] }[] = []
   private litMaterials: THREE.RawShaderMaterial[] = []
   private textures = new Map<string, THREE.Texture>()
 
@@ -304,8 +311,8 @@ class ShaderStage {
     return new THREE.Vector3(...toThree(this.backlit ? LAYOUT.backlightDirUnity : LAYOUT.lightDirUnity)).normalize()
   }
 
-  private addFloor(shadowCasters: { position: readonly number[]; radius: number }[]) {
-    const material = this.makeLit(LAYOUT.floorA, { tile: LAYOUT.floorTile, albedo2: LAYOUT.floorB })
+  private addFloor(shadowCasters: { position: readonly number[]; radius: number }[], bright = false) {
+    const material = this.makeLit(bright ? LAYOUT.brightFloorA : LAYOUT.floorA, { tile: LAYOUT.floorTile, albedo2: bright ? LAYOUT.brightFloorB : LAYOUT.floorB })
     material.uniforms.uShadowSpheres.value = [0, 1, 2].map(i => {
       const c = shadowCasters[i]
       return c ? new THREE.Vector4(...toThree(c.position), c.radius) : new THREE.Vector4()
@@ -362,6 +369,7 @@ class ShaderStage {
     if (shape === 'quad') return new THREE.PlaneGeometry(1, 1, 32, 32)
     if (shape === 'plane') return unityPlaneUv(new THREE.PlaneGeometry(10, 10, 64, 64).rotateX(-Math.PI / 2))
     if (shape === 'grass') return grassGeometry()
+    if (shape === 'torus') return torusGeometry()
     // SgGrid.cs 와 같은 촘촘한 평면. 칸 수까지 같아 정점을 미는 수면이 두 화면에서 같게 휜다
     if (shape === 'grid') return unityPlaneUv(new THREE.PlaneGeometry(10, 10, 100, 100).rotateX(-Math.PI / 2))
     // 정점을 미는 표본은 Unity 기본 구와 비슷한 밀도로 그려 Unity 에서 보일 계단을 미리보기도 보여 준다
@@ -379,11 +387,17 @@ class ShaderStage {
     if (kind === 'mesh') {
       const place = LAYOUT.meshPlacement[specimen.meta.stage.mesh ?? 'sphere']
       const cutout = defaultBlend(specimen.meta) === 'cutout'
+      const caster = specimen.meta.stage.shadowProp ? this.addShadowProp(place.position) : null
       // 잘라 내기 메시는 그림자 마스크로 그린다. 투명 메시는 Unity 에서 그림자를 드리우지 않으므로 그리지 않는다
-      const floor = this.addFloor([])
+      const floor = this.addFloor(caster ? [caster] : [])
+      // 본체 머티리얼은 공보다 먼저 만들어졌다. 나중에 만드는 머티리얼(효과 끄기, 두 번째 패스)은 casterSphere 를 읽는다
+      material.uniforms.uCaster.value.copy(this.casterSphere)
       const mesh = new THREE.Mesh(this.effectGeometry(specimen), material)
       mesh.position.set(...toThree(place.position))
       mesh.scale.setScalar(place.scale)
+      // stage.tilt: Unity 의 Euler(0, yaw, tilt) 처럼 Z 로 눕힌 뒤 월드 Y 로 돈다. z 반전은 Z 축 회전의 부호를 바꾸지 않는다 (Y 는 바꾼다)
+      mesh.rotation.order = 'YXZ'
+      mesh.rotation.z = ((specimen.meta.stage.tilt ?? 0) * Math.PI) / 180
       this.scene.add(mesh)
       this.effect = mesh
       this.addSecondPass(mesh)
@@ -405,8 +419,22 @@ class ShaderStage {
       const mesh = new THREE.Mesh(new THREE.PlaneGeometry(LAYOUT.sprite.height, LAYOUT.sprite.height), material)
       this.scene.add(mesh)
       this.effect = mesh
+      const ui = specimen.meta.stage.ui
+      if (ui) mesh.scale.copy(this.uiScale())
+      const layers = specimen.meta.stage.layers ?? []
+      layers.forEach((layer, k) => {
+        const back = new THREE.Mesh(mesh.geometry)
+        const [x, y] = layer.position ?? [0, 0]
+        // 앞에 적은 층이 가장 멀다. 투명 물체라 그리는 순서를 renderOrder 로 정한다
+        back.position.set(x, y, -0.01 * (layers.length - k))
+        back.renderOrder = k - layers.length
+        back.scale.copy(mesh.scale)
+        this.scene.add(back)
+        this.layers.push({ layer, mesh: back, materials: [null, null] })
+        back.material = this.layerMaterial(k, false)
+      })
     } else {
-      this.addFloor([...this.propShadows(), { position: LAYOUT.fullscreenBall.position, radius: LAYOUT.fullscreenBall.scale * 0.5 }])
+      this.addFloor([...this.propShadows(), { position: LAYOUT.fullscreenBall.position, radius: LAYOUT.fullscreenBall.scale * 0.5 }], Boolean(specimen.meta.stage.bright))
       this.addProps()
       const ball = new THREE.Mesh(new THREE.SphereGeometry(0.5, 64, 48), this.makeLit(LAYOUT.fullscreenBallColor))
       ball.position.set(...toThree(LAYOUT.fullscreenBall.position))
@@ -414,6 +442,48 @@ class ShaderStage {
       this.scene.add(ball)
       this.effect = this.fullscreenMesh(material)
     }
+  }
+
+  /** stage.shadowProp: 물체와 해 사이의 공. 효과 물체와 바닥이 이 공의 그림자를 받는다 */
+  private addShadowProp(center: readonly number[]) {
+    const prop = LAYOUT.shadowProp
+    const position = center.map((c, i) => c + prop.offset[i])
+    const ball = new THREE.Mesh(new THREE.SphereGeometry(0.5, 48, 32), this.makeLit(prop.color))
+    ball.position.set(...toThree(position))
+    ball.scale.setScalar(prop.scale)
+    this.scene.add(ball)
+    this.caster = ball
+    this.casterSphere.set(...toThree(position), prop.scale * 0.5)
+    return { position, radius: prop.scale * 0.5 }
+  }
+
+  /** stage.ui 의 Image 크기 (스프라이트 판의 배율). 높이 2 유닛을 넘지 않고 폭이 uiMaxWidth 안에 들게 줄인다 */
+  private uiScale() {
+    const aspect = this.specimen!.meta.stage.uiAspect ?? 1
+    const height = Math.min(LAYOUT.sprite.height, LAYOUT.uiMaxWidth / aspect)
+    return new THREE.Vector3((height * aspect) / LAYOUT.sprite.height, height / LAYOUT.sprite.height, 1)
+  }
+
+  /**
+   * stage.layers 의 머티리얼. 본체와 같은 프로그램에 유니폼 객체도 나눠 쓰고, 조절 값 유니폼만 따로 둔다.
+   * 그래서 시간, 단계, 텍스처는 본체를 따라가고 값만 층마다 다르다
+   */
+  private layerMaterial(index: number, off: boolean): THREE.RawShaderMaterial {
+    const entry = this.layers[index]
+    const slot = off ? 1 : 0
+    const existing = entry.materials[slot]
+    if (existing) return existing
+    const base = this.effectMaterial(off)
+    const uniforms: Record<string, THREE.IUniform> = { ...base.uniforms }
+    for (const def of this.specimen!.meta.params) uniforms[def.key] = { value: paramToUniform(def, def.default) }
+    const material = new THREE.RawShaderMaterial({ glslVersion: THREE.GLSL3, vertexShader: base.vertexShader, fragmentShader: base.fragmentShader, uniforms, side: base.side })
+    material.transparent = base.transparent
+    material.depthWrite = base.depthWrite
+    material.blending = base.blending
+    material.blendSrc = base.blendSrc
+    material.blendDst = base.blendDst
+    entry.materials[slot] = material
+    return material
   }
 
   private secondPass(): StagePass | null {
@@ -459,6 +529,7 @@ class ShaderStage {
       uLightDir: { value: this.lightDir() },
       uLightColor: { value: new THREE.Vector3(LAYOUT.lightIntensity, LAYOUT.lightIntensity, LAYOUT.lightIntensity) },
       uAmbient: { value: new THREE.Vector3(...linear3(LAYOUT.ambient)) },
+      uCaster: { value: this.casterSphere.clone() },
       uSpriteColor: { value: new THREE.Vector4(1, 1, 1, 1) },
       uAspect: { value: 16 / 9 },
       uViewport: { value: new THREE.Vector2(1, 1) },
@@ -514,9 +585,15 @@ class ShaderStage {
     const url = specimen.textureUrls[name] ?? STAGE_SPRITE_URL
     const key = `${url}|${config?.linear ?? false}|${config?.repeat ?? false}|${config?.point ?? false}`
     const setTexelSize = (image: { width: number; height: number }) => {
+      // 읽는 사이에 다른 표본으로 넘어갔으면 지금 무대를 건드리지 않는다
+      if (this.specimen !== specimen) return
       for (const material of [...this.materials, ...this.secondMaterials]) material?.uniforms[`${name}_TexelSize`]?.value.set(1 / image.width, 1 / image.height, image.width, image.height)
-      // 스프라이트는 높이 2 유닛에 맞춘다. 정사각형이 아니면 Unity 와 같이 폭이 늘어난다
-      if (name === '_MainTex' && specimen.meta.stage.kind === 'sprite') this.effect?.scale.set(image.width / image.height, 1, 1)
+      // 스프라이트는 높이 2 유닛에 맞춘다. 정사각형이 아니면 Unity 와 같이 폭이 늘어난다.
+      // UI Image 는 그림 비와 상관없이 사각형(uiAspect)에 맞춰 늘어나므로 그대로 둔다
+      if (name === '_MainTex' && specimen.meta.stage.kind === 'sprite' && !specimen.meta.stage.ui) {
+        this.effect?.scale.set(image.width / image.height, 1, 1)
+        for (const { mesh } of this.layers) mesh.scale.set(image.width / image.height, 1, 1)
+      }
       this.dirty = true
     }
     const cached = this.textures.get(key)
@@ -538,9 +615,12 @@ class ShaderStage {
       if (object instanceof THREE.Mesh && object.geometry !== this.triangle) object.geometry.dispose()
     })
     this.scene.clear()
-    for (const material of [...this.materials, ...this.secondMaterials]) material?.dispose()
+    for (const material of [...this.materials, ...this.secondMaterials, ...this.layers.flatMap(l => l.materials)]) material?.dispose()
     this.materials = [null, null]
     this.secondMaterials = [null, null]
+    this.layers = []
+    this.caster = null
+    this.casterSphere.set(0, 0, 0, 0)
     for (const material of this.litMaterials) material.dispose()
     this.litMaterials = []
     this.effect = null
@@ -677,16 +757,14 @@ class ShaderStage {
     const floor = this.maskFloor!
     material.uniforms._SgStep.value = 0
     effect.material = this.settings.off ? this.shadowPlain : material
-    floor.visible = false
-    // Unity 의 두 번째 패스(SRPDefaultUnlit)는 그림자를 드리우지 않는다. 벽은 마스크 범위를 넘어 잘리므로 빼고 그린다
-    if (this.second) this.second.visible = false
-    if (this.wall) this.wall.visible = false
+    // Unity 의 두 번째 패스(SRPDefaultUnlit)는 그림자를 드리우지 않는다. 벽은 마스크 범위를 넘어 잘리므로 빼고 그린다.
+    // 그림자 소품(stage.shadowProp)은 바닥이 공 그림자 식으로 따로 받는다
+    const hidden = [floor, this.second, this.wall, this.caster].filter(o => o !== null)
+    for (const o of hidden) o.visible = false
     renderer.setClearColor(0x000000, 0)
     renderer.setRenderTarget(this.shadowMask)
     renderer.render(this.scene, this.shadowCamera)
-    floor.visible = true
-    if (this.second) this.second.visible = true
-    if (this.wall) this.wall.visible = true
+    for (const o of hidden) o.visible = true
     effect.material = material
     material.uniforms._SgStep.value = this.settings.step
   }
@@ -752,6 +830,19 @@ class ShaderStage {
       material.blending = stepping ? THREE.NoBlending : blend === 'additive' ? THREE.CustomBlending : THREE.NormalBlending
       material.depthWrite = stepping
     }
+    this.layers.forEach(({ layer, mesh }, k) => {
+      const layerMaterial = this.layerMaterial(k, this.settings.off)
+      if (mesh.material !== layerMaterial) mesh.material = layerMaterial
+      layerMaterial.blending = material.blending
+      layerMaterial.depthWrite = material.depthWrite
+      // 본체 값(자동 데모와 이벤트까지 들어간 값) 위에 층의 값을 덮어쓴다
+      for (const def of this.specimen!.meta.params) {
+        const own = layerMaterial.uniforms[def.key]
+        const value = def.key in layer.values ? paramToUniform(def, layer.values[def.key]) : material.uniforms[def.key].value
+        if (value instanceof THREE.Vector4) own.value.copy(value)
+        else own.value = value
+      }
+    })
 
     if (this.maskFloor) {
       this.effect.rotation.y = this.spin
@@ -759,7 +850,7 @@ class ShaderStage {
     }
 
     const renderer = this.renderer
-    const background = kind === 'sprite' ? LAYOUT.spriteBackground : LAYOUT.background
+    const background = kind === 'sprite' ? LAYOUT.spriteBackground : this.specimen.meta.stage.bright ? LAYOUT.brightBackground : LAYOUT.background
     renderer.setClearColor(new THREE.Color(...linear3(background)), 1)
 
     if (kind === 'sprite') {

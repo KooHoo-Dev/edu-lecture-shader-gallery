@@ -9,6 +9,7 @@ using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 namespace ShaderGallery.EditorTools
 {
@@ -23,6 +24,10 @@ namespace ShaderGallery.EditorTools
         static readonly Color PropColor = new Color(0.72f, 0.62f, 0.46f, 1f);
         static readonly Color PropColor2 = new Color(0.34f, 0.5f, 0.66f, 1f);
         static readonly Color Ambient = new Color(0.34f, 0.38f, 0.46f, 1f);
+        // stage.bright (fullscreen): 하늘색 배경과 밝은 바닥. web/src/stage/layout.ts 와 같은 값
+        static readonly Color BrightBackground = new Color(0.55f, 0.66f, 0.8f, 1f);
+        static readonly Color BrightFloorA = new Color(0.62f, 0.64f, 0.66f, 1f);
+        static readonly Color BrightFloorB = new Color(0.52f, 0.55f, 0.58f, 1f);
         static readonly Vector3 LightEuler = new Vector3(50f, -30f, 0f);
         // stage.backlit: 카메라 맞은편 낮은 해. 웹 layout.ts 의 backlightDirUnity 와 같다.
         static readonly Vector3 BacklightEuler = new Vector3(15f, 180f, 0f);
@@ -56,7 +61,7 @@ namespace ShaderGallery.EditorTools
                 material.SetColor(c.k, new Color(c.r, c.g, c.b, c.a));
             }
 
-            Stage stage = Build(specimen, material);
+            Stage stage = Build(job, specimen, material);
             // URP Asset 의 MSAA 가 2 이상일 때만 이 값이 쓰인다
             var renderTexture = new RenderTexture(width, height, 24, GraphicsFormat.R8G8B8A8_SRGB) { antiAliasing = job.msaa > 0 ? job.msaa : 4 };
             Texture2D read = null;
@@ -65,6 +70,7 @@ namespace ShaderGallery.EditorTools
             var pipeline = (UniversalRenderPipelineAsset)GraphicsSettings.currentRenderPipeline;
             var primingData = (UniversalRendererData)pipeline.rendererDataList[0];
             DepthPrimingMode primingBefore = primingData.depthPrimingMode;
+            RenderingMode pathBefore = primingData.renderingMode;
             int msaaBefore = pipeline.msaaSampleCount;
             try
             {
@@ -72,6 +78,11 @@ namespace ShaderGallery.EditorTools
                 if (!string.IsNullOrEmpty(job.depthPriming))
                 {
                     primingData.depthPrimingMode = ParsePriming(job.depthPriming);
+                    primingData.SetDirty();
+                }
+                if (!string.IsNullOrEmpty(job.renderingPath))
+                {
+                    primingData.renderingMode = ParseRenderingPath(job.renderingPath);
                     primingData.SetDirty();
                 }
                 if (job.msaa > 0)
@@ -84,6 +95,8 @@ namespace ShaderGallery.EditorTools
                 }
 
                 stage.camera.targetTexture = renderTexture;
+                // 캔버스(stage.ui)는 렌더 전에 정점을 만들어 둬야 그려진다
+                Canvas.ForceUpdateCanvases();
                 stage.camera.Render();
 
                 RenderTexture previous = RenderTexture.active;
@@ -107,9 +120,10 @@ namespace ShaderGallery.EditorTools
                     rendererData.SetDirty();
                     Object.DestroyImmediate(feature);
                 }
-                if (primingData.depthPrimingMode != primingBefore)
+                if (primingData.depthPrimingMode != primingBefore || primingData.renderingMode != pathBefore)
                 {
                     primingData.depthPrimingMode = primingBefore;
+                    primingData.renderingMode = pathBefore;
                     primingData.SetDirty();
                 }
                 if (pipeline.msaaSampleCount != msaaBefore)
@@ -154,6 +168,18 @@ namespace ShaderGallery.EditorTools
             return feature;
         }
 
+        static RenderingMode ParseRenderingPath(string path)
+        {
+            return path switch
+            {
+                "forward" => RenderingMode.Forward,
+                "forward-plus" => RenderingMode.ForwardPlus,
+                "deferred" => RenderingMode.Deferred,
+                "deferred-plus" => RenderingMode.DeferredPlus,
+                _ => throw new System.ArgumentException("renderingPath 는 forward, forward-plus, deferred, deferred-plus 중 하나다: " + path),
+            };
+        }
+
         static DepthPrimingMode ParsePriming(string mode)
         {
             return mode switch
@@ -189,7 +215,7 @@ namespace ShaderGallery.EditorTools
             return AssetDatabase.LoadAssetAtPath<Texture2D>(t.path);
         }
 
-        static Stage Build(SgJobSpecimen specimen, Material material)
+        static Stage Build(SgJob job, SgJobSpecimen specimen, Material material)
         {
             var stage = new Stage { scene = EditorSceneManager.NewPreviewScene() };
 
@@ -197,7 +223,7 @@ namespace ShaderGallery.EditorTools
             stage.camera = cameraObject.AddComponent<Camera>();
             stage.camera.scene = stage.scene;
             stage.camera.clearFlags = CameraClearFlags.SolidColor;
-            stage.camera.backgroundColor = Background;
+            stage.camera.backgroundColor = specimen.stage == "fullscreen" && specimen.bright ? BrightBackground : Background;
             stage.camera.nearClipPlane = 0.1f;
             stage.camera.farClipPlane = 100f;
             stage.camera.allowHDR = true;
@@ -220,7 +246,7 @@ namespace ShaderGallery.EditorTools
             switch (specimen.stage)
             {
                 case "sprite":
-                    BuildSprite(stage, specimen, material);
+                    BuildSprite(stage, specimen, material, job.uiMask);
                     break;
                 case "depth":
                     BuildPerspective(stage);
@@ -234,14 +260,23 @@ namespace ShaderGallery.EditorTools
                     break;
                 case "fullscreen":
                     BuildPerspective(stage);
-                    AddFloor(stage);
+                    AddFloor(stage, specimen.bright);
                     AddProps(stage);
                     AddMesh(stage, "New-Sphere.fbx", LitMaterial(stage, new Color(0.62f, 0.68f, 0.76f)), new Vector3(0f, 0.75f, 0f), 1.5f);
                     break;
                 default:
                     BuildPerspective(stage);
                     AddFloor(stage);
-                    PlaceEffectMesh(stage, specimen.mesh, material, false);
+                    GameObject effect = PlaceEffectMesh(stage, specimen.mesh, material, false);
+                    if (specimen.tilt != 0f)
+                    {
+                        // 웹과 같다: Z 로 눕힌 뒤 월드 Y 로 돈다 (Euler 는 Z, X, Y 순서로 돌린다)
+                        effect.transform.rotation = Quaternion.Euler(0f, effect.transform.eulerAngles.y, specimen.tilt);
+                    }
+                    if (specimen.shadowProp)
+                    {
+                        AddShadowProp(stage, effect.transform.position);
+                    }
                     if (specimen.occluder)
                     {
                         AddWall(stage);
@@ -261,7 +296,7 @@ namespace ShaderGallery.EditorTools
             stage.camera.transform.LookAt(new Vector3(0f, 0.75f, 0f));
         }
 
-        static void BuildSprite(Stage stage, SgJobSpecimen specimen, Material material)
+        static void BuildSprite(Stage stage, SgJobSpecimen specimen, Material material, string uiMask)
         {
             stage.camera.orthographic = true;
             stage.camera.orthographicSize = 1.5f;
@@ -276,14 +311,94 @@ namespace ShaderGallery.EditorTools
             sprite.hideFlags = HideFlags.HideAndDontSave;
             stage.temporary.Add(sprite);
 
+            if (specimen.ui)
+            {
+                BuildCanvas(stage, specimen, material, sprite, uiMask);
+                return;
+            }
+
             var spriteObject = NewObject(stage, "Sprite");
             var spriteRenderer = spriteObject.AddComponent<SpriteRenderer>();
             spriteRenderer.sprite = sprite;
             spriteRenderer.sharedMaterial = material;
+
+            // stage.layers: 같은 스프라이트를 값만 바꾼 머티리얼 복사본으로 뒤에 더 그린다. 앞에 적은 층이 가장 멀다
+            for (int k = 0; k < specimen.layers.Count; k++)
+            {
+                SgLayer layer = specimen.layers[k];
+                var layerMaterial = new Material(material) { hideFlags = HideFlags.HideAndDontSave };
+                foreach (SgFloatValue f in layer.floats)
+                {
+                    layerMaterial.SetFloat(f.k, f.v);
+                }
+                foreach (SgColorValue c in layer.colors)
+                {
+                    layerMaterial.SetColor(c.k, new Color(c.r, c.g, c.b, c.a));
+                }
+                stage.temporary.Add(layerMaterial);
+                var layerObject = NewObject(stage, "Layer" + k);
+                layerObject.transform.position = new Vector3(layer.x, layer.y, 0f);
+                var layerRenderer = layerObject.AddComponent<SpriteRenderer>();
+                layerRenderer.sprite = sprite;
+                layerRenderer.sharedMaterial = layerMaterial;
+                layerRenderer.sortingOrder = k - specimen.layers.Count;
+            }
+        }
+
+        // stage.ui: 수강생이 쓰는 경로와 같게 Screen Space - Camera 캔버스의 Image 로 찍는다.
+        // 캔버스가 정점 색, unity_GUIZTestMode, 마스크 머티리얼 복사본을 넣는다. Image 는 Source Image 비와 상관없이 사각형에 맞춰 늘어난다.
+        // 크기는 웹 무대(ShaderStage.uiScale)와 같다: 높이 2 유닛(화면 높이 3 유닛 중), 폭은 4.6 유닛 안.
+        static void BuildCanvas(Stage stage, SgJobSpecimen specimen, Material material, Sprite sprite, string uiMask)
+        {
+            const float PixelsPerUnit = 720f / 3f;
+            float aspect = specimen.uiAspect > 0f ? specimen.uiAspect : 1f;
+            float heightUnits = Mathf.Min(2f, 4.6f / aspect);
+            var size = new Vector2(heightUnits * aspect, heightUnits) * PixelsPerUnit;
+
+            var canvasObject = NewObject(stage, "Canvas");
+            var canvas = canvasObject.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceCamera;
+            canvas.worldCamera = stage.camera;
+            canvas.planeDistance = 1f;
+            var scaler = canvasObject.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1280f, 720f);
+            scaler.matchWidthOrHeight = 1f;
+
+            Transform parent = canvasObject.transform;
+            if (!string.IsNullOrEmpty(uiMask))
+            {
+                // 촬영 검증 변형: Image 의 가운데 70% 만 보이게 자른다. RectMask2D 는 UNITY_UI_CLIP_RECT, Mask 는 스텐실과 UNITY_UI_ALPHACLIP 을 쓴다
+                GameObject maskObject = NewUiObject(stage, "Mask", parent, size * 0.7f);
+                if (uiMask == "rect")
+                {
+                    maskObject.AddComponent<RectMask2D>();
+                }
+                else
+                {
+                    maskObject.AddComponent<Image>();
+                    maskObject.AddComponent<Mask>().showMaskGraphic = false;
+                }
+                parent = maskObject.transform;
+            }
+
+            GameObject imageObject = NewUiObject(stage, "Image", parent, size);
+            var image = imageObject.AddComponent<Image>();
+            image.sprite = sprite;
+            image.material = material;
+        }
+
+        static GameObject NewUiObject(Stage stage, string name, Transform parent, Vector2 size)
+        {
+            GameObject go = NewObject(stage, name);
+            var rect = go.AddComponent<RectTransform>();
+            rect.SetParent(parent, false);
+            rect.sizeDelta = size;
+            return go;
         }
 
         // web/src/stage/layout.ts 의 meshPlacement, depthPlacement 와 같은 값.
-        static void PlaceEffectMesh(Stage stage, string mesh, Material material, bool depth)
+        static GameObject PlaceEffectMesh(Stage stage, string mesh, Material material, bool depth)
         {
             GameObject go;
             switch (mesh)
@@ -309,6 +424,12 @@ namespace ShaderGallery.EditorTools
                     stage.temporary.Add(grass);
                     go = AddMesh(stage, "SgGrass", grass, material, Vector3.zero, depth ? 1.4f : 1.6f);
                     break;
+                case "torus":
+                    // 내장 메시가 아니라 SgTorus 가 만든다. 볼록하지 않은 메시 시험용 고리
+                    Mesh torus = SgTorus.Build();
+                    stage.temporary.Add(torus);
+                    go = AddMesh(stage, "SgTorus", torus, material, new Vector3(0f, depth ? 0.55f : 0.85f, 0f), depth ? 2.2f : 1.5f);
+                    break;
                 case "grid":
                     // 내장 메시가 아니라 SgGrid 가 만든다. 10 m 넓이로 화면 아래쪽을 호수처럼 덮는다.
                     Mesh grid = SgGrid.Build();
@@ -326,18 +447,28 @@ namespace ShaderGallery.EditorTools
             {
                 go.transform.rotation = Quaternion.Euler(0f, MeshYawDeg, 0f);
             }
+            return go;
+        }
+
+        // stage.shadowProp: 물체 가운데에서 해 쪽으로 띄운 공. web/src/stage/layout.ts 의 shadowProp 과 같은 값
+        static readonly Vector3 ShadowPropOffset = new Vector3(-0.05f, 0.85f, -0.62f);
+        static readonly Color ShadowPropColor = new Color(0.66f, 0.6f, 0.52f, 1f);
+
+        static void AddShadowProp(Stage stage, Vector3 center)
+        {
+            AddMesh(stage, "New-Sphere.fbx", LitMaterial(stage, ShadowPropColor), center + ShadowPropOffset, 0.36f);
         }
 
         const float MeshYawDeg = 30f;
 
-        static void AddFloor(Stage stage)
+        static void AddFloor(Stage stage, bool bright = false)
         {
             var texture = new Texture2D(8, 8, TextureFormat.RGBA32, false, false) { filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Repeat, hideFlags = HideFlags.HideAndDontSave };
             for (int y = 0; y < 8; y++)
             {
                 for (int x = 0; x < 8; x++)
                 {
-                    texture.SetPixel(x, y, (x + y) % 2 == 0 ? FloorA : FloorB);
+                    texture.SetPixel(x, y, (x + y) % 2 == 0 ? (bright ? BrightFloorA : FloorA) : (bright ? BrightFloorB : FloorB));
                 }
             }
             texture.Apply();

@@ -249,6 +249,19 @@ function checkMeta(id, meta, core, wrapper) {
   } else if (/\bSG_OCCLUDED\b/.test(core)) {
     err(`${where}: core.hlsl 에 SG_OCCLUDED 가 있으면 stage.occluded 를 true 로 둔다`)
   }
+  // 무대 옵션은 정해진 무대에서만 뜻이 있다 (types.ts 의 SpecimenStage)
+  const stage = meta.stage
+  if (stage.uiAspect !== undefined && (!stage.ui || stage.kind !== 'sprite' || !(stage.uiAspect > 0 && stage.uiAspect <= 8))) err(`${where}: stage.uiAspect 는 sprite 무대의 stage.ui 표본에서 0 보다 크고 8 이하로 둔다`)
+  if (stage.layers) {
+    if (stage.kind !== 'sprite' || stage.ui) err(`${where}: stage.layers 는 UI 가 아닌 sprite 무대에서만 쓴다`)
+    if (stage.layers.length > 3) err(`${where}: stage.layers 는 3개까지다`)
+    for (const layer of stage.layers) for (const key of Object.keys(layer.values ?? {})) if (!keys.has(key)) err(`${where}: stage.layers 의 ${key} 가 meta.params 에 없다`)
+  }
+  if (stage.shadowProp && stage.kind !== 'mesh') err(`${where}: stage.shadowProp 은 mesh 무대에서만 쓴다`)
+  if (stage.tilt !== undefined && (stage.kind !== 'mesh' || !(Math.abs(stage.tilt) <= 180))) err(`${where}: stage.tilt 는 mesh 무대에서 -180~180 도로 둔다`)
+  if (stage.bright && stage.kind !== 'fullscreen') err(`${where}: stage.bright 는 fullscreen 무대에서만 쓴다`)
+  // 받는 그림자(i.shadow)는 웹이 넘기지만 Unity 래퍼는 직접 채워야 한다 (light.shadowAttenuation)
+  if (/\bi\.shadow\b/.test(core) && !/\.shadow\s*=/.test(wrapper)) err(`${id}/${meta.shaderFile}: core 가 i.shadow 를 쓰면 래퍼가 SgInput.shadow 에 light.shadowAttenuation 을 넣는다`)
   if (/\bsgSceneColor\s*\(/.test(core) && !meta.requires?.includes('opaque')) err(`${where}: 씬 색상을 쓰면 requires 에 'opaque' 를 넣는다`)
   if (/\bdepthDelta\b/.test(core) && !meta.requires?.includes('depth')) err(`${where}: 깊이를 쓰면 requires 에 'depth' 를 넣는다`)
   // 전체 화면 무대의 깊이와 법선 (Full Screen Pass 의 Requirements)

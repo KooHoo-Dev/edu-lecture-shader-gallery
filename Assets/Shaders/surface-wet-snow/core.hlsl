@@ -109,10 +109,9 @@ float4 sgEffect(SgInput i)
 
 #ifdef SG_OFF
     // 흔한 실수: 오브젝트 공간 법선으로 위쪽을 고른다. 마스크가 물체에 붙어 물체가 돌거나 기울면 덮인 자리가 옆과 아래로 돌아간다.
-    // 이 무대는 Y 축으로만 돌아 normalOS.y 가 normalWS.y 와 같아서 그대로 쓰면 차이가 안 보인다.
-    // 그래서 이 공을 Z 축으로 90도 눕혀 놓은 물체로 친다. 눕힌 물체의 normalOS.y 는 처음에 월드 -X(화면 왼쪽)를 가리키고 물체와 함께 돈다.
+    // 이 무대는 공을 Z 축으로 90도 눕혀(stage.tilt) 돌리므로, 오브젝트의 위(normalOS.y)가 하늘이 아니라 옆(처음에 화면 왼쪽 뒤)을 가리키고 물체와 함께 돈다.
     // i.normalOS 는 이 웹 전용 분기에서만 쓴다. Unity 래퍼의 SgInput 에는 없다 (SG_OFF 는 Unity 에서 컴파일되지 않는다).
-    float wrongUp = -i.normalOS.x;
+    float wrongUp = i.normalOS.y;
     float wrongMask = surfaceCoverMask(wrongUp + noiseOffset, coverage);
     return float4(lerp(dry, cover, wrongMask), 1.0);
 #endif

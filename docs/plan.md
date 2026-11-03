@@ -262,7 +262,7 @@ UI 갤러리의 무대, 값 조절, 프리셋, 재생 바, 발표 모드, 딥링
 
 **남은 앱 과제** (해당 표본이 필요할 때 구독이 처리)
 
-- 메시 무대 입력에 그림자 감쇠를 빛 색과 따로 넘기는 필드, 그리고 메시 무대에 그림자를 드리울 소품. 지금은 툰의 받는 그림자를 갤러리 화면에서 볼 수 없다.
+- ~~메시 무대 입력에 그림자 감쇠를 빛 색과 따로 넘기는 필드, 그리고 메시 무대에 그림자를 드리울 소품. 지금은 툰의 받는 그림자를 갤러리 화면에서 볼 수 없다.~~ 22절
 - 웹 월드 벡터(`positionWS`, `normalWS`, `viewWS`, `lightDirWS`, 오브젝트 공간 값)를 Unity 좌표(z 반전)로 넘기기. 방향이 의미 있는 월드 공간 표본(바람 방향 등)을 만들기 전에 한다.
 - ~~외곽선의 Depth Priming 주의는 리뷰어의 판단이고 Unity 에서 확인하지 않았다.~~ 21절
 
@@ -297,11 +297,11 @@ UI 갤러리의 무대, 값 조절, 프리셋, 재생 바, 발표 모드, 딥링
 
 **남은 앱 과제** (해당 표본이 필요할 때 구독이 처리)
 
-- UGUI Canvas 촬영 무대: 4:1 같은 Image 비율, Mask, RectMask2D, Overlay 캔버스를 화면으로 확인할 수 없다. UI 표본은 지금 글로만 정확히 쓴다.
-- 여러 층 스프라이트 무대: 시차 스크롤은 층 하나만 보여 준다.
+- ~~UGUI Canvas 촬영 무대: 4:1 같은 Image 비율, Mask, RectMask2D, Overlay 캔버스를 화면으로 확인할 수 없다. UI 표본은 지금 글로만 정확히 쓴다.~~ 21·22절
+- ~~여러 층 스프라이트 무대: 시차 스크롤은 층 하나만 보여 준다.~~ 22절
 - 풀 잎마다 다른 데이터(위상, 높이)와 앞면 여부, `sgVertex` 의 월드 좌표.
 - 이벤트 트랙의 상대값과 `prefers-reduced-motion` 대응.
-- 시간으로 움직이는 무늬를 웹과 Unity 에서 비교하는 검증 전용 정지 촬영(`_Speed: 0` 같은 값).
+- ~~시간으로 움직이는 무늬를 웹과 Unity 에서 비교하는 검증 전용 정지 촬영(`_Speed: 0` 같은 값).~~ 22절
 - `references` 라벨의 게임명 검사, 샘플 래퍼의 안개 처리.
 - 묶음 4·5 전에: `ZTest Greater` 그리기, 전체 화면 무대의 깊이·법선, 촘촘한 수면 메시 (가이드 9절).
 
@@ -338,8 +338,8 @@ Jay 가 남은 일을 모두 진행하라고 해서(단계마다 커밋, 끝나�
 
 **남은 앱 과제** (15절 목록에 더해)
 
-- 촬영 검증용 변형: Deferred, ~~Depth Priming Auto~~ (21절), 볼록하지 않은 시험 메시. 두 번째 패스 표본의 확인 범위를 넓힌다.
-- 전체 화면 무대를 밝게 하는 옵션(어두운 무대에서 검은 비네트가 약함), 메시 무대 기울이기 옵션(오브젝트 공간 실수를 보여 주기).
+- ~~촬영 검증용 변형: Deferred, Depth Priming Auto (21절), 볼록하지 않은 시험 메시. 두 번째 패스 표본의 확인 범위를 넓힌다.~~ 22절
+- ~~전체 화면 무대를 밝게 하는 옵션(어두운 무대에서 검은 비네트가 약함), 메시 무대 기울이기 옵션(오브젝트 공간 실수를 보여 주기).~~ 22절
 - ~~select 값에 따라 쓰이지 않는 조절 값 숨기기, 웹의 `_ST`(Tiling/Offset) 지원.~~ 20절
 - ~~마지막 단계가 최종 화면과 같은 기존 표본 정리 (`toon-ramp-lit`, `tiling-scroll-parallax`).~~ 20절
 - ~~일시정지나 `t=` 상태에서 이벤트 버튼이 아무 변화가 없는 점 안내.~~ 20절
@@ -411,3 +411,18 @@ gzip 이 예산의 86% 라 표본을 늘리기 전에 이미지 용량을 정했
 - **Depth Priming:** 촬영 도구에 검증 변형 `--depth-priming=disabled|auto|forced`, `--msaa=1|2|4|8` 을 더했다 (렌더러·URP 에셋을 메모리에서만 바꾸고 촬영 뒤 되돌림). `inverted-hull-outline`, `xray-occluded-silhouette` 를 여섯 조합으로 찍었다. 이 프로젝트의 URP Asset 은 MSAA 가 꺼져 있어 Forced 와 Auto 모두 외곽선과 실루엣이 통째로 사라졌다 (두 조합의 화면이 픽셀까지 같음). MSAA 4x 에서는 Forced, Auto 모두 Disabled 와 같았다. URP 17.3 소스의 조건(Forward 계열, MSAA 1, Auto 는 데스크톱에서 권장)과 맞는다. 처음에는 렌더 타깃의 MSAA 만 바꿨는데 URP 는 URP Asset 의 MSAA 가 1 이면 렌더 타깃 값을 보지 않아 효과가 없었다.
 - **Overlay 캔버스의 씬 색상:** Overlay UI 는 렌더 텍스처 촬영에 그려지지 않아 `tools/verify/overlay-ui.mjs` 로 Windows 플레이어(D3D12)를 만들어 실제 창을 찍었다. 같은 `ui-backdrop-blur` 패널을 Overlay, Camera 캔버스로 찍고 패널 없는 화면과 비교했다. Overlay 에서도 Opaque Texture 는 읽히지만 비친 장면의 위아래가 뒤집혔다 (패널 뒤 파란 구의 무게중심: 실제 y 387, Camera 377, Overlay 345 로 뒤집은 위치 333 쪽). Camera 캔버스는 제자리. 셰이더로 뒤집기를 고치는 대신 지금처럼 Camera 캔버스를 권하고 글을 확인된 사실로 바꿨다. 다른 그래픽 API 와 에디터 Game 뷰는 확인하지 않았다.
 - 글을 고친 곳: `inverted-hull-outline` 함정(제목을 'Depth Priming 을 켜자 외곽선이 사라진다' 로), `xray-occluded-silhouette` 의 Auto 설명, `ui-backdrop-blur` 의 캔버스 설명과 함정, 두 셰이더 주석, 가이드 4절과 8절.
+
+## 22. 후속 4: 무대·촬영 확장 (2026-11-03)
+
+Jay 가 handoff 4번의 네 묶음을 차례로 진행하라고 했다. 새 기능은 무대 옵션으로 넣어 쓰는 표본만 바뀌고, 기능마다 그것이 필요한 표본에 붙여 웹과 Unity 를 같이 찍어 확인했다. 옵션은 링크의 `s.<옵션>=<값>` 과 `tools/unity.mjs --stage=` 로 어느 표본에서나 시험할 수 있다.
+
+- **UGUI Canvas 촬영:** UI 표본(`stage.ui`, sprite 무대)을 Unity 에서 Screen Space - Camera 캔버스의 Image 로 찍는다. `ui-sdf-shape`, `ui-sheen-sweep` 의 새 촬영이 예전 SpriteRenderer 촬영과 크기·모양이 같았다. `stage.uiAspect` 로 Image 비율을 정하고(웹은 스프라이트를 같은 비로 늘림), 검증 변형 `--ui-mask=rect|mask` 가 Image 를 RectMask2D 나 Mask 안에 넣는다. 확인한 것: RectMask2D 와 Mask 둘 다 가운데 70% 로 잘린다, 4:1 Image 에서 SDF 원은 원으로 남고 광택 띠 각도가 유지된다, 1:4 Image 에서도 도형이 폭에 맞춰 줄 뿐 깨지지 않는다. 기존 UI 표본의 글이 맞았다.
+- **여러 층 스프라이트 (`stage.layers`):** 같은 스프라이트를 값만 덮어쓴 층으로 본체 뒤에 그린다. 웹은 층 머티리얼이 본체와 유니폼 객체를 나눠 쓰고 조절 값만 따로 둔다. `tiling-scroll-parallax` 에 '먼 층' 값(계수 0.25, 공기 0.55)의 층을 0.45 유닛 위에 더했다. 연속 촬영으로 먼 층이 더 느리게 흐르는 것을 확인했다.
+- **정지 비교 (`tools/compare.mjs`):** 같은 값으로 Unity 와 웹(`t=0`)을 찍어 나란히 붙이고 평균 차이를 낸다. Unity 촬영의 시간은 정할 수 없어 흐르는 값을 `--set` 으로 0 에 둔다. 패럴랙스 평균 차이 2.0. 바닥 격자가 원래 두 화면에서 조금 어긋나 메시 무대는 5~8 이 나온다. PNG 읽기·쓰기는 `tools/lib/png.mjs` (의존성 없음).
+- **그림자 소품 (`stage.shadowProp`):** 물체 위 해 쪽에 작은 공을 띄운다. 웹은 공 그림자를 `SgInput.shadow` 로 넘기고 `lightColor`, `lighting` 에도 곱한다 (Unity 래퍼가 `light.color * shadowAttenuation` 을 넘기는 것과 같다). `toon-ramp-lit` 에 붙여 받는 그림자가 띠 한 칸 어두운 층으로 끊기는 것을 웹과 Unity 에서 같게 확인했다. 처음 자리는 공이 화면 밖이라 해 쪽 광선 위로 옮겼다.
+- **밝은 무대 (`stage.bright`):** 하늘색 배경과 밝은 바닥. `screen-vignette` 에 붙여 검은 비네트가 기본 촬영에서도 보이므로 썸네일 지정(저체력)을 없앴다.
+- **기울이기 (`stage.tilt`):** 물체를 Z 축으로 눕힌 채 Y 로 돌린다. 처음에는 X 축(카메라 쪽)으로 기울였는데 효과 끄기에서 눈이 앞면을 거의 다 덮어 실수가 잘 안 보여, 원래 우회가 흉내 내던 Z 축 90도로 바꿨다. `surface-wet-snow` 의 효과 끄기가 '눕힌 셈 치는' `-normalOS.x` 대신 진짜 `normalOS.y` 를 쓴다.
+- **Deferred 변형 (`--rendering-path`):** 메시·깊이 표본 17개를 Forward 와 Deferred 로 찍었다. 시간을 쓰지 않는 표본은 평균 차이 0.1~0.2 로 같았고, 차이가 큰 표본(물결, 홀로그램, 풀 등)은 시트로 보니 시간 위상만 달랐다. Deferred 에서 사라지거나 깨지는 표본은 없다.
+- **볼록하지 않은 메시 (`mesh: 'torus'`):** 웹과 Unity 가 같은 고리를 만든다 (`torus.ts`, `SgTorus.cs`). 외곽선과 실루엣 표본을 고리로 찍어 두 화면이 같았다. 관찰: 뒤집은 껍데기 외곽선은 고리 바깥 윤곽에만 생기고 구멍 안쪽 가장자리에는 거의 생기지 않는다 (웹·Unity 같음). 표본 글에는 아직 넣지 않았다.
+- 다시 찍은 표본: `toon-ramp-lit`, `tiling-scroll-parallax`, `screen-vignette`, `surface-wet-snow`, 그리고 Canvas 경로로 찍은 `ui-sdf-shape`, `ui-sheen-sweep`.
+- 독립 리뷰: 큰 결함 없음. 고친 것: 툰 공 그림자 글(띠 한 칸이 아니라 맨 아래 띠로 떨어진다), `uiAspect` 검사를 sprite 무대로 한정, 가이드의 '모든 래퍼가 감쇠를 곱한다'와 '큐브와 겹친다' 일반화, 늦게 읽힌 텍스처가 다음 표본의 무대 크기를 바꾸는 경우, 링크 `s.` 의 잘못된 값. 전체 검사 통과, gzip 1,074KB (70%).

@@ -6,7 +6,7 @@
 
 - 표본 26개(선정 24개 + 기본 물·불)로 1차 마무리를 했다. 배포: https://koohoo-dev.github.io/edu-lecture-shader-gallery/
 - main 에 push 하면 Actions(`.github/workflows/deploy.yml`)가 빌드, `tools/check.mjs`, Pages 배포를 한다. `v*` 태그는 Release 에 단일 HTML 을 붙인다.
-- 마지막 전체 검사: 통과, WebGL2 56/56, 오프라인 실행 26개 표시, Skill 108 파일, gzip 1,065KB (예산 1,536KB 의 69%, 21절 뒤).
+- 마지막 전체 검사: 통과, WebGL2 56/56, 오프라인 실행 26개 표시, Skill 108 파일, gzip 1,074KB (예산 1,536KB 의 70%, 22절 뒤).
 - 문서: 진행 기록과 비용 `docs/plan.md`, 선정 근거 `docs/shader-selection.md`, 표본 규격 `docs/specimen-guide.md`.
 - 결정된 것: 저체력 비네트 색(`screen-vignette`)은 지금 값을 유지한다 (Jay, 2026-11-03).
 
@@ -41,6 +41,7 @@ Unity 를 직접 돌릴 때(촬영, 컴파일)는 워커 검증과 겹치지 않
 ## 함정 (지난 세션에서 겪은 것)
 
 - `tools/live.mjs` 는 `--query` 를 하나만 받는다. 둘을 주면 뒤엣것을 무시한다.
+- 웹과 Unity 가 같은지는 `tools/compare.mjs` 로 나란히 찍어 본다 (흐르는 값은 `--set` 으로 0). 무대 옵션은 링크 `s.<옵션>=` 과 `--stage=` 로 어느 표본에서나 시험한다.
 - 움직임은 `live.mjs` 의 `burst` 로 확인한다. 무대 시간을 직접 옮겨 찍으므로 매번 같은 결과가 나온다. 물체 회전은 멈춘다. `prepare-review.sh` 는 잡 브랜치의 도구로 찍으므로 burst 가 들어가기 전에 만든 브랜치에서는 시트가 없다.
 - 여러 파일을 스크립트 하나로 고친 뒤에는 grep 으로 결과를 확인한다. 중간 실패를 모른 채 "적용했다" 고 커밋한 적이 있다.
 - 정규식이나 Windows 경로가 든 수정은 Edit 도구로 한다. heredoc 안 node 스크립트에서는 `\\b` 가 깨지고, GNU sed 치환문에서는 `\U` 같은 경로 조각이 대소문자 변환으로 바뀐다.
@@ -53,9 +54,5 @@ Unity 를 직접 돌릴 때(촬영, 컴파일)는 워커 검증과 겹치지 않
 1. ~~**`live.mjs` 연속 촬영** (17절).~~ 끝남 (18절). `burst:<이름>,<장수>,<간격ms>` 가 시트 한 장과 변화량을 남긴다. 리뷰 폴더에도 들어간다.
 2. ~~**용량 정책** (16절).~~ 끝남 (19절). gzip 69%. 새 표본은 gzip 증분 45KB 이하, 기준은 가이드 7절과 `check.mjs` 에 있다.
 3. ~~**표본 다듬기** (16·17절).~~ 끝남 (20절). 마지막 단계 정리 5개 표본, `showWhen`, 웹 `_ST`, 일시정지 이벤트 안내, 파티클 표준 문장.
-4. **무대·촬영 확장** (14~16절). 필요한 표본이 생길 때 한다.
-   - UGUI Canvas 촬영 무대, 여러 층 스프라이트
-   - 그림자 소품과 그림자 감쇠 필드
-   - 밝은 전체 화면 무대, 메시 기울이기
-   - 촬영 검증 변형(Deferred, 볼록하지 않은 메시)과 시간을 멈춘 비교 촬영. Depth Priming·MSAA 변형은 21절에서 넣었다
+4. ~~**무대·촬영 확장** (14~16절).~~ 끝남 (22절). 무대 옵션 `uiAspect`, `layers`, `shadowProp`, `tilt`, `bright`, `mesh: 'torus'` (가이드 4절), 촬영 변형 `--rendering-path`, `--ui-mask`, `--stage`, `--set`, 정지 비교 `tools/compare.mjs` (가이드 8절).
 5. ~~**Unity 에서 아직 확인하지 않은 것** (14·16절).~~ 끝남 (21절). Depth Priming 은 외곽선·실루엣을 지운다(Forced, MSAA 꺼진 Auto). Overlay 캔버스는 씬 색상이 읽히지만 위아래가 뒤집힌다(D3D12 플레이어). 남은 미확인: 다른 그래픽 API 와 에디터 Game 뷰의 Overlay.

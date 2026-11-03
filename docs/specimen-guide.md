@@ -177,7 +177,7 @@ float effectNoise(float2 p)
 
 | 무대 (`stage.kind`) | 무대 내용 | `SgInput` 필드 | 쓰는 함수 | 기준 샘플 |
 |---|---|---|---|---|
-| `mesh` | 바닥과 물체 하나 (`stage.mesh`). Y 30도에서 시작해 천천히 돈다 (`quad`, `plane`, `grass`, `grid` 는 돌지 않는다) | `uv color positionOS positionWS normalOS normalWS viewWS lightDirWS lightColor lighting time` | | 디졸브 |
+| `mesh` | 바닥과 물체 하나 (`stage.mesh`). Y 30도에서 시작해 천천히 돈다 (`quad`, `plane`, `grass`, `grid` 는 돌지 않는다) | `uv color positionOS positionWS normalOS normalWS viewWS lightDirWS lightColor lighting shadow time` | | 디졸브 |
 | `sprite` | 정사영 카메라, 드론 스프라이트(또는 `stage.textures._MainTex`), 2유닛 높이 | `uv color texelSize time` | `SG_TEX(_MainTex, uv)` | 스프라이트 |
 | `depth` | 바닥, 상자, 공, 그 위를 덮는 물체 (`stage.mesh`). `plane` 이면 소품을 가르는 수면 높이에 놓인다 | `uv color positionOS positionWS normalOS normalWS viewWS cameraRightWS cameraUpWS screenUV depthDelta time` | `sgSceneColor(uv)`, `sgSceneDepth(uv)` | 역장 |
 | `fullscreen` | 바닥, 상자, 공을 그린 화면 전체 | `uv aspect texelSize time` | `sgSource(uv)`, `sgSceneDepth(uv)`, `sgSceneNormal(uv)` | 전환 |
@@ -213,7 +213,15 @@ float effectNoise(float2 p)
 - 웹도 위치, 법선, 방향을 Unity 좌표로 넘긴다 (three.js 의 z 를 뒤집는다). 월드나 오브젝트 좌표로 만든 무늬와 방향(바람 방향 등)이 두 화면에서 같다. 웹 무대의 메시는 three.js 가 만든 것이라 정점 수가 Unity 기본 메시와 다르다. `cube`, `grass`, `grid` 만 같다. 정점을 미는 표본은 Unity 의 정점 간격을 기준으로 정한다.
 - `grid` 는 앱이 웹과 Unity 에서 같게 만드는 촘촘한 평면이다 (`ShaderStage.ts`, `SgGrid.cs`). 크기(한 변 10)와 UV 방향은 Unity 기본 Plane 과 같고 칸만 100 × 100 이라 정점 간격이 0.1 이다. 두 무대 모두 y = 0.3 에 크기 1 로 놓여 카메라 아래를 지나 화면 아래쪽을 호수처럼 덮는다 (먼 가장자리 z = 5 가 화면 가운데 조금 위). 정점을 미는 수면처럼 기본 Plane 이 너무 성긴 표본에 쓴다. Unity 에는 이런 내장 메시가 없으므로, 쓰는 표본은 수강생이 촘촘한 평면을 얻는 방법(표본의 C# 로 메시를 만들거나 ProBuilder, DCC 툴)을 `unity.setup` 에 적는다. 웹과 Unity 를 UV 색 격자로 비교해 같은 것을 확인했다 (2026-11-03).
 - `grass` 는 앱이 웹과 Unity 에서 같은 계산으로 만드는 풀 다발이다 (`web/src/stage/grass.ts`, `SgGrass.cs`). 잎 36장, 높이 0.7~1.2, 잎마다 세로 5칸, 뿌리가 y = 0, `uv.y` 는 뿌리 0 에서 끝 1, 법선은 잎의 앞쪽. 잎은 얇은 판이라 래퍼의 모든 패스를 `Cull Off` 로 하고 `stage.doubleSided: true` 로 둔다. 돌지 않으므로 오브젝트 공간 방향이 월드 방향과 같다.
-- 스프라이트는 높이 2 유닛에 맞고 폭은 텍스처 비율을 따른다.
+- 스프라이트는 높이 2 유닛에 맞고 폭은 텍스처 비율을 따른다. UI 표본(`stage.ui`)은 Image 처럼 텍스처 비율과 상관없이 `stage.uiAspect` 의 사각형에 맞춰 늘어난다.
+
+**무대 옵션** (2026-11-03 추가. 필요한 표본만 쓴다. `tools/check.mjs` 가 맞는 무대인지 확인한다)
+
+- `stage.layers` (sprite): 같은 스프라이트를 본체 뒤에 더 그린다. 층마다 본체 값 위에 `values` 를 덮어쓰고 `position`(유닛)만큼 옮긴다. 앞에 적은 층이 가장 멀고 본체가 맨 앞이다. 조절 패널, 자동 데모, 이벤트 값은 모든 층에 같이 들어가고 층의 `values` 만 고정된다. 시차 스크롤처럼 같은 셰이더를 값만 바꿔 겹쳐 쓰는 표본용이다 (`tiling-scroll-parallax`). 3개까지.
+- `stage.shadowProp` (mesh): 물체 위 해 쪽에 작은 공을 띄워 물체와 바닥에 그림자를 드리운다. 웹은 그 그림자를 `SgInput.shadow`(그림자 감쇠, 1 은 빛, 0 은 그림자)로 넘기고 `lightColor`, `lighting` 에도 곱한다. Unity 래퍼가 `light.color * light.shadowAttenuation` 을 `lightColor` 로 넘기면 같다 (감쇠 없이 `light.color` 만 넘기는 래퍼도 있어, 그런 표본에 `s.shadowProp=1` 을 주면 웹만 어두워진다). 그림자 감쇠를 빛 색과 따로 쓰는 core(그림자에만 색을 입히기 등)는 `i.shadow` 를 읽고, 래퍼의 `SgInput` 에 `float shadow` 를 두어 `light.shadowAttenuation` 을 넣는다 (`check.mjs` 가 확인한다). 공은 지름 1.5 구에 맞춰 놓였고 기본 메시(큐브, 캡슐, 원통, 고리)와 겹치지 않는다. `toon-ramp-lit` 이 쓴다.
+- `stage.tilt` (mesh): 물체를 Z 축으로 이만큼(도) 옆으로 눕힌 채 Y 축으로 돌린다 (Unity 의 `Euler(0, yaw, tilt)`). 90 이면 물체의 위(+Y)가 처음에 월드 −X 쪽을 가리킨다. 이 무대는 원래 Y 축으로만 돌아 오브젝트 공간 법선·높이를 써도 월드와 같아 보이는데, 눕히면 오브젝트 공간 실수가 화면에 드러난다 (`surface-wet-snow` 의 효과 끄기).
+- `stage.bright` (fullscreen): 하늘색 배경과 밝은 바닥. 가장자리를 어둡게 덮는 효과가 어두운 무대에 묻히지 않게 한다 (`screen-vignette`).
+- `mesh: 'torus'`: 앱이 웹과 Unity 에서 같게 만드는 고리 (`web/src/stage/torus.ts`, `SgTorus.cs`). 큰 반지름 0.35, 관 반지름 0.15 (지름 1 로 구와 같은 크기), 고리가 XY 평면에 서 있어 돌면 앞뒤가 화면에서 겹친다. 볼록하지 않은 메시 시험용이라 표본의 기본 메시로 쓰기보다 검증(`s.mesh=torus`, `--stage=mesh=torus`)에 쓴다.
 - `time` 은 초. 웹에서는 배속과 일시정지가 반영된다. `sin(time * 빠른 값)` 처럼 넓은 면이 깜빡이는 코드는 9절 안전 규칙을 본다.
 
 ### 알파의 뜻 (`stage.blend`)
@@ -257,7 +265,7 @@ float effectNoise(float2 p)
 
 ### UI 래퍼 (`stage.ui`)
 
-UGUI Image 에 쓰는 표본용이다. 미리보기와 촬영은 스프라이트 무대 그대로지만 래퍼는 Unity 의 UI 셰이더 구조를 따른다. 기준 샘플이 아직 없으므로 첫 UI 표본(`ui-sdf-shape`)이 틀을 정하고 다음 UI 표본은 그 래퍼를 복사한다.
+UGUI Image 에 쓰는 표본용이다. 미리보기는 스프라이트 무대에 그리고, Unity 촬영은 Screen Space - Camera 캔버스의 Image 로 찍는다 (캔버스가 정점 색, `unity_GUIZTestMode`, 마스크 머티리얼을 넣는 실제 경로). 래퍼는 Unity 의 UI 셰이더 구조를 따른다. 기준 샘플이 아직 없으므로 첫 UI 표본(`ui-sdf-shape`)이 틀을 정하고 다음 UI 표본은 그 래퍼를 복사한다.
 
 - 패스는 `LightMode` 태그 없이 하나다. Screen Space - Overlay 캔버스는 첫 패스를 쓰고, Camera·World Space 캔버스와 2D Renderer 는 이것을 `SRPDefaultUnlit` 으로 그린다.
 - Unity 내장 UI/Default 셰이더의 구조를 HLSLPROGRAM 과 URP include 로 옮긴다: `[PerRendererData] _MainTex`, Stencil 속성(`_StencilComp`, `_Stencil`, `_StencilOp`, `_StencilWriteMask`, `_StencilReadMask`)과 Stencil 블록, `ColorMask [_ColorMask]`, `ZTest [unity_GUIZTestMode]`, `ZWrite Off`, `Cull Off`, 정점 색 곱, `#pragma multi_compile_local _ UNITY_UI_CLIP_RECT` 와 `_ClipRect` 클리핑, `UNITY_UI_ALPHACLIP`. `UnityUI.cginc` 는 쓸 수 없으므로 `UnityGet2DClipping` 은 래퍼에 직접 옮긴다 (`step` 두 번으로 사각형 안쪽을 구하는 몇 줄).
@@ -267,7 +275,7 @@ UGUI Image 에 쓰는 표본용이다. 미리보기와 촬영은 스프라이트
 - CanvasGroup 의 alpha 와 Button 의 색 전환은 정점 색으로 들어온다. core 가 `i.color` 를 꼭 곱한다.
 - 캔버스의 Vertex Color Always In Gamma Color Space 를 켜면 정점 색이 sRGB 그대로 들어온다. `_UIVertexColorAlwaysGammaSpace` 를 `CBUFFER` 밖에 선언하고, Linear 프로젝트(`#ifndef UNITY_COLORSPACE_GAMMA`)에서 값이 1 이면 정점 색을 선형으로 바꾼다.
 - 최근 UI/Default 는 RectMask2D 의 Softness(`_UIMaskSoftnessX`, `_UIMaskSoftnessY`)로 가장자리를 부드럽게 자른다. `step` 두 번으로 자르면 Softness 가 무시된다. 쓸 수 있으면 Softness 식으로 옮긴다.
-- 지금 미리보기와 촬영은 정사각형 스프라이트 하나라 4:1 같은 Image 비율, Mask, RectMask2D, Overlay 캔버스를 화면으로 확인하지 못한다. 이 부분은 글로 정확히 쓰고 Unity 에서 확인하지 못했다고 보고한다.
+- Image 비율은 `stage.uiAspect`(기본 1)로 정한다. 비율, Mask, RectMask2D 에 대한 글은 촬영으로 확인한다: `node tools/unity.mjs <id> --stage=uiAspect=4`, `--ui-mask=rect`, `--ui-mask=mask` (마스크는 Image 가운데 70%). 웹은 `s.uiAspect=4` 링크로 본다. Overlay 캔버스는 렌더 텍스처 촬영에 그려지지 않으므로 `tools/verify/overlay-ui.mjs` 로 따로 찍는다 (8절).
 - 씬 색상을 읽는 UI(배경 블러)는 Screen Space - Camera 캔버스를 권한다. Overlay 캔버스에서도 Opaque Texture 는 읽히지만 비친 장면의 위아래가 뒤집힌다 (2026-11-03 Windows D3D12 플레이어 빌드로 확인, `tools/verify/overlay-ui.mjs`. 다른 그래픽 API 와 에디터 Game 뷰는 확인하지 않았다). 투명 물체와 후처리가 빠진 복사본이라 색이 주변과 다를 수도 있다. UI 전용 Overlay 카메라(카메라 스택)는 Opaque Texture 를 만들지 않는다. Unity 6.3 의 메뉴 이름은 `GameObject > UI (Canvas) > Image` 다.
 - 깊이 무대에 둔 UI 패널(`mesh: 'quad'`)은 바닥에서 띄워 아래 모서리가 보이게 놓인다. 촬영 도구는 캔버스가 넣는 `unity_GUIZTestMode` 를 LessEqual 로 고정해 찍는다.
 - `tools/check.mjs` 가 위 항목과 `LightMode` 가 없는지를 확인한다.
@@ -421,6 +429,8 @@ node tools/check.mjs
 
 - `tools/unity.mjs` 는 에디터가 이 프로젝트를 열고 있으면 그 에디터에 명령 파일로 맡기고, 안 되면 `~/.sg-unity/<리포 이름>` 복사본을 배치 모드로 돌린다. 첫 실행은 수 분 걸린다.
 - 렌더러 설정에 따라 사라질 수 있는 패스는 `--depth-priming=disabled|auto|forced` 와 `--msaa=1|2|4|8` 로 찍어 비교한다. 렌더러·URP 에셋을 메모리에서만 잠시 바꾸고 촬영 뒤 되돌린다. 결과가 `_shots/unity` 에 덮어써지므로 변형마다 폴더를 복사해 둔다.
+- `--rendering-path=forward|forward-plus|deferred|deferred-plus` 로 렌더 경로를, `--ui-mask=rect|mask` 로 UI 마스크를, `--stage=키=값,...` 으로 무대 옵션을(예: `--stage=mesh=torus`), `--set=키=값,...` 으로 모든 촬영 상태의 조절 값을 바꿔 찍는다. 웹은 링크의 `s.<옵션>=<값>`, `p.<속성>=<값>` 이 같은 일을 한다.
+- **정지 비교:** `node tools/workflow/with-unity-lock.mjs "node tools/compare.mjs <id> --set=_Speed=0"` 은 같은 값으로 Unity 촬영과 웹 무대(`t=0` 에서 멈춤)를 찍어 `_shots/compare/<id>-<상태>.png` 에 나란히 붙이고 평균 차이를 낸다. Unity 촬영의 시간은 정할 수 없으므로 시간으로 움직이는 값(흐름 속도 등)을 `--set` 으로 0 에 둔다. `--state=<촬영 이름>`, `--stage=` 도 받는다. 바닥 격자는 원래 두 화면에서 조금 어긋나 차이 수치의 일부다.
 - Overlay 캔버스처럼 렌더 텍스처 촬영에 그려지지 않는 화면은 플레이어 빌드로 찍는다. `node tools/workflow/with-unity-lock.mjs "node tools/verify/overlay-ui.mjs"` 가 복사본에서 Windows 플레이어를 만들어 실행하고(창이 몇 초 뜬다) `_shots/overlay-ui/` 에 Overlay·Camera 캔버스와 패널 없는 화면을 남긴다. 다른 UI 표본을 확인하려면 `tools/verify/overlay-ui/SgOverlayBuild.cs` 의 셰이더 이름을 바꾼다.
 - 웹 무대는 Unity 와 숫자를 맞춰 두었지만 그림자는 근사이고 스키닝, 후처리는 없다. 웹과 Unity 스크린샷을 나란히 보고 **효과가 같아 보이는지** 확인한다.
 
@@ -448,7 +458,11 @@ node tools/check.mjs
 | 촘촘한 수면 메시 (`plane` 은 정점 간격 1) | `water-wave-surface` | 지원. 4절 `grid` |
 | 해 반짝임이 보이는 역광 | `water-wave-surface` | 지원. 4절 `stage.backlit` |
 | 메시 무대의 정점 색 (파티클 색) | `fire-noise-flame` | 지원. 4절 메시 무대의 `color` |
-| UGUI Canvas 무대 | `ui-*` | 스프라이트 무대로 대체. `_MainTex` 만 바꾼다 |
+| UGUI Canvas 무대 | `ui-*` | 미리보기는 스프라이트 무대, Unity 촬영은 Canvas Image. 비율 `stage.uiAspect`, 마스크는 검증 변형 |
+| 여러 층 스프라이트 | `tiling-scroll-parallax` | 지원. 4절 `stage.layers` |
+| 물체가 받는 그림자 | `toon-ramp-lit` | 지원. 4절 `stage.shadowProp`, `SgInput.shadow` |
+| 오브젝트 공간 실수를 보이는 기울인 물체 | `surface-wet-snow` | 지원. 4절 `stage.tilt` |
+| 밝은 전체 화면 무대 | `screen-vignette` | 지원. 4절 `stage.bright` |
 
 공통 문법으로 도저히 안 되는 효과는 `web/src/specimens/<id>/web.glsl` 에 같은 `sgEffect` 를 GLSL 로 따로 쓰고 `meta.webGlslReason` 에 사유를 적는다. Unity 쪽은 여전히 `core.hlsl` 을 쓴다. 양쪽이 갈릴 위험이 있으므로 마지막 수단이다.
 

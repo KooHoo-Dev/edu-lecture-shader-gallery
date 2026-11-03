@@ -9,6 +9,10 @@
 // 촬영 검증 변형 (렌더러 에셋은 메모리에서만 바꾸고 촬영 뒤 되돌린다)
 //   --depth-priming=disabled|auto|forced    # Universal Renderer 의 Depth Priming Mode
 //   --msaa=1|2|4|8                          # URP Asset 의 MSAA. 이 프로젝트는 1(꺼짐)이다. Depth Priming 은 MSAA 가 켜지면 쓰이지 않는다
+//   --rendering-path=forward|forward-plus|deferred|deferred-plus   # Universal Renderer 의 Rendering Path
+//   --ui-mask=rect|mask                     # UI 표본의 Image 를 RectMask2D 나 Mask(가운데 70%) 안에 넣는다
+//   --stage=mesh=torus,tilt=-60             # meta.stage 를 덮어쓴다. 웹 링크의 s.<옵션>=<값> 과 같다
+//   --set=_ScrollSpeed=0                    # 모든 촬영 상태의 조절 값을 덮어쓴다. 웹 링크의 p.<속성>=<값> 과 같다
 //
 // 경로 선택
 //   editor: 에디터가 이 프로젝트를 열고 있고 SgBridge 가 살아 있으면 명령 파일로 맡긴다.
@@ -23,7 +27,7 @@ import { closeSync, copyFileSync, existsSync, mkdirSync, openSync, readdirSync, 
 import { homedir } from 'node:os'
 import { basename, dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { buildJob } from './unity-job.mjs'
+import { buildJob, parsePairs } from './unity-job.mjs'
 import { mainRoot } from './lib/worktree.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -167,13 +171,19 @@ async function main() {
   mkdirSync(OUT, { recursive: true })
   let jobPath = opt('job')
   if (!jobPath) {
-    const job = await buildJob(ROOT, ids, { outDir: OUT, capture: !flag('no-capture') })
+    const job = await buildJob(ROOT, ids, { outDir: OUT, capture: !flag('no-capture'), stage: parsePairs(opt('stage')), set: parsePairs(opt('set')) })
     const priming = opt('depth-priming')
     if (priming !== undefined && !['disabled', 'auto', 'forced'].includes(priming)) throw new Error(`--depth-priming 은 disabled, auto, forced 중 하나: ${priming}`)
     job.depthPriming = priming ?? ''
     const msaa = Number(opt('msaa') ?? 0)
     if (![0, 1, 2, 4, 8].includes(msaa)) throw new Error(`--msaa 는 1, 2, 4, 8 중 하나: ${opt('msaa')}`)
     job.msaa = msaa
+    const path = opt('rendering-path') ?? ''
+    if (path && !['forward', 'forward-plus', 'deferred', 'deferred-plus'].includes(path)) throw new Error(`--rendering-path 는 forward, forward-plus, deferred, deferred-plus 중 하나: ${path}`)
+    job.renderingPath = path
+    const uiMask = opt('ui-mask') ?? ''
+    if (uiMask && !['rect', 'mask'].includes(uiMask)) throw new Error(`--ui-mask 는 rect, mask 중 하나: ${uiMask}`)
+    job.uiMask = uiMask
     jobPath = join(OUT, 'job.json')
     writeFileSync(jobPath, JSON.stringify(job, null, 2))
   }

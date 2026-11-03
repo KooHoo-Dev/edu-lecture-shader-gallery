@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { prefersReducedMotion } from '../core/flash'
 import { applyOverrides, applyPreset, defaultParams } from '../core/params'
 import { findSpecimen, PLANNED, SPECIMENS } from '../core/registry'
 import { GROUPS, STAGE_KINDS } from '../core/taxonomy'
-import type { ParamValues, Specimen } from '../core/types'
+import type { ParamValues, Specimen, SpecimenStage } from '../core/types'
 import { StageView, type StageViewHandle } from '../stage/StageView'
 import { AiKit } from './AiKit'
 import { isTyping } from './App'
@@ -14,8 +14,28 @@ import { hrefSpecimen, type SpecimenUrlOptions } from './router'
 
 const SPEEDS = [1, 0.5, 0.25]
 
+/** 링크의 s.<옵션>=<값> 을 meta.stage 에 덮어쓴다 (검증용). 숫자는 숫자로, 1·0·true·false 는 참거짓으로 읽는다 */
+function withStageOverrides(specimen: Specimen, overrides?: Record<string, string>): Specimen {
+  if (!overrides) return specimen
+  const parse = (v: string): unknown => (v === 'true' || v === '1' ? true : v === 'false' || v === '0' ? false : v !== '' && Number.isFinite(Number(v)) ? Number(v) : v)
+  // 배열·객체 옵션(layers, textures)은 링크로 바꾸지 않는다
+  const scalar = Object.entries(overrides).filter(([k]) => k !== 'layers' && k !== 'textures')
+  const stage = { ...specimen.meta.stage, ...Object.fromEntries(scalar.map(([k, v]) => [k, parse(v)])) } as Record<string, unknown>
+  // tilt, uiAspect 처럼 숫자인 옵션의 0·1 은 숫자로 두고, 숫자가 아니면 무시한다
+  for (const k of ['tilt', 'uiAspect']) {
+    if (!(k in overrides)) continue
+    const n = Number(overrides[k])
+    if (Number.isFinite(n)) stage[k] = n
+    else stage[k] = (specimen.meta.stage as unknown as Record<string, unknown>)[k]
+  }
+  return { ...specimen, meta: { ...specimen.meta, stage: stage as unknown as SpecimenStage } }
+}
+
 export function SpecimenPage({ id, presetId, opts, presenter }: { id: string; presetId?: string; opts: SpecimenUrlOptions; presenter: boolean }) {
-  const specimen = findSpecimen(id)
+  const found = findSpecimen(id)
+  const stageKey = JSON.stringify(opts.stage ?? null)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const specimen = useMemo(() => found && withStageOverrides(found, opts.stage), [found, stageKey])
   if (!specimen) {
     return (
       <div className="notfound">

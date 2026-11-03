@@ -20,6 +20,17 @@ export const LAYOUT = {
    */
   backlightDirUnity: [0, 0.2588, 0.9659],
   lightIntensity: 1.2,
+  /** stage.bright (fullscreen): 하늘색 배경과 밝은 바닥. SgCapture.BrightBackground, BrightFloorA/B 와 같다 */
+  brightBackground: [0.55, 0.66, 0.8],
+  brightFloorA: [0.62, 0.64, 0.66],
+  brightFloorB: [0.52, 0.55, 0.58],
+  /**
+   * stage.shadowProp (mesh): 물체 가운데에서 해 쪽으로 띄운 공. 물체 왼쪽 위에 그림자를 드리운다.
+   * offset 은 물체 가운데 기준 (Unity 좌표). SgCapture.AddShadowProp 과 같다
+   */
+  shadowProp: { offset: [-0.05, 0.85, -0.62], scale: 0.36, color: [0.66, 0.6, 0.52] },
+  /** stage.ui 의 Image 가 들어갈 수 있는 가장 큰 폭 (유닛). 화면 폭 16:9 의 5.33 유닛에서 양옆을 남긴다 */
+  uiMaxWidth: 4.6,
   camera: { position: [0, 1.3, -3.6], target: [0, 0.75, 0], fov: 40, near: 0.1, far: 100 },
   sprite: { orthographicSize: 1.5, height: 2, cameraZ: -5 },
   /**
@@ -39,6 +50,7 @@ export const LAYOUT = {
     grass: { position: [0, 0, 0], scale: 1.6, shadow: 0.6 },
     // 10 m 넓이로 카메라 아래를 지나 화면 아래쪽을 호수처럼 덮는다
     grid: { position: [0, 0.3, 0], scale: 1, shadow: 0 },
+    torus: { position: [0, 0.85, 0], scale: 1.5, shadow: 0.75 },
   },
   /** depth 무대의 물체 배치. 같은 값이 SgCapture.PlaceEffectMesh 에 있다 */
   depthPlacement: {
@@ -51,6 +63,7 @@ export const LAYOUT = {
     plane: { position: [0, 0.3, 0], scale: 0.35 },
     grass: { position: [0, 0, 0], scale: 1.4 },
     grid: { position: [0, 0.3, 0], scale: 1 },
+    torus: { position: [0, 0.55, 0], scale: 2.2 },
   },
   /**
    * stage.occluded 의 벽 (Unity 큐브를 늘린 것). 카메라와 물체 사이에서 물체의 왼쪽 아래를 가린다.

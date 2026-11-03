@@ -20,6 +20,8 @@ export const meta: SpecimenMeta = {
     kind: 'sprite',
     blend: 'alpha',
     textures: { _MainTex: { file: 'TilingScrollParallaxLayer.png', repeat: true } },
+    // 시차가 보이게 본체(가까운 층) 뒤 조금 위에 '먼 층' 프리셋 값의 층을 하나 더 그린다
+    layers: [{ values: { _LayerFactor: 0.25, _Haze: 0.55 }, position: [0, 0.45] }],
   },
   params: [
     { key: '_ScrollSpeed', label: '자동 흐름 속도', type: 'range', min: -1, max: 1, step: 0.01, default: 0.15, unit: ' 장/초', hint: '카메라가 가만히 있어도 흐르는 속도. 1 이면 1초에 텍스처 한 장 폭만큼 간다. 음수면 반대로 흐른다. 층 계수가 함께 곱해진다' },
