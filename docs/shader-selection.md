@@ -124,6 +124,16 @@
 - **core.hlsl**: ○ (카메라 축은 래퍼가 넘기고 UV 계산과 합성이 core). **XR ○** (래퍼의 `UNITY_MATRIX_V` 는 눈마다 다르다. 원근 보정을 켜면 눈마다 시선 방향이 달라 반사가 두 눈에서 조금 다르게 보인다. 실기기 미확인).
 - **비고 (2026-11-03 결정)**: 표본 화면에 금속 마스크가 없어 대표작이 빌린 축(마스크로 금속 부위만, 장소마다 다른 매트캡)이 보이지 않는다. 그래서 표본의 `inspiredBy` 는 비워 두고 위 근거는 이 카드에만 둔다.
 
+#### 32. interior-room-mapping — 인테리어 매핑 (★3, 추가, 근거 강)
+- **설명**: 건물 벽면을 창 칸으로 나누고, 픽셀마다 카메라에서 이 점으로 오는 시선을 "창 뒤에 있다고 치는 방 상자" 안으로 이어 쏜다. 시선이 상자의 뒷벽, 바닥, 천장, 옆벽 가운데 가장 먼저 닿는 면(세 평면 교차 거리의 `min`)을 찾고, 그 자리의 방 그림을 읽는다. 벽은 평평한 판 하나인데 창마다 원근이 맞는 방이 보이고, 돌려 보면 방 안쪽이 시선에 따라 달라진다. 방마다 난수로 다른 방 그림과 불 켜짐을 고르면 도시 전체의 창을 모델링 없이 채운다. 가구는 벽과 바닥에 그려진 그림이라 납작하다.
+- **왜 자주 쓰나**: 원전은 Joost van Dongen 의 CGI 2008 논문 "Interior Mapping" 이다. 오브젝트 공간에서 일정 간격의 천장·벽 평면과 시선을 교차시켜 가장 가까운 면의 텍스처를 읽고, 방 수가 400만 개로 늘어도 프레임이 그대로라고 측정했다. 같은 논문이 방마다 3D 노이즈로 불 켜짐을 정하는 확률 c, 텍스처 아틀라스로 방마다 다른 그림 고르기, 창과 평행한 "가구 평면", 건물 모서리의 이음매를 다룬다. 저자는 2018 년 Game Developer 글에서 기법의 유래와 쓰임(SimCity 2013, UE4 의 InteriorCubeMap 함수)을 다시 정리했다. Unity 는 Shader Graph Feature Examples 의 UV Projection 분류에 **Interior Cube Mapping** 을 두고, "창 너머 내부 메시가 없는 곳에 건물 내부의 착시를 만든다"며 모델링보다 훨씬 싸다고 설명한다(`UVInteriorCubemap` 서브그래프, 창 수, 벽 무작위 회전, 오브젝트 공간/UV 공간 선택). 게임 쪽에서는 Playground Games 의 기술 아트 디렉터가 Edinburgh 의 밀도 때문에 실제 실내 모델 대신 시차(parallax) 실내 셰이더를 썼다고 밝혔고, SCS Software 개발 블로그가 같은 계열의 "Parallax Interiors" 를 상자 근사, 종류별 아틀라스, 시간대별 조명 세 벌로 설명한다. Unity 포럼에서는 Ben Golus 가 큐브맵판과 2D 아틀라스판(방 깊이를 알파에 저장, 칸마다 무작위 방) 두 가지를 공개했다. 출처: https://www.proun-game.com/Oogst3D/CODING/InteriorMapping/InteriorMapping.pdf (○, 2026-11-03 열람, 8쪽 본문 전체) · https://www.gamedeveloper.com/programming/interior-mapping-rendering-real-rooms-without-geometry (○, 2026-11-03 열람) · https://docs.unity3d.com/Packages/com.unity.shadergraph@17.4/manual/Shader-Graph-Sample-Feature-Examples.html (○, 2026-11-03 열람) · https://www.gamedeveloper.com/design/game-tech-deep-dive-a-window-into-playground-games-latest-shader-development (○, 2026-11-03 열람) · https://blog.scssoft.com/2025/02/under-hood-parallax-interiors.html (○, 2026-11-03 열람) · https://discussions.unity.com/threads/interior-mapping.424676/ (○, 2026-11-03 열람)
+- **대표 게임 예**: Forza Horizon 4(Game Developer 의 2018-12-10 글로 확인. 글쓴이 Gareth Harwood 는 Playground Games 기술 아트 디렉터이고, 실내를 같은 축척으로 3D 모델링해 시차 실내 셰이더용 텍스처로 렌더하고, 같은 양식의 방을 최대 8개씩 아틀라스로 묶고, 보통 방과 얕은 진열창 두 가지 깊이를 두며, 창틀·커튼·실내 세 층을 창마다 따로 고르고, 밤에는 방마다 구운 조명 텍스처와 건물별 점등 시각을 쓰고, 멀어지면 평평한 한 장 그림으로 바꾼다고 적었다. 화면 미확인). 출시 2018(Windows·Xbox One 2018-10-02), 개발 Playground Games, 배급 Microsoft Studios(Wikipedia https://en.wikipedia.org/wiki/Forza_Horizon_4 ○). 보조 사례: Euro Truck Simulator 2(출시 2012, 개발·배급 SCS Software)와 American Truck Simulator(출시 2016, 같은 회사)는 SCS 블로그(2025-02-15, 셰이더 담당 그래픽 프로그래머·3D 디자이너·도구 프로그래머 인터뷰)가 두 게임에 "Parallax Interiors" 를 넣었다고 밝힌다. 최근 Greece DLC 부터 보인다고만 하고 처음 들어간 업데이트는 적지 않았다(연도는 Wikipedia https://en.wikipedia.org/wiki/Euro_Truck_Simulator_2 ○, https://en.wikipedia.org/wiki/American_Truck_Simulator ○). SimCity(2013, Maxis Emeryville, Wikipedia ○)는 van Dongen 이 "그 게임 프로그래머에게서 들었다"고 쓴 간접 확인이라 보조로만 둔다(Maxis 개발자 인터뷰 기사 https://www.pcgameshardware.de/Sim-City-Spiel-15619/Specials/Sim-City-5-Technik-Interview-vor-Release-1057030/ 는 403 으로 열지 못함, △). Marvel's Spider-Man 은 흔히 대표로 거론되지만 van Dongen 도 Insomniac 의 공식 설명을 본 적 없다고 써서 **적지 않는다**.
+- **무대**: 메시(`cube`). 도는 큐브라 창 안쪽의 시차가 각도에 따라 바뀌는 것이 보인다. 시선을 오브젝트 공간으로 옮기려면 메시 무대에 `cameraPosOS` 가 필요하다(설계 제안 2).
+- **URP 핵심 기법**: 오브젝트 공간 시선(`positionOS - cameraPosOS`), `normalOS` 의 주축으로 면 기저 고르기(접선 입력 없이), 칸 좌표 `floor`·`frac`, 칸 안 상자와의 교차(축마다 `(±0.5 - o) / d` 와 뒷벽 거리의 `min`), 교차점을 한 점 투시 방 그림 좌표로 되돌리기(`q = hit.xy / (1 + w)`), 칸 번호 해시로 아틀라스 칸·좌우 반전·불 켜짐 고르기, 창틀 마스크, 프레넬 유리 반사(하늘색 그라데이션, 큐브맵 없음), 칸 경계의 밉 이음매 처리.
+- **수업 연계**: 3D 07 External Assets 에 건물 프리팹이 있다(RageRun `Easy Paper Plane Controller` 의 `large_buildingA~F`, Synty PolygonApocalypse 의 고층 건물. 파일 이름만 확인했고 창 머티리얼과 씬 사용은 확인하지 않았다). XR 10 MR Portal 의 `PortalMask`(스텐실로 진짜 3D 공간을 구멍 너머에 보이기)와 "가짜 공간을 셰이더로 만들기"의 대조. `ground-aoe-indicator`(오브젝트 공간 상자와 `cameraPosOS` 로 시선 따라가기)와 같은 수학을 반대 방향(바깥 → 안)으로 쓰고, `triplanar-projection`(오브젝트 공간 좌표로 무늬 붙이기), `matcap-lit-sphere`(구운 그림 한 장으로 입체 흉내)와 묶어 본다. 수업 프로젝트 세 곳에서 interior 이름의 셰이더·셰이더 그래프·HLSL 은 찾지 못했다.
+- **core.hlsl**: ○ (교차, 기저, 그림 좌표, 해시, 합성 전부 공통 문법. 카메라 위치의 오브젝트 공간 변환만 래퍼가 넘긴다). **XR ○** (픽셀마다 그 눈의 카메라 위치로 시선을 쏘므로 두 눈이 서로 다른 시차를 보아 깊이가 맞는다. 추론, 실기기 미확인).
+- **비고 (2026-11-03 결정)**: 오브젝트 공간 시선을 위해 메시 무대에도 `cameraPosOS` 를 넣었다 (가이드 4절).
+
 ### 상태 피드백 (3개)
 
 #### 5. dissolve-edge-glow — 디졸브 (★2, 1순위, 샘플 S, 근거 강)
@@ -295,6 +305,16 @@
 - **수업 연계**: 2D 05 Layer And Scroll의 `ScrollController`(오브젝트를 좌우상하로 옮겨 스크롤)와 비교하는 수업용 대안.
 - **core.hlsl**: ◎. XR 해당 없음.
 
+#### 33. sprite-wind-sway — 스프라이트 바람 흔들림 (★2, 추가, 근거 중)
+- **설명**: 풀 덤불, 수초, 매달린 장식 같은 스프라이트의 위쪽만 바람에 좌우로 흔든다. 정점 단계에서는 `uv.y`(뿌리 0, 끝 1)에 비례해 꼭짓점을 옆으로 밀어 스프라이트를 기울인다. 조각 단계에서는 `uv.x` 를 높이에 따라 조금 되돌려 곧은 기울기를 휜 모양으로 바꾼다. 위상은 꼭짓점의 **월드 x** 에서 얻으므로, 같은 그림을 여러 장 놓아도 자리마다 박자가 다르고 배칭 방식이 바뀌어도 결과가 같다. 플레이어가 지나갈 때 한 번 휘청이는 밀기 이벤트도 있다. 3D `wind-sway-foliage` 의 2D 짝이다. 5절의 "스프라이트 정점 왜곡(물 반사, 깃발)" 후보에서 흔들림만 떼어 왔다. 물 반사는 Camera Sorting Layer Texture 가 필요해 계속 제외한다.
+- **왜 자주 쓰나**: Unity 의 공식 2D 샘플 Happy Harvest(URP 2D)는 소개 글에 "나무와 다른 식물을 셰이더로 움직여 산들바람을 흉내 낸다"고 적었다. Unity 블로그(2018)는 풀과 잎의 바람을 월드 공간 그래디언트 노이즈로 밀고 "UV 마스크로 밑동을 고정한다"고 설명한다. 이 글은 3D 메시 기준이지만 마스크와 월드 노이즈라는 구성은 같다. Unity 포럼에서 스프라이트 풀 전체가 움직인다는 질문에 `UV.y` 를 곱하라는 답이 달렸다. Godot 커뮤니티의 2D 흔들림 셰이더들은 같은 효과를 조각 단계 UV 밀기로 만든다. 사각형을 키워 여유를 두고 높이 마스크를 쓴다. 수업 2D 프로젝트에 들어 있는 상용 에셋 AllIn1SpriteShader 에도 "Grass Movement"(`WIND_ON`)가 있다(로컬 확인). 이 기능은 조각 단계 `uv.x` 밀기와 스프라이트 사각형 기준 높이 마스크를 쓰고, 머티리얼마다 `_RandomSeed` 를 넣는다. 아틀라스 사각형은 `SetAtlasUvs` 스크립트가 머티리얼에 넣는다. 정점 수 제약은 Unity 문서로 확인했다. Full Rect 는 사각형 하나이고 Tight 는 알파 외곽을 따른다. 출처: https://unity.com/blog/games/happy-harvest-demo-latest-2d-techniques (○, 2026-11-03 열람) · https://unity.com/blog/engine-platform/creating-animated-materials-with-shader-graph (○, 2026-11-03 열람) · https://discussions.unity.com/t/move-grass-shader/912816 (○, 2026-11-03 열람) · https://godotshaders.com/shader/2d-wind-sway-tree-grass-motion-shader/ (○, 2026-11-03 열람) · https://godotshaders.com/shader/2d-pixel-perfect-wind-sway-effect/ (△) · https://docs.unity.com/en-us/engine/6000.3/manual/materials-and-shaders/textures/textures-reference/texture-type-sprite (○, 2026-11-03 열람)
+- **대표 게임 예**: 범용 기법, 대표작 미확인. Hollow Knight, Ori and the Blind Forest, Dead Cells, Celeste 를 찾아봤지만 스프라이트 바람 흔들림을 셰이더로 만들었다는 개발 발표나 공식 글은 없었다. Unity 의 Hollow Knight 사례 글도 바람이나 풀 셰이더는 말하지 않는다(△). Happy Harvest 는 게임이 아니라 Unity 샘플이라 `inspiredBy` 에 넣지 않는다.
+- **무대**: 스프라이트. 풀 덤불 텍스처(`stage.textures._MainTex`, 직접 생성)를 쓴다. `stage.layers` 로 같은 덤불을 좌우에 두 장 더 놓아 위상이 자리마다 다른 것을 보인다. 정점 단계(`sgVertex`)와 월드 위치 입력이 필요하다(설계 제안 2절).
+- **URP 핵심 기법**: 정점에서 `TransformObjectToWorld` 로 월드로 옮긴 뒤 x 만 밀고 `TransformWorldToHClip` 으로 그린다. 그래서 SRP Batcher 경로와 동적 배칭 경로가 같은 결과를 낸다. 마스크는 선형 `uv.y` 로 두어 정점 수와 상관없이 같은 기울기를 낸다. 조각 단계 휨 보정은 `uv.x += S·(y − y²) / 폭` 으로 하고, 폭은 `ddx(uv.x)/ddx(positionWS.x)` 로 구한다. 위상은 월드 x 에서 얻고, 값 노이즈 돌풍이 x 를 따라 흐른다. 패스는 `Universal2D`·`UniversalForward` 두 개다. `UnityFlipSprite` 뒤에 밀고, 정점 색(`unity_SpriteColor`)은 유지한다. Mesh Type 은 Full Rect 로 두고 텍스처에 투명 여백을 둔다.
+- **수업 연계**: 2D 02 Sprite Renderer(Mesh Type, Pivot), 05 Layer And Scroll(장식 층), 14 Action Platformer(플레이어가 풀을 지나가면 트리거로 밀기). 수업 프로젝트의 Kenney New Platformer Pack 에 `grass.png`, `bush.png` 장식 스프라이트가 있다(로컬 확인). 수업이 상용 AllIn1SpriteShader 의 Grass Movement 로 쓰던 효과의 원리편이다. 3D 쪽은 `wind-sway-foliage`(그리고 XR `FishSwim`)와 짝을 이룬다.
+- **core.hlsl**: ○. 밀기, 휨, 위상, 돌풍 계산은 core 에 둔다. 월드 위치는 래퍼와 무대가 넘긴다. 웹 스프라이트 무대에 정점 단계와 `positionWS` 가 있어야 한다. XR 해당 없음.
+- **비고 (2026-11-03 결정)**: 스프라이트 무대에 정점 단계를 넣었다. 스프라이트의 `sgVertex` 는 월드 위치를 받고 돌려주며, `SgInput.positionWS` 는 밀기 전 월드 위치다 (가이드 3-4·4절). 배칭 경로에 상관없이 같은 결과를 낸다.
+
 ### UI (3개)
 
 UI 표본은 UGUI에서 쓰는 것을 기본으로 한다. 정점 색과 UV를 받는 Image 호환이 필요하다. 미리보기 무대가 UI 캔버스를 제공하지 않으므로 스프라이트 무대로 대체한다(7절 5번).
@@ -365,6 +385,17 @@ UI 표본은 UGUI에서 쓰는 것을 기본으로 한다. 정점 색과 UV를 �
 - **core.hlsl**: ◎ (`uv`, `aspect`, `texelSize`, `time`, `sgSource` 만 쓴다). **XR ✕** (머리에 고정된 화면 공간 줄무늬와 휨, 화면 중심이 눈 정면이 아님. 추정). XR 에서는 같은 core 를 가상 모니터 메시의 렌더 텍스처에 쓰는 방식을 권한다.
 - **비고 (2026-11-03 결정)**: 하프톤은 핵심 코드와 단계가 겹치지 않아 이 표본에 넣지 않고 5절 후보로 돌렸다. 정지 줄무늬 안전 규칙은 가이드 7절.
 
+#### 31. screen-halftone-dots — 하프톤 망점 (★2, 추가, 근거 중~강)
+- **설명**: 화면을 비스듬히 돌린 정사각 칸 격자로 나누고, 칸마다 **칸 중심에서 한 번** 화면 색을 읽는다. 그 밝기(선형)로 잉크가 덮을 면적을 정하고, 면적이 맞도록 **반지름 = 제곱근**으로 원을 그린다. 원 가장자리는 `fwidth` 로 1픽셀만 부드럽게 한다. 흑백 한 판(신문), 칸 색으로 칠한 한 판(팝아트), 각도가 다른 C·M·Y·K 네 판(만화 인쇄) 세 방식을 고른다. 칸 크기는 화면 높이에 대한 줄 수로 정해 해상도가 바뀌어도 모양이 같다. 점은 흘리거나 움직이지 않는다.
+- **왜 자주 쓰나**: Unity 공식 Production Ready 후처리 샘플에 Half Tone 이 있다. 빨강·초록·파랑마다 SDF 원 격자를 만들고 inverse lerp 로 점을 만들며 "점 크기가 그 자리 색의 밝기를 나타낸다"고 설명한다(CMYK 와 칸 크기 설명은 없다). 같은 Unity 의 UGUI Shaders 샘플에도 `Halftone` 서브그래프와 `Examples/Backgrounds/Halftone` 배경 예가 있다. Stefan Gustavson 의 WebGL 하프톤 튜토리얼이 기법을 단계별로 정리한다: 격자를 45도 돌리는 이유(눈이 가로·세로에 민감), 미분(`dFdx`, `dFdy`)으로 만든 `aastep()` 안티에일리어싱, CMYK 판 각도 15·75·0·45도, 점이 한 픽셀 크기로 줄면 원본으로 섞어 되돌리기. 이 튜토리얼은 원 면적이 반지름의 제곱에 비례함을 알면서도 설명을 단순하게 하려고 반지름을 밝기에 선형으로 두었고, 그래서 결과가 "너무 밝고 색이 빠진다"고 스스로 적는다. Maxime Heckel 의 글(2026-02-10)은 같은 과정을 칸 중심 샘플, 엇갈린 줄, CMYK 판마다 칸 중심 샘플과 `r = maxRadius × sqrt(coverage)`, 판을 다른 각도로 돌려 모아레를 줄이는 것까지 이어 가고, 칸 중심이 아니라 픽셀마다 읽으면 색 경계에서 점이 잘린다는 점과 고해상도 화면의 계단을 `fwidth` 로 막는 점을 짚는다. 인쇄에서 몇 가지 잉크로 그라데이션 착시를 만들던 기법이 지금은 질감을 더하는 표현 수단으로 쓰인다는 것이 두 글의 공통 설명이다. 출처: https://docs.unity3d.com/Packages/com.unity.shadergraph@17.4/manual/Shader-Graph-Sample-Production-Ready-Post.html (○, 2026-11-03 열람) · https://docs.unity3d.com/Packages/com.unity.shadergraph@17.4/manual/Shader-Graph-Sample-UGUI-Shaders-Subgraph-nodes.html (○, 2026-11-03 열람) · https://itn-web.it.liu.se/~stegu76/webglshadertutorial/shadertutorial.html (○, 2026-11-03 열람. 페이지에 저자·날짜가 없고 Gustavson 저작은 파생 패키지 설명으로만 확인, △) · https://blog.maximeheckel.com/posts/shades-of-halftone/ (○, 2026-11-03 열람)
+- **대표 게임 예**: 범용 기법, 대표작 미확인 (화면 후처리로서). Hi-Fi RUSH(출시 2023-01-25, 개발 Tango Gameworks, Wikipedia 로 확인)는 GDC 2024 강연 "3D Toon Rendering in 'Hi-Fi RUSH'"(Kosuke Tanaka, Takashi Komada)의 주제 목록에 comic shader 가 있고, 강연 영상을 정리한 제3자 노트가 "Lit: halftone dot", "Shadow: hatching lines" 를 적으며 하프톤이 **카메라에 찍힌 인쇄처럼 보이지 않고 모델 위에 있게** 월드 법선·월드 UV 를 쓴다고 정리한다. 즉 **화면 공간 후처리가 아니라 표면 음영**이고, 이 표본이 만드는 화면 고정 무늬는 오히려 피한 쪽이다. 그래서 `inspiredBy` 는 비운다. 출처: https://gdcvault.com/play/1034251/3D-Toon-Rendering-in-Hi (○, 세션 설명만, 하프톤 언급 없음) · https://80.lv/articles/the-making-of-hi-fi-rush-s-3d-toon-rendering-style (○, 2024-07-10, 주제 목록만) · https://www.foth.top/article/gdc-2024-hifirush-toonrendering-notes/ (○, 2025-06-08, 제3자 노트, 2차 근거) · https://media.gdcvault.com/gdc2024/Slides/GDC+slide+presentations/Tanaka_Kosuke_3D_Toon_Rendering.pdf (△, 공식 슬라이드, 10MB 를 넘어 열지 못함) · https://en.wikipedia.org/wiki/Hi-Fi_Rush (○, 2026-11-03 열람)
+- **무대**: 전체 화면 (`stage.bright` 권장: 어두운 무대는 거의 모든 칸이 큰 점으로 덮여 검은 덩어리가 되고, 밝은 하늘·바닥이 있어야 점 크기의 그라데이션이 보인다).
+- **URP 핵심 기법**: Full Screen Pass(`_BlitTexture`, Requirements 없음, 주입 시점 After Rendering Post Processing 권장: 블룸과 톤매핑 뒤에 점을 찍어야 블룸이 점을 번지게 하지 않는다), `uv / texelSize` 로 픽셀 좌표를 만들어 화면비와 상관없이 정사각 칸, 2D 회전 헬퍼로 격자 돌리기, `floor + 0.5` 칸 중심을 거꾸로 돌려 uv 로 되돌린 뒤 한 번 샘플, 선형 휘도 → 잉크 덮임 `1 - Y`, 반지름 `sqrt(덮임 / π)`(원이 맞닿는 78.5% 위에서는 칸 반대각선 0.707 까지 보간), `fwidth` 로 1픽셀 경계, 칸이 3~4픽셀보다 작아지면 원본으로 섞기, CMYK 는 판 4개(15·75·0·45도)를 각자 칸 중심에서 샘플해 곱한다(종이 위 잉크).
+- **수업 연계**: 3D 14 Animation 의 `SimpleUnlitToon`(툰 음영 위에 덮는 만화 인쇄 질감), `toon-ramp-lit` 과 `depth-normal-edge-outline`(외곽선 + 하프톤 = 만화 룩), `screen-crt-scanline`(같은 "가상 해상도 칸의 중심에서 읽기" 원리를 1D 줄에서 회전한 2D 칸으로 넓힌 것), `ui-sdf-shape`(원 SDF 와 `fwidth` 안티에일리어싱이 같다). 2D 과정의 만화풍 컷신이나 일시정지 화면 배경.
+- **core.hlsl**: ◎ (`uv`, `aspect`, `texelSize`, `sgSource` 만 쓴다. `time` 은 쓰지 않는다). **XR ✕** (머리에 고정된 화면 공간 점 무늬는 두 눈의 무늬가 장면 깊이와 맞지 않아 화면에 붙은 막처럼 보인다. 추정, 실기기 미확인). XR 에서는 같은 원리를 표면 음영(월드 공간)으로 옮기는 변형을 권한다.
+- **비고**: 화면 전체 정지 무늬 안전 규칙(가이드 7절)을 점 격자에도 적용한다 (설계 제안 7번).
+- **비고 (2026-11-03 결정)**: 점 격자도 가이드 7절 정지 줄무늬 규칙을 따른다. 기본값과 촬영은 잉크가 종이의 60% 이상 밝기, 점은 움직이지 않는다. 신문 흑백처럼 대비가 높은 프리셋은 수강생이 고를 때만 쓰도록 허용한다.
+
 ## 3. 우선순위 요약
 
 - **1순위 (12개)**: 샘플 4개(`dissolve-edge-glow`, `sprite-outline-hit-flash`, `force-field-intersection`, `screen-transition-wipe`)와 `toon-ramp-lit`, `fresnel-rim-glow`, `triplanar-projection`, `xray-occluded-silhouette`, `water-depth-foam`, `wind-sway-foliage`, `ui-sdf-shape`, `screen-vignette`. 근거가 강하고 수업 연계가 크며 규격 검증(메시, 깊이, 스프라이트, 전체 화면, UI)을 모두 덮는다.
@@ -394,7 +425,7 @@ UI 표본은 UGUI에서 쓰는 것을 기본으로 한다. 정점 색과 UV를 �
 |---|---|
 | ~~지면 표시(AoE 범위 데칼)~~ | 2026-11-03 추가 (29번 `ground-aoe-indicator`). 무대에 `cameraPosOS` 를 더해 HLSL 박스 투영으로 만든다. |
 | 속도선(방사형) | 근거가 오픈 소스 하나와 상용 팩 정도이고 Unity 6·URP 17 호환이 미확인이다. 후보 풀에 둔다. |
-| CRT·VHS·하프톤 | CRT 는 2026-11-03 추가 (30번 `screen-crt-scanline`). 하프톤(`screen-halftone-dots` 가칭, 근거 중~강: Unity Production Ready 후처리와 UGUI 샘플)은 후보로 둔다. VHS 는 깜빡임 부담으로 계속 뺀다. |
+| CRT·VHS·하프톤 | CRT 는 30번, 하프톤은 31번 `screen-halftone-dots` 로 2026-11-03 추가. VHS 는 깜빡임 부담으로 계속 뺀다. |
 | 볼류메트릭 구름·안개·물, 하늘 | 컴퓨트·레이마칭이 필요하고 ★3 이상이며 모바일 비용이 크다. 수업 연계도 약하다. |
 | 코스틱 | XR 수업의 `Caustics.shader`에 이미 있다. `water-depth-foam`에서 링크한다. |
 | 스텐실 포털, 깊이 가림 | XR 수업의 `PortalMask`, `Occlusion`에 이미 있다. `xray-occluded-silhouette`에서 링크한다. |
@@ -402,10 +433,10 @@ UI 표본은 UGUI에서 쓰는 것을 기본으로 한다. 정점 색과 UV를 �
 | 블룸, 피사계 심도, 색수차, LUT 색보정, SSAO | URP Volume과 렌더러 기능에 내장돼 있다(일반 지식). SSAO는 모바일 XR에서 비싸다고 Unity 문서가 경고한다(△). |
 | 퍼 셰이더(다중 셸) | 다중 패스 비용이 크고 수업 연계가 약하다. 에셋 팩 구성에는 등장하지만 이번 조사에서 원리 근거를 따로 찾지 않았다. |
 | 불·연기·플립북 | 파티클 시스템과 VFX Graph가 본체다. Feature Examples의 Flipbook이 있지만 별도 표본 가치가 낮다. |
-| 매트캡, 패럴랙스(오클루전), 인테리어 매핑 | 매트캡은 2026-11-03 추가 (27번 `matcap-lit-sphere`). 나머지는 Feature Examples에 있으나 사용 빈도 근거를 찾지 못했다. |
+| 매트캡, 패럴랙스(오클루전), 인테리어 매핑 | 매트캡 27번, 인테리어 매핑 32번 `interior-room-mapping` (2026-11-03 추가, Forza Horizon 4 개발자 글로 근거 확인). 패럴랙스 오클루전은 메시 무대에 탄젠트 입력이 없어 남는다. |
 | 2D 픽셀화·픽셀 스냅 | Pixel Perfect Camera가 URP 2D에 내장돼 있다(△). |
 | 2D 노멀맵 라이팅 스프라이트 | 내장 Sprite-Lit이 있다. 1-2절 규격(패스 태그)으로 반영했다. |
-| 스프라이트 정점 왜곡(물 반사, 깃발) | 상용 에셋뿐이고 Camera Sorting Layer Texture 의존. 후보 풀. |
+| 스프라이트 정점 왜곡(물 반사, 깃발) | 흔들림은 2026-11-03 추가 (33번 `sprite-wind-sway`). 물 반사는 Camera Sorting Layer Texture 가 필요해 계속 뺀다. |
 | Gerstner·FFT 바다 | 범위가 너무 크다. `water-depth-foam`에서 Gerstner 몇 개만 쓴다. |
 | 투명화(클로킹), 얼음·냉동 | 클로킹은 2026-11-03 추가 (28번 `cloak-refraction-shimmer`, Source SDK 공개 코드로 근거 확인). 얼음은 근거를 찾지 못했다. |
 | 스프라이트 샤인 단독 | `ui-sheen-sweep`의 2D 프리셋으로 흡수했다. |

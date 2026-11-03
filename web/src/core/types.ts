@@ -135,7 +135,7 @@ export interface SpecimenStage {
   mesh?: MeshShape
   /** 기본값: mesh=cutout, sprite=alpha, depth=alpha, fullscreen 은 해당 없음 */
   blend?: StageBlend
-  /** core.hlsl 에 sgVertex 가 있으면 true (mesh, depth 무대) */
+  /** core.hlsl 에 sgVertex 가 있으면 true (mesh, depth, sprite 무대. sprite 는 UI 가 아닐 때만) */
   vertex?: boolean
   /** 래퍼가 Cull Off 이면 true */
   doubleSided?: boolean

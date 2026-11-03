@@ -164,7 +164,11 @@ float effectNoise(float2 p)
 - 흐르는 무늬의 화면 속도는 오프셋 속도를 반복 횟수로 나눈 값이다. `uv * 2 + t * 1.3` 은 `uv + t * 0.6` 과 화면에서 거의 같은 빠르기로 흐른다. 크기가 다른 층을 다른 빠르기로 흘리려면 오프셋 속도를 반복 횟수만큼 곱해 두고 주석에 화면 속도를 적는다. 움직임을 말하는 단계 본문("재생하면 끓듯이")은 정지 화면으로 확인되지 않으므로 `live.mjs` 의 `burst` 연속 촬영 시트로 확인한다 (8절).
 - 머티리얼의 Tiling, Offset 은 `stage.textures` 의 텍스처마다 `<이름>_ST` 로 쓸 수 있다 (xy 반복, zw 오프셋): `SG_TEX(_MyTex, i.uv * _MyTex_ST.xy + _MyTex_ST.zw)`. 래퍼는 `CBUFFER` 에 `float4 _MyTex_ST;` 를 두고 그 텍스처 속성에 `[NoScaleOffset]` 을 붙이지 않는다 (`tools/check.mjs` 가 확인). 그러면 수강생이 Inspector 의 Tiling, Offset 칸으로 바꿀 수 있다. 스프라이트·UI 의 `_MainTex` 는 `[PerRendererData]` 라 칸이 없으므로 `_MainTex_ST` 는 쓰지 않는다 (검사가 막는다). 웹은 Unity 새 머티리얼과 같은 (1, 1, 0, 0) 을 넘기고 조절 패널에는 칸이 없다. 그래서 무대에서 반복 횟수를 바꿔 보여야 하는 표본은 range 값을 따로 둔다 (`surface-wet-snow` 의 `_TilingU`, `_TilingV`). 반복 횟수는 `#define` 으로 고정하지 않는다. 구 UV 에 맞춘 비율은 큐브나 Plane 에서 늘어난다.
 - 스프라이트의 `_MainTex` 크기는 `_MainTex_TexelSize` 를 믿을 수 없다 (렌더러 단위로 넘어와 머티리얼 버퍼와 어긋난다. 실제로 촬영에서 틀린 값이 나왔다). `i.texelSize` 를 쓴다.
-- 정점을 움직이는 표본은 `core.hlsl` 에 다음 함수를 두고 `meta.stage.vertex = true` 로 한다. 메시와 깊이 무대에서 쓸 수 있다. 움직인 뒤의 오브젝트 공간 위치를 돌려준다.
+- 정점을 움직이는 표본은 `core.hlsl` 에 다음 함수를 두고 `meta.stage.vertex = true` 로 한다. 메시와 깊이 무대에서 쓸 수 있다. 움직인 뒤의 오브젝트 공간 위치를 돌려준다. 스프라이트 무대(UI 제외)도 쓸 수 있다 (2026-11-03 추가). 스프라이트의 주의:
+  - **스프라이트의 `sgVertex` 는 월드 위치를 받고 월드 위치를 돌려준다** (이름은 같고 첫 인자가 `positionWS`, 둘째가 `normalWS`). Unity 는 스프라이트를 동적 배칭하면 정점을 월드 좌표로 넘기고, SRP Batcher 경로에서는 오브젝트 좌표로 넘겨 오브젝트 공간을 믿을 수 없다 (Unity 이슈 UUM-15015, As Designed). 래퍼는 `float3 ws = TransformObjectToWorld(v.positionOS.xyz); ws = sgVertex(ws, TransformObjectToWorldNormal(v.normal), v.uv, _Time.y); o.positionCS = TransformWorldToHClip(ws);` 로 부른다. 두 경로 모두 월드 위치는 같아 결과가 같다. 스프라이트마다 다른 박자는 월드 위치로 정한다 (웹의 `stage.layers` 도 월드에서 옮긴다).
+  - SpriteRenderer 의 Full Rect 메시는 정점 4개짜리 사각형이다. 정점 단계로는 사각형을 기울이거나(위쪽만 밀기) 늘일 수만 있고 휘게 하지는 못한다. 휘게 하려면 정점이 많은 메시를 쓰거나 픽셀 단계에서 UV 를 흔든다. 웹 무대의 스프라이트도 정점 4개라 같다.
+  - 흔들림 마스크(뿌리 고정)는 위치가 아니라 `uv` 로 정한다 (뿌리 `uv.y = 0`).
+  - 스프라이트 `SgInput.positionWS` 는 월드 위치다. 정점을 미는 표본에서는 밀기 전 위치이고, 래퍼는 `TransformObjectToWorld(positionOS)` 를 밀기 전에 넘긴다.
 
   ```hlsl
   float3 sgVertex(float3 positionOS, float3 normalOS, float2 uv, float time) { ... }
@@ -178,14 +182,14 @@ float effectNoise(float2 p)
 
 | 무대 (`stage.kind`) | 무대 내용 | `SgInput` 필드 | 쓰는 함수 | 기준 샘플 |
 |---|---|---|---|---|
-| `mesh` | 바닥과 물체 하나 (`stage.mesh`). Y 30도에서 시작해 천천히 돈다 (`quad`, `plane`, `grass`, `grid` 는 돌지 않는다) | `uv color positionOS positionWS normalOS normalWS viewWS cameraRightWS cameraUpWS lightDirWS lightColor lighting shadow time` | | 디졸브 |
-| `sprite` | 정사영 카메라, 드론 스프라이트(또는 `stage.textures._MainTex`), 2유닛 높이 | `uv color texelSize time` | `SG_TEX(_MainTex, uv)` | 스프라이트 |
+| `mesh` | 바닥과 물체 하나 (`stage.mesh`). Y 30도에서 시작해 천천히 돈다 (`quad`, `plane`, `grass`, `grid` 는 돌지 않는다) | `uv color positionOS positionWS normalOS normalWS viewWS cameraRightWS cameraUpWS cameraPosOS lightDirWS lightColor lighting shadow time` | | 디졸브 |
+| `sprite` | 정사영 카메라, 드론 스프라이트(또는 `stage.textures._MainTex`), 2유닛 높이 | `uv color positionWS texelSize time` | `SG_TEX(_MainTex, uv)` | 스프라이트 |
 | `depth` | 바닥, 상자, 공, 그 위를 덮는 물체 (`stage.mesh`). `plane` 이면 소품을 가르는 수면 높이에 놓인다 | `uv color positionOS positionWS normalOS normalWS viewWS cameraRightWS cameraUpWS cameraPosOS lightDirWS lightColor lighting screenUV depthDelta time` | `sgSceneColor(uv)`, `sgSceneDepth(uv)` | 역장 |
 | `fullscreen` | 바닥, 상자, 공을 그린 화면 전체 | `uv aspect texelSize time` | `sgSource(uv)`, `sgSceneDepth(uv)`, `sgSceneNormal(uv)` | 전환 |
 
 - `lighting` = `lightColor * saturate(dot(normalWS, lightDirWS)) + 환경광`. 대부분은 `albedo * i.lighting` 이면 된다. 툰처럼 빛을 직접 다루면 `lightDirWS`, `lightColor` 를 쓴다.
 - `cameraRightWS`, `cameraUpWS` 는 카메라의 오른쪽, 위 축(월드, 정규화)이다. 메시 무대에서는 매트캡처럼 화면 공간 법선을 쓰는 표본만 쓴다 (2026-11-03 추가). Unity 래퍼는 `UNITY_MATRIX_V[0].xyz`, `UNITY_MATRIX_V[1].xyz` 를 넘긴다. XR 에서는 눈마다 조금 다르다.
-- 깊이 무대의 `cameraPosOS` 는 카메라 위치를 이 물체의 오브젝트 공간으로 옮긴 값이다 (2026-11-03 추가). Unity 래퍼는 `TransformWorldToObject(GetCameraPositionWS())`. 같은 시선 위의 점은 오브젝트 공간에서도 같은 비율로 놓이므로, 깊이로 되살린 씬 표면의 오브젝트 공간 위치는 `positionOS + (positionOS - cameraPosOS) * (k - 1)` 이다 (`k` = 씬 눈 깊이 / 이 픽셀의 눈 깊이 = `sgSceneDepth(screenUV) / (sgSceneDepth(screenUV) - depthDelta)`). 상자 메시로 바닥에 투영하는 표본(지면 범위 표시)이 쓴다. 상자 공간 위치의 미분(`ddx`, `ddy`)으로 법선을 구하면 상자를 고르지 않게 늘렸을 때 기울기가 바뀐다 (납작한 상자에서는 완만한 경사도 옆면처럼 보인다). 기울기를 재는 법선은 월드 위치로 구한다: `sceneWS = positionWS - viewWS * depthDelta / abs(dot(viewWS, cross(cameraRightWS, cameraUpWS)))` (2026-11-03, `ground-aoe-indicator` 리뷰).
+- `cameraPosOS` 는 카메라 위치를 이 물체의 오브젝트 공간으로 옮긴 값이다 (깊이 무대, 메시 무대 2026-11-03 추가). 메시 무대에서는 오브젝트 공간 시선(`normalize(positionOS - cameraPosOS)`)으로 가짜 방을 들여다보는 표본(인테리어 매핑)이 쓴다. Unity 래퍼는 `TransformWorldToObject(GetCameraPositionWS())`. 같은 시선 위의 점은 오브젝트 공간에서도 같은 비율로 놓이므로, 깊이로 되살린 씬 표면의 오브젝트 공간 위치는 `positionOS + (positionOS - cameraPosOS) * (k - 1)` 이다 (`k` = 씬 눈 깊이 / 이 픽셀의 눈 깊이 = `sgSceneDepth(screenUV) / (sgSceneDepth(screenUV) - depthDelta)`). 상자 메시로 바닥에 투영하는 표본(지면 범위 표시)이 쓴다. 상자 공간 위치의 미분(`ddx`, `ddy`)으로 법선을 구하면 상자를 고르지 않게 늘렸을 때 기울기가 바뀐다 (납작한 상자에서는 완만한 경사도 옆면처럼 보인다). 기울기를 재는 법선은 월드 위치로 구한다: `sceneWS = positionWS - viewWS * depthDelta / abs(dot(viewWS, cross(cameraRightWS, cameraUpWS)))` (2026-11-03, `ground-aoe-indicator` 리뷰).
 - 깊이 무대의 `lightDirWS`, `lightColor`, `lighting` 은 메시 무대와 뜻이 같다 (2026-11-03 추가, 받는 그림자는 넣지 않는다). 투명 물체가 보이는 상태의 몸을 음영할 때 쓴다 (클로킹). Unity 래퍼는 `GetMainLight` 3인자 규칙대로 채운다.
 - `viewWS` 는 표면에서 카메라 쪽 방향. `normalWS`, `viewWS`, `normalOS` 는 정규화되어 있다.
 - `positionWS`, `normalOS` 는 삼평면 투영처럼 월드와 오브젝트 공간을 고르는 표본용이다. 기준 샘플 래퍼에는 없으므로, 쓰는 표본은 래퍼의 `SgInput` 과 `Varyings` 에 넣고 정점에서 `normalOS` 를 넘긴다. 메시 무대는 돌기 때문에 월드 공간 무늬는 물체 위를 흐르고 오브젝트 공간 무늬는 물체에 붙는다.
@@ -394,6 +398,7 @@ UGUI Image 에 쓰는 표본용이다. 미리보기는 스프라이트 무대에
 - 게임 원작의 텍스처, 모델, 셰이더 코드를 추출하거나 옮기지 않는다. 튜토리얼, 블로그, 오픈소스 코드도 복사하지 않고 원리만 참고해 출처를 링크한다. 코드는 새로 쓴다.
 - 게임명은 `inspiredBy` 에만 쓴다. ID, 제목, 프리셋, 단계, `references` 라벨, 변수 이름에는 쓰지 않는다. 강연 제목에 게임명이 들어 있으면 라벨은 저자와 주제로 바꿔 쓴다 (예: "Vlachos: 물 흐름 (SIGGRAPH 2010)", URL 은 그대로). `tools/check.mjs` 가 모든 표본의 `inspiredBy` 에서 게임명을 모아 다른 메타 글 전체와 코드의 이름(주석 제외)을 검사한다. 어느 표본의 `inspiredBy` 에도 없는 게임명은 잡지 못한다.
 - **화면 전체를 덮는 정지 줄무늬**(스캔라인, 격자): 밝고 어두운 줄이 많이 반복되는 정지 무늬도 광과민 반응을 일으킬 수 있다 (MDN 접근성 문서, 줄 쌍 5개 이상). 기본값에서 어두운 줄을 검정으로 만들지 않고 줄 대비를 중간 이하(어두운 줄이 밝은 줄의 60% 이상 밝기)로 둔다. 줄을 흘리거나 프레임마다 바꾸지 않는다(흘러가는 줄은 한 점을 지나는 빈도가 금방 3Hz 를 넘는다). `unity.pitfalls` 에 게임 옵션으로 끌 수 있게 하라고 적는다 (2026-11-03 추가). 대비는 줄 하나가 아니라 겹치는 무늬를 모두 곱한 밝기(스캔라인 × 형광체 마스크의 가로 틈)로 재고, 선형 밝기의 행 평균으로 확인한다. 줄 간격은 정수 픽셀로 맞추되 화면을 휘게 하면 3 픽셀 이상으로 둔다 (2 픽셀 간격이 휘면 줄이 사라졌다 나타나는 맥놀이 띠가 생긴다).
+- 화면 전체를 덮는 **점 격자**(하프톤)도 위 줄무늬 규칙을 따른다. 대비는 평평한 면에서 점 안과 점 밖의 선형 밝기 비로 잰다. 점은 시간으로 움직이지 않는다. 대비가 높은 모양(신문 흑백)은 프리셋으로만 두고, 기본값과 `captures` 는 규칙을 지킨다 (2026-11-03 결정).
 - **진행값으로 훑는 경계 띠**(디졸브, 은신): 띠의 순서 값이 넓은 면에서 평평하면(예: 정면의 `1 - N·V`) 진행값이 그 값을 지나는 순간 띠가 면 전체를 한 번에 덮어 번쩍인다. 순서 값이 화면에서 고르게 바뀌게 만든다 (2026-11-03, `cloak-refraction-shimmer` 리뷰).
 - 텍스처와 노이즈는 직접 생성한다. PNG 가 필요하면 코드로 만들고 긴 변 512 이하로 둔다.
 - **용량 기준** (2026-11-03). 단일 HTML 의 gzip 예산(1.5MB)을 표본들이 나눠 쓴다. 이미지는 base64 로 들어가 1.33배가 되고 gzip 으로도 거의 줄지 않아, 이미지 바이트가 곧 예산을 쓴다.

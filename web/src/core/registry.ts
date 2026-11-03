@@ -85,6 +85,10 @@ const PLANNED_ALL: PlannedSpecimen[] = [
   { id: 'cloak-refraction-shimmer', title: '클로킹 투명화', group: 'B', order: 4, kind: 'depth', oneLiner: '뒤 장면을 휘어 비추고 윤곽만 남겨 몸을 감춘다' },
   { id: 'ground-aoe-indicator', title: '지면 범위 표시', group: 'D', order: 6, kind: 'depth', oneLiner: '바닥과 소품 위에 스킬 범위를 투영해 그린다' },
   { id: 'screen-crt-scanline', title: 'CRT 화면 필터', group: 'G', order: 4, kind: 'fullscreen', oneLiner: '스캔라인과 형광체 무늬로 옛 모니터 화면을 만든다' },
+  // 묶음 8 (2026-11-03): shader-selection 31~33번
+  { id: 'screen-halftone-dots', title: '하프톤 망점', group: 'G', order: 5, kind: 'fullscreen', oneLiner: '밝기를 점의 크기로 바꿔 인쇄물처럼 보이게 한다' },
+  { id: 'interior-room-mapping', title: '인테리어 매핑', group: 'A', order: 6, kind: 'mesh', oneLiner: '평평한 벽의 창 안에 입체 방이 보이게 한다' },
+  { id: 'sprite-wind-sway', title: '스프라이트 바람 흔들림', group: 'E', order: 4, kind: 'sprite', oneLiner: '풀 스프라이트의 위쪽만 바람에 흔든다' },
 ]
 
 export const PLANNED: PlannedSpecimen[] = PLANNED_ALL.filter(p => !SPECIMENS.some(s => s.meta.id === p.id))

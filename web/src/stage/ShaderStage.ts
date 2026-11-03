@@ -808,6 +808,14 @@ class ShaderStage {
     return { coverage: covered / (width * height), area: dark / (shaded.length / 4) }
   }
 
+  /** cameraPosOS: 카메라 위치를 효과 물체의 오브젝트 공간으로 (three.js 좌표, 셰이더가 SG_FLIP 한다). 회전과 카메라를 정한 뒤 부른다 */
+  private setCameraPosOS() {
+    const effect = this.effect!
+    effect.updateMatrixWorld()
+    const cameraPosOS = effect.worldToLocal(this.perspective.position.clone())
+    for (const m of [effect.material, this.second?.material]) if (m instanceof THREE.RawShaderMaterial) m.uniforms.uCameraPosOS.value.copy(cameraPosOS)
+  }
+
   private renderFrame() {
     if (!this.specimen || !this.effect) return
     this.dirty = false
@@ -872,13 +880,11 @@ class ShaderStage {
 
       if (kind === 'mesh') {
         this.effect.rotation.y = this.spin
+        this.setCameraPosOS()
         renderer.setRenderTarget(this.hdr)
         renderer.render(this.scene, this.perspective)
       } else if (kind === 'depth') {
-        // cameraPosOS: 카메라 위치를 효과 물체의 오브젝트 공간으로 (three.js 좌표, 셰이더가 SG_FLIP 한다)
-        this.effect.updateMatrixWorld()
-        const cameraPosOS = this.effect.worldToLocal(this.perspective.position.clone())
-        for (const m of [this.effect.material, this.second?.material]) if (m instanceof THREE.RawShaderMaterial) m.uniforms.uCameraPosOS.value.copy(cameraPosOS)
+        this.setCameraPosOS()
         this.effect.visible = false
         renderer.setRenderTarget(this.opaque)
         renderer.render(this.scene, this.perspective)

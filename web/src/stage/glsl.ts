@@ -24,8 +24,8 @@ uniform int _SgStep;
 `
 
 const INPUT: Record<StageKind, string> = {
-  mesh: `struct SgInput { float2 uv; float4 color; float3 positionOS; float3 positionWS; float3 normalOS; float3 normalWS; float3 viewWS; float3 cameraRightWS; float3 cameraUpWS; float3 lightDirWS; float3 lightColor; float3 lighting; float shadow; float time; };`,
-  sprite: `struct SgInput { float2 uv; float4 color; float2 texelSize; float time; };`,
+  mesh: `struct SgInput { float2 uv; float4 color; float3 positionOS; float3 positionWS; float3 normalOS; float3 normalWS; float3 viewWS; float3 cameraRightWS; float3 cameraUpWS; float3 cameraPosOS; float3 lightDirWS; float3 lightColor; float3 lighting; float shadow; float time; };`,
+  sprite: `struct SgInput { float2 uv; float4 color; float3 positionWS; float2 texelSize; float time; };`,
   depth: `uniform sampler2D _SgSceneDepth;
 uniform sampler2D _SgSceneColor;
 uniform vec2 uNearFar;
@@ -69,6 +69,7 @@ in vec3 vNormalOS;
 in vec3 vNormalWS;
 uniform vec3 cameraPosition;
 uniform mat4 viewMatrix;
+uniform vec3 uCameraPosOS;
 uniform vec3 uLightDir;
 uniform vec3 uLightColor;
 uniform vec3 uAmbient;
@@ -87,6 +88,8 @@ void main() {
   // 카메라의 오른쪽, 위 축 (월드). 깊이 무대와 같다 (Unity 래퍼는 UNITY_MATRIX_V[0].xyz, [1].xyz). 매트캡처럼 화면 공간 법선을 쓰는 표본용
   i.cameraRightWS = SG_FLIP(vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]));
   i.cameraUpWS = SG_FLIP(vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]));
+  // 카메라 위치를 이 물체의 오브젝트 공간으로 (깊이 무대와 같다). 인테리어 매핑처럼 오브젝트 공간 시선을 쓰는 표본용
+  i.cameraPosOS = SG_FLIP(uCameraPosOS);
   i.lightDirWS = SG_FLIP(uLightDir);
   // 받는 그림자 (stage.shadowProp 의 공). Unity 래퍼의 light.shadowAttenuation 에 해당하고, 빛 색에도 곱해 넘긴다
   i.shadow = uCaster.w > 0.0 ? sphereShadow(vPositionWS, uLightDir, uCaster) : 1.0;
@@ -99,6 +102,7 @@ void main() {
   ${writeColor(cutout)}
 }`,
   sprite: cutout => `in vec2 vUv;
+in vec3 vPositionWS;
 uniform vec4 uSpriteColor;
 uniform float uTime;
 out vec4 sgOut;
@@ -106,6 +110,8 @@ void main() {
   SgInput i;
   i.uv = vUv;
   i.color = uSpriteColor;
+  // 월드 위치. 정점을 미는 스프라이트(stage.vertex)는 밀기 전 위치다 (Unity 래퍼도 밀기 전 위치를 넘긴다)
+  i.positionWS = SG_FLIP(vPositionWS);
   i.texelSize = _MainTex_TexelSize.xy;
   i.time = uTime;
   vec4 c = sgEffect(i);
@@ -166,7 +172,11 @@ void main() {
 }`,
 }
 
-const WORLD_VERTEX = (displace: boolean) => `in vec3 position;
+/**
+ * 메시·깊이 무대의 sgVertex 는 오브젝트 공간 위치를 받고 돌려준다. 스프라이트 무대(worldSpace)는 월드 위치를 받고 돌려준다:
+ * Unity 는 스프라이트를 배칭하면 정점을 월드 좌표로 넘겨 오브젝트 공간을 믿을 수 없기 때문이다 (가이드 3-4절)
+ */
+const WORLD_VERTEX = (displace: boolean, worldSpace = false) => `in vec3 position;
 in vec3 normal;
 in vec2 uv;
 uniform mat4 modelMatrix;
@@ -179,12 +189,19 @@ out vec3 vNormalOS;
 out vec3 vNormalWS;
 out float vEyeDepth;
 void main() {
-  vec3 p = ${displace ? 'SG_FLIP(sgVertex(SG_FLIP(position), SG_FLIP(normal), uv, uTime))' : 'position'};
-  vec4 world = modelMatrix * vec4(p, 1.0);
+${
+  worldSpace && displace
+    ? `  vec3 p = position;
+  vec4 world = modelMatrix * vec4(position, 1.0);
+  vec3 restWS = world.xyz;
+  world.xyz = SG_FLIP(sgVertex(SG_FLIP(world.xyz), SG_FLIP(normalize(mat3(modelMatrix) * normal)), uv, uTime));`
+    : `  vec3 p = ${displace ? 'SG_FLIP(sgVertex(SG_FLIP(position), SG_FLIP(normal), uv, uTime))' : 'position'};
+  vec4 world = modelMatrix * vec4(p, 1.0);`
+}
   vec4 view = viewMatrix * world;
   vUv = uv;
   vPositionOS = p;
-  vPositionWS = world.xyz;
+  vPositionWS = ${worldSpace && displace ? 'restWS' : 'world.xyz'};
   vNormalOS = normal;
   vNormalWS = mat3(modelMatrix) * normal;
   vEyeDepth = -view.z;
@@ -239,7 +256,7 @@ export function buildProgram(meta: SpecimenMeta, core: string, off: boolean, pas
   if (kind === 'fullscreen') return { vertex: FULLSCREEN_VERTEX, fragment }
   const displace = pass === 'outline' || Boolean(meta.stage.vertex)
   const vertexHead = displace ? `#define SG_VERTEX_STAGE\n${common}uniform float uTime;\n${body}\n` : 'precision highp float;\n'
-  return { vertex: `${vertexHead}${WORLD_VERTEX(displace)}\n`, fragment }
+  return { vertex: `${vertexHead}${WORLD_VERTEX(displace, kind === 'sprite')}\n`, fragment }
 }
 
 /** 무대의 바닥과 소품. URP Lit 대신 같은 값의 Lambert 로 그린다 */

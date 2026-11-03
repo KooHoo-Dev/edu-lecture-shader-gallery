@@ -227,7 +227,8 @@ function checkMeta(id, meta, core, wrapper) {
   const hasVertex = vertexCount > 0
   if (vertexCount - (outline ? 1 : 0) !== (meta.stage.vertex ? 1 : 0)) err(`${where}: core.hlsl 의 sgVertex 와 stage.vertex, stage.outline 이 맞지 않다`)
   if (hasVertex && !wrapper.includes('sgVertex(')) err(`${id}/${meta.shaderFile}: 래퍼의 vert 가 sgVertex 를 부르지 않는다`)
-  if (hasVertex && !['mesh', 'depth'].includes(meta.stage.kind)) err(`${where}: sgVertex 는 mesh, depth 무대에서만 쓴다`)
+  if (hasVertex && !['mesh', 'depth', 'sprite'].includes(meta.stage.kind)) err(`${where}: sgVertex 는 mesh, depth, sprite 무대에서만 쓴다`)
+  if (hasVertex && meta.stage.kind === 'sprite' && meta.stage.ui) err(`${where}: UI 표본(Image)은 캔버스가 정점을 만들어 sgVertex 를 쓰지 않는다`)
   if (outline) {
     if (!/#\s*if(def)?\s+(defined\s*\(\s*)?SG_OUTLINE\b/.test(core)) err(`${where}: stage.outline 이면 core.hlsl 에 #ifdef SG_OUTLINE 블록이 있어야 한다`)
     if (!/#define\s+SG_OUTLINE\b/.test(wrapper)) err(`${id}/${meta.shaderFile}: 외곽선 패스에서 core.hlsl 앞에 #define SG_OUTLINE 을 둔다`)
