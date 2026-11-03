@@ -10,6 +10,13 @@
 #define CRT_SCAN_MAX 0.4
 // 형광체 마스크 세기 상한. 0.5 면 흰 화면에서 가장 어두운 열(파랑)이 가장 밝은 열(초록)의 약 63% 다.
 #define CRT_MASK_MAX 0.5
+// 가로로 겹치는 무늬(어두운 줄 × 슬롯 틈)를 곱한 가장 어두운 밝기의 하한. 둘이 같은 행에 겹쳐도
+// 밝은 줄의 60% 아래로 내려가지 않게 슬롯 틈을 줄 사이 어둡기에 맞춰 얕게 자른다.
+#define CRT_STACK_MIN 0.6
+// 정수 픽셀 줄 간격의 하한. 평면은 2 픽셀, 휜 화면은 3 픽셀
+// (2 픽셀 간격이 휘면 줄이 사라졌다 나타나는 맥놀이 띠가 생긴다).
+#define CRT_PITCH_MIN_FLAT 2.0
+#define CRT_PITCH_MIN_CURVED 3.0
 // 느린 밝은 띠: 넓고 흐린 띠 하나가 7 초에 한 번 위에서 아래로 지나가고 밝기를 최대 8% 만 올린다.
 // 밝기 변화 10% 미만, 1Hz 아래라 번쩍임으로 세지 않는다. 속도는 일부러 머티리얼 값으로 두지 않는다
 // (빠르게 돌리면 흘러가는 줄무늬가 된다).
@@ -49,7 +56,8 @@ float3 crtRead(float2 uv, float texelX, float bleed)
 
 // 형광체 마스크: 화면 픽셀의 열 번호로 R, G, B 를 번갈아 남긴다. 화면 픽셀에 붙어 있어 휘지 않는다
 // (휜 좌표로 만들면 픽셀 격자와 어긋나 모아레가 생긴다). 슬롯은 세 열 묶음마다 엇갈린 가로 틈을 더한다.
-float3 crtMask(float2 pixelPos, float mode, float strength)
+// gapStrength 는 슬롯 틈의 깊이다. 호출하는 쪽이 줄 사이 어둡기와 곱해 60% 아래로 내려가지 않게 잘라 넘긴다.
+float3 crtMask(float2 pixelPos, float mode, float strength, float gapStrength)
 {
     float3 mask = float3(1.0, 1.0, 1.0);
     if (mode < 0.5)
@@ -76,14 +84,16 @@ float3 crtMask(float2 pixelPos, float mode, float strength)
         float triad = floor(pixelPos.x / 3.0);
         float row = crtMod(pixelPos.y +crtMod(triad, 2.0) * 2.0, 4.0);
         float gap = 1.0 - step(0.5, row);
-        mask = mask * (1.0 - strength * gap);
+        mask = mask * (1.0 - gapStrength * gap);
     }
     return mask;
 }
 
 float4 sgEffect(SgInput i)
 {
-    float2 screenPx = float2(1.0 / i.texelSize.x, 1.0 / i.texelSize.y);
+    // 화면 크기(픽셀)는 정수로 반올림한다. 1 / texelSize 는 float 오차로 559.9999 처럼 나와
+    // 반올림 경계에 걸린 줄 간격이 한 칸 작아질 수 있다.
+    float2 screenPx = floor(float2(1.0 / i.texelSize.x, 1.0 / i.texelSize.y) + float2(0.5, 0.5));
     float2 pixelPos = floor(i.uv * screenPx);
     float power = saturate(_PowerOff);
 
@@ -111,13 +121,15 @@ float4 sgEffect(SgInput i)
     float gridShade = 1.0 - 0.6 * max(onGrid.x, onGrid.y);
     SG_STEP(1, float3(saturate(cuv.x), saturate(cuv.y), 0.2) * gridShade * edge);
 
-    // 2. 줄 중심에서 읽기: 줄 간격을 화면 높이에 맞춘 정수 픽셀(최소 2)로 정하고 목표 줄 수에 가장 가깝게 둔다.
+    // 2. 줄 중심에서 읽기: 줄 간격은 화면 높이 ÷ 목표 줄 수를 반올림한 정수 픽셀이다 (평면은 최소 2, 휜 화면은 최소 3).
+    // 간격을 반올림하므로 실제 줄 수는 목표와 다를 수 있다 (높이 560 에 200 줄이면 3 픽셀 간격, 약 187 줄).
     // 정수 픽셀이라 모든 줄의 굵기가 같다. 한 줄 안의 픽셀은 모두 그 줄 가운데 높이의 색을 읽어 그림이 세로로 계단진다.
-    float pitch = max(2.0, floor(screenPx.y / max(_Lines, 1.0) + 0.5));
+    float pitchMin = lerp(CRT_PITCH_MIN_FLAT, CRT_PITCH_MIN_CURVED, step(0.0001, _Curve));
+    float pitch = max(pitchMin, floor(screenPx.y / max(_Lines, 1.0) + 0.5));
     // 줄 좌표: 정수가 되는 곳이 빔의 가운데다. 픽셀 중심이 (k + 0.5) 라 0.5 를 빼 첫 픽셀을 줄 가운데에 둔다.
     float lineCoord = (cuv.y * screenPx.y - 0.5) / pitch;
     float lineIndex = floor(lineCoord + 0.5);
-    float lineCenterY = (lineIndex * pitch + 0.5) * i.texelSize.y;
+    float lineCenterY = (lineIndex * pitch + 0.5) / screenPx.y;
     float3 picture = crtRead(float2(cuv.x, lineCenterY), i.texelSize.x, _Bleed);
     // 전원이 꺼지며 눌릴수록 색을 빼 회백색 선이 된다. 밝기(휘도)는 그대로 두어 원래 화면보다 밝아지지 않는다.
     float luma = dot(picture, float3(0.2126, 0.7152, 0.0722));
@@ -126,7 +138,11 @@ float4 sgEffect(SgInput i)
 
     // 공통 마무리 값: 마스크, 비네트, 느린 밝은 띠
     float scan = clamp(_Scan, 0.0, CRT_SCAN_MAX);
-    float3 mask = crtMask(pixelPos, _Mask, clamp(_MaskStrength, 0.0, CRT_MASK_MAX));
+    float maskStrength = clamp(_MaskStrength, 0.0, CRT_MASK_MAX);
+    // 슬롯 틈은 어두운 줄과 같은 행에 겹칠 수 있다. (1 - scan) × (1 - 틈) ≥ 0.6 이 되게 틈을 얕게 자른다.
+    // 줄 사이 어둡기 0.3 이면 틈은 최대 0.14, 0.2 면 0.25, 0.4 면 틈이 사라진다.
+    float gapStrength = min(maskStrength, max(0.0, 1.0 - CRT_STACK_MIN / (1.0 - scan)));
+    float3 mask = crtMask(pixelPos, _Mask, maskStrength, gapStrength);
     float vignetteDist = length((cuv - float2(0.5, 0.5)) * 2.0);
     float vignette = 1.0 - saturate(_Vignette) * smoothstep(0.6, 1.5, vignetteDist);
     // frac 으로 한 주기 안에 감싸 오래 켜 두어도 시간 값이 커져 떨리지 않게 한다. 띠는 화면 위 밖에서 아래 밖으로 지나간다.
@@ -145,13 +161,14 @@ float4 sgEffect(SgInput i)
 #endif
 
     // 3. 빔 프로필: 줄 가운데는 그대로, 줄 사이로 갈수록 cos 모양으로 어두워진다. 가장 어두운 곳이 1 - 줄 사이 어둡기다.
-    // 줄이 휘어 비스듬하거나 픽셀보다 촘촘하면 fwidth(줄 좌표)가 커진다. 그때는 대비를 평균 밝기 쪽으로 낮춰
-    // 모아레를 줄인다 (밝은 쪽이 아니라 평균으로 낮춰 전체 밝기가 변하지 않는다).
+    // 평평한 화면에서 fwidth(줄 좌표)는 늘 1 / 간격이다 (한 픽셀에 줄 좌표가 1 / 간격 만큼 변한다).
+    // 줄이 휘어 비스듬하거나 눌려 촘촘해지면 그보다 커진다. 기대값을 넘는 만큼만 대비를 평균 밝기 쪽으로 낮춰
+    // 모아레를 줄인다 (평평한 곳의 대비는 깎지 않고, 밝은 쪽이 아니라 평균으로 낮춰 전체 밝기가 변하지 않는다).
     float f = lineCoord - lineIndex;
     float beamSharp = 1.0 - scan * 0.5 * (1.0 - cos(f * 6.2831853));
     float beamAverage = 1.0 - scan * 0.5;
-    float density = fwidth(lineCoord);
-    float beam = lerp(beamAverage, beamSharp, 1.0 - smoothstep(0.36, 0.62, density));
+    float densityOver = max(fwidth(lineCoord) - 1.0 / pitch, 0.0);
+    float beam = lerp(beamAverage, beamSharp, 1.0 - smoothstep(0.05, 0.3, densityOver));
     SG_STEP(3, float3(beam, beam, beam) * edge);
 
     // 4. 형광체 마스크를 빔에 곱한 빛의 무늬. 최종 화면은 2 단계 그림에 이것을 곱한 것이다.
