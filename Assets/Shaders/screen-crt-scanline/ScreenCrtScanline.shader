@@ -4,7 +4,7 @@ Shader "ShaderGallery/ScreenCrtScanline"
 {
     Properties
     {
-        _Lines ("목표 줄 수", Range(120, 480)) = 224
+        _Lines ("목표 줄 수", Range(120, 480)) = 200
         _Scan ("줄 사이 어둡기", Range(0, 0.4)) = 0.3
         [Enum(None, 0, Aperture Grille, 1, Slot, 2)] _Mask ("형광체 마스크", Float) = 1
         _MaskStrength ("마스크 세기 (세로 줄, 슬롯)", Range(0, 0.5)) = 0.15
