@@ -240,6 +240,11 @@ export interface SpecimenMeta {
    * 기본값 촬영이 효과가 없는 순간에 찍힐 수 있거나 무대에서 효과가 약하게 보일 때, 효과가 잘 보이는 촬영을 고른다
    */
   thumbnail?: string
+  /**
+   * 내장 촬영(WebP)의 품질 0.4~0.75. 기본 0.75. 화면을 덮는 잔무늬(하프톤 점 격자처럼)가 WebP 로 줄지 않아
+   * 표본당 용량 기준(가이드 7절)을 넘을 때만 낮춘다
+   */
+  shotQuality?: number
   inspiredBy: InspiredBy[]
   /** 원작과 다르게 새로 만든 것 */
   original: string

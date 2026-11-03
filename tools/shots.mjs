@@ -7,7 +7,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { withChrome } from './lib/chrome.mjs'
-import { specimenIds } from './unity-job.mjs'
+import { loadMeta, specimenIds } from './unity-job.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const IN = join(ROOT, '_shots', 'unity')
@@ -28,6 +28,8 @@ await withChrome(async page => {
     const outDir = join(OUT, id)
     rmSync(outDir, { recursive: true, force: true })
     mkdirSync(outDir, { recursive: true })
+    // 표본마다 품질을 낮출 수 있다 (meta.shotQuality, 잔무늬가 화면을 덮는 표본)
+    const quality = (await loadMeta(ROOT, id)).shotQuality ?? QUALITY
     for (const name of readdirSync(dir).filter(f => f.endsWith('.png'))) {
       const png = readFileSync(join(dir, name)).toString('base64')
       const dataUrl = await page.evaluate(`new Promise((ok, fail) => {
@@ -39,7 +41,7 @@ await withChrome(async page => {
           const g = canvas.getContext('2d')
           g.imageSmoothingQuality = 'high'
           g.drawImage(image, 0, 0, ${WIDTH}, ${HEIGHT})
-          ok(canvas.toDataURL('image/webp', ${QUALITY}))
+          ok(canvas.toDataURL('image/webp', ${quality}))
         }
         image.onerror = () => fail(new Error('PNG 를 읽지 못했습니다'))
         image.src = 'data:image/png;base64,${png}'

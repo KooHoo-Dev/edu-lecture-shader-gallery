@@ -263,6 +263,7 @@ function checkMeta(id, meta, core, wrapper) {
   if (stage.shadowProp && stage.kind !== 'mesh') err(`${where}: stage.shadowProp 은 mesh 무대에서만 쓴다`)
   if (stage.tilt !== undefined && (stage.kind !== 'mesh' || !(Math.abs(stage.tilt) <= 180))) err(`${where}: stage.tilt 는 mesh 무대에서 -180~180 도로 둔다`)
   if (stage.bright && stage.kind !== 'fullscreen') err(`${where}: stage.bright 는 fullscreen 무대에서만 쓴다`)
+  if (meta.shotQuality !== undefined && !(meta.shotQuality >= 0.4 && meta.shotQuality <= 0.75)) err(`${where}: shotQuality 는 0.4~0.75 다`)
   // 받는 그림자(i.shadow)는 웹이 넘기지만 Unity 래퍼는 직접 채워야 한다 (light.shadowAttenuation)
   if (/\bi\.shadow\b/.test(core) && !/\.shadow\s*=/.test(wrapper)) err(`${id}/${meta.shaderFile}: core 가 i.shadow 를 쓰면 래퍼가 SgInput.shadow 에 light.shadowAttenuation 을 넣는다`)
   if (/\bsgSceneColor\s*\(/.test(core) && !meta.requires?.includes('opaque')) err(`${where}: 씬 색상을 쓰면 requires 에 'opaque' 를 넣는다`)
