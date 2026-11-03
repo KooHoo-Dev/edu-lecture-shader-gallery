@@ -1,0 +1,120 @@
+import type { SpecimenMeta } from '../../core/types'
+
+export const meta: SpecimenMeta = {
+  id: 'interior-room-mapping',
+  title: '인테리어 매핑',
+  titleEn: 'Interior Room Mapping',
+  group: 'A',
+  order: 6,
+  oneLiner: '평평한 벽의 창 안에 입체 방이 보이게 한다',
+  goals: [
+    '오브젝트 공간 시선(`positionOS - cameraPosOS`)을 창 칸 안의 방 상자와 교차시켜, 세 면까지의 거리 가운데 가장 가까운 것(`min`)으로 시선이 닿는 면을 찾을 수 있다.',
+    '교차점을 한 점 투시 방 그림 좌표(`xy / (1 + 깊이 비율)`)로 바꾸면 방 깊이가 약분되어 그림 한 장이 어떤 깊이에도 맞는 이유를 설명할 수 있다.',
+    '칸 번호 해시로 방 종류, 좌우 반전, 불 켜짐을 정해 모델링 없이 창마다 다른 방을 채울 수 있다.',
+    '창틀, 커튼, 프레넬 유리 반사, 밤과 조명을 겹쳐 건물 외벽 재질로 마무리할 수 있다.',
+  ],
+  tags: ['인테리어 매핑', '오브젝트 공간 시선', '광선-상자 교차', '텍스처 아틀라스', '해시'],
+  difficulty: 3,
+  shaderFile: 'InteriorRoomMapping.shader',
+  stage: {
+    kind: 'mesh',
+    mesh: 'cube',
+    blend: 'cutout',
+    textures: { _RoomAtlas: { file: 'InteriorRooms.png' } },
+  },
+  params: [
+    { key: '_WindowsX', label: '가로 창 수', type: 'range', min: 1, max: 8, step: 1, default: 3, hint: '면 하나를 가로로 나누는 창 칸 수. 소수는 반올림한다' },
+    { key: '_WindowsY', label: '세로 창 수', type: 'range', min: 1, max: 8, step: 1, default: 3, hint: '면 하나를 세로로 나누는 층 수. 가로와 다르면 방이 위아래나 옆으로 늘어난다' },
+    { key: '_RoomDepth', label: '방 깊이', type: 'range', min: 0.2, max: 2.5, step: 0.05, default: 1, hint: '방 깊이를 칸 폭의 배수로. 얕으면 진열창처럼 뒷벽이 창에 붙고, 깊으면 복도처럼 안쪽으로 길어진다. 같은 그림을 그대로 쓴다' },
+    { key: '_FrameWidth', label: '창틀 두께', type: 'range', min: 0.04, max: 0.8, step: 0.01, default: 0.3, hint: '이웃한 창 사이 외벽 폭 (칸 짧은 변에 대한 비율, 칸 양쪽에 반씩). 두꺼우면 창이 작아진다. 칸 경계의 밉 이음선을 덮으므로 너무 얇게 하지 않는다' },
+    { key: '_WallColor', label: '외벽 색', type: 'color', default: '#b8a48c', hint: '창 사이 외벽과 지붕의 색. 무대 빛을 받는다' },
+    { key: '_GlassReflect', label: '유리 반사', type: 'range', min: 0, max: 1, step: 0.01, default: 0.5, hint: '유리에 비치는 하늘의 세기. 비스듬히 볼수록 더 비친다 (프레넬)' },
+    { key: '_Night', label: '밤', type: 'range', min: 0, max: 1, step: 0.01, default: 0.35, hint: '외벽과 꺼진 방을 어둡게 하고 켜진 방의 등빛을 키운다' },
+    { key: '_LightsOn', label: '불 켜진 비율', type: 'range', min: 0, max: 1, step: 0.01, default: 0.5, hint: '등이 켜진 방의 비율. 방마다 고정 난수와 비교하므로 올리면 켜진 방은 그대로 있고 새 방이 켜진다' },
+    { key: '_LightColor', label: '조명 색', type: 'color', default: '#ffc878', hint: '켜진 방의 등빛과 커튼에 비치는 빛의 색' },
+    { key: '_CurtainAmount', label: '커튼 비율', type: 'range', min: 0, max: 1, step: 0.01, default: 0.35, hint: '창 양쪽에 반투명 주름 커튼이 걸린 방의 비율' },
+  ],
+  presets: [
+    { id: 'office-day', name: '사무실 낮', look: '촘촘한 창, 얇은 창틀, 하늘이 비치는 유리. 불은 거의 꺼져 있다', values: { _WindowsX: 4, _WindowsY: 4, _FrameWidth: 0.18, _Night: 0, _LightsOn: 0.2, _CurtainAmount: 0.1, _GlassReflect: 0.6, _WallColor: '#9aa3ad' } },
+    { id: 'night-lights', name: '밤 불빛', look: '어두운 외벽에 켜진 방들이 노랗게 떠오른다', values: { _Night: 0.9, _LightsOn: 0.6, _GlassReflect: 0.3 } },
+    { id: 'shop-window', name: '상점 진열창', look: '면마다 큰 창 하나와 얕은 방. 진열창처럼 뒷벽이 가깝다', values: { _WindowsX: 1, _WindowsY: 1, _RoomDepth: 0.35, _FrameWidth: 0.12, _CurtainAmount: 0, _Night: 0.2, _LightsOn: 0.8 } },
+    { id: 'deep-room', name: '깊은 방', look: '방이 칸 폭의 두 배 깊이라 복도처럼 길게 들어간다', values: { _RoomDepth: 2, _WindowsX: 2, _WindowsY: 2, _CurtainAmount: 0 } },
+  ],
+  events: [],
+  demo: {
+    // 밤과 불 켜진 비율을 같은 12초 주기로 오르내린다. 비율이 천천히 바뀌어 여러 방이 1초 안에 몰려 켜지지 않는다.
+    loops: [
+      { key: '_Night', frames: [[0, 0], [6, 0.85], [12, 0]], ease: 'inOutSine' },
+      { key: '_LightsOn', frames: [[0, 0.2], [6, 0.7], [12, 0.2]], ease: 'inOutSine' },
+    ],
+  },
+  steps: [
+    { n: 1, label: '창 칸', body: '면 위 좌표에 창 수를 곱해 정수 부분(`floor`)은 칸 번호로, 소수 부분(`frac`)은 칸 안 좌표로 쓴다. 칸 안 좌표를 오른쪽으로 갈수록 빨강, 위로 갈수록 초록으로 칠해, 칸마다 왼쪽 아래가 어둡고 왼쪽 위 초록, 오른쪽 아래 빨강, 오른쪽 위 노랑인 같은 그라데이션이 되풀이된다. 면은 탄젠트 없이 오브젝트 공간 법선의 주축(±X, ±Z)으로 골라 오른쪽, 위, 안쪽 축을 정했다. 윗면은 창 없는 지붕이라 이 단계에서 검정이다.' },
+    { n: 2, label: '부딪친 면', body: '칸마다 창 뒤에 방 상자가 있다고 치고, 오브젝트 공간 시선(`positionOS - cameraPosOS`)이 상자 안에서 처음 닿는 면을 칠했다. 빨강이 옆벽, 초록이 바닥·천장, 파랑이 뒷벽이고 안쪽으로 깊을수록 어둡다. 시선이 나가는 쪽 옆벽, 바닥이나 천장, 뒷벽까지의 거리 세 개 가운데 가장 작은 것(`min`)이 닿는 면이다. 정면에 가까운 창은 파랑 뒷벽이 넓고, 비스듬히 보이는 창일수록 빨강 옆벽이 넓어진다. 무대 카메라는 상자 윗면 높이쯤이라 창마다 아래쪽에 바닥(초록)이 보인다.' },
+    { n: 3, label: '방 그림 좌표', body: '닿은 점 (x, y, 깊이 비율 w)을 `q = xy / (1 + w)` 로 방 그림 좌표로 바꿔 q.x 를 빨강, q.y 를 초록으로 본다. 방 그림은 창에서 방 깊이만큼 물러난 눈으로 본 한 점 투시라 뒷벽(w = 1)이 그림 가운데 절반 크기에 들어간다. 흰 선은 그림 속 방 모서리(가운데 사각형과 네 대각선)인데 2단계의 면 경계와 겹친다. 면이 바뀌는 방 모서리에서도 좌표가 이어져 텍스처 이음매가 없다. 칸 경계를 따라 생기는 흰 세로줄은 칸이 바뀌며 좌표가 끊기는 자리로, 최종 화면에서는 창틀이 덮는다.' },
+    { n: 4, label: '방마다 다른 그림과 불', body: '칸 번호 해시로 아틀라스 네 칸(사무실, 거실, 상점, 빈 방) 가운데 하나를 고르고, 절반은 좌우로 뒤집어 읽었다. 그림 한 장이 방 깊이와 보는 각도에 맞게 펴진다. 방마다 고정 난수가 불 켜진 비율보다 작으면 등이 켜져 노란빛이 돌고, 천장 가운데 등에 가까운 곳일수록 밝다. 아직 창틀, 커튼, 유리 반사가 없어 방 상자를 쌓아 놓은 것처럼 보인다.' },
+  ],
+  offNote: '방 그림을 시선 없이 칸 안 좌표 그대로 창에 붙였다 (같은 아틀라스 칸, 같은 불빛). 정면에서는 그럴듯하지만 상자가 돌아도 그림 속 뒷벽이 늘 창 가운데에 있고 옆벽이 넓어지지 않아 방이 벽지처럼 납작하다. 효과를 켠 화면에서 비스듬한 면의 창은 옆벽이 깊게 보이는 것과 비교한다. 이 표본은 알파가 항상 1 이라 그림자는 효과를 켰을 때와 같다.',
+  mistakes: [
+    { title: '창 안이 벽지처럼 납작하고 돌려 봐도 안쪽이 움직이지 않는다', body: '칸 안 좌표나 UV 로 방 그림을 바로 읽었다. 시선을 방 상자와 교차시켜 닿은 점을 그림 좌표(`xy / (1 + w)`)로 바꿔 읽어야 보는 각도에 따라 옆벽과 바닥이 넓어지고 좁아진다. 효과 끄기 화면이 이 실수다.' },
+    { title: '방이 통째로 미끄러지거나 칸이 건물 모서리와 어긋난다', body: '시선과 표면 위치가 서로 다른 공간에 있다. 월드 공간 카메라 위치와 오브젝트 공간 위치를 섞으면 건물이 돌거나 옮겨질 때 방이 따라오지 않는다. 래퍼에서 `TransformWorldToObject(GetCameraPositionWS())` 로 카메라를 오브젝트 공간으로 옮겨 `positionOS` 와 같은 공간에서 시선을 만든다. 에디터에서는 맞는데 플레이 중에만 어긋나면 Batching Static 때문이다 (Unity 주의 사항 참고).' },
+    { title: '방 깊이를 바꾸면 그림 속 모서리가 실제 방 모서리와 어긋난다', body: '그림 좌표를 깊이의 실제 거리로 나눴거나, 방 그림을 다른 시점(창 바로 앞, 넓은 화각)에서 그렸다. 깊이는 뒷벽이 1 인 비율 w 로 쓰고 `xy / (1 + w)` 로 나눈다. 방 그림은 창에서 방 깊이만큼 물러난 눈으로 그려 뒷벽이 가운데 절반 크기가 되게 한다. 그러면 깊이가 약분되어 어떤 깊이에도 같은 그림이 맞는다.' },
+    { title: '창 가장자리에 한 픽셀 선이 생기거나 이웃 방 색이 번진다', body: '칸 경계에서 아틀라스 좌표가 끊겨 미분이 커지고 가장 작은 밉이 읽혔다. 창틀이 그 자리를 덮게 두께를 남기거나, 밉 0 으로 읽는다. 아틀라스 칸 사이에 여백이 없으면 밉과 Bilinear 가 이웃 방을 끌어오므로, 칸 둘레에 그림 가장자리 색을 몇 픽셀 이어 칠해 둔다 (이 표본은 4 px).' },
+    { title: '여러 방의 불이 한꺼번에 켜졌다 꺼졌다 깜빡인다', body: '불 켜짐을 시간에 따라 바뀌는 난수로 정했거나 비율을 빨리 움직였다. 방마다 고정 난수와 불 켜진 비율을 비교하면 비율이 오를 때 켜진 방은 그대로 있고 새 방만 켜진다. 비율은 몇 초에 걸쳐 천천히 바꾸고, 건물이 여럿이면 `InteriorLightsSchedule` 의 점등 오프셋으로 건물마다 시각을 어긋나게 한다.' },
+  ],
+  unity: {
+    setup: [
+      '`InteriorRoomMapping.shader`, `core.hlsl`, `InteriorRooms.png`, `InteriorLightsSchedule.cs` 를 `Assets/Shaders/interior-room-mapping/` 에 둔다.',
+      'Project 창에서 `InteriorRooms.png` 를 고르고 Inspector 에서 Texture Type 은 Default, sRGB (Color Texture) 는 켜고, Wrap Mode 는 Clamp, Filter Mode 는 Bilinear, Advanced 의 Generate Mipmap 은 켜고, Compression 은 None 으로 맞춘 뒤 Apply 를 누른다.',
+      '셰이더를 우클릭해 Create > Material 로 머티리얼을 만들고, 방 그림 아틀라스 칸에 `InteriorRooms.png` 를 넣는다.',
+      '`GameObject > 3D Object > Cube` 처럼 면이 오브젝트 축에 맞는 상자 메시에 머티리얼을 넣는다. 창 수는 면마다 세므로 Scale 을 늘린 건물은 그 비율대로 가로·세로 창 수를 맞춘다 (예: Scale 4, 10, 4 이면 가로 4, 세로 10).',
+      '시간대에 따라 불을 켜려면 건물에 `InteriorLightsSchedule` 을 붙이고 시각(`hour`)과 1초에 흐르는 시간(`hoursPerSecond`)을 정한다. 건물마다 `lightsOffsetHours` 나 `randomOffsetHours` 를 달리 주면 점등 시각이 어긋난다.',
+    ],
+    verify: 'Cube 에 넣고 Scene 뷰에서 둘레를 돌면 창마다 방 안쪽의 옆벽과 바닥이 시선에 따라 넓어지고 좁아진다. 방 깊이를 2 로 올리면 뒷벽이 작아지며 복도처럼 깊어지고, 밤을 0.9 로 올리면 외벽과 꺼진 방이 어두워지고 켜진 방만 조명 색으로 남는다.',
+    pitfalls: [
+      'Batching Static 을 켜면 정점이 월드 좌표로 합쳐져 `positionOS` 와 `cameraPosOS` 가 월드 기준이 된다. 칸이 건물 모서리에 맞지 않고 방이 통째로 어긋난다. 도시 건물은 Static 을 켜 두기 쉬우므로 이 머티리얼을 쓰는 건물은 Static 메뉴에서 Batching Static 만 끈다.',
+      '면 방향은 오브젝트 공간 법선의 주축(±X, ±Z)으로 고르고 위아래(±Y)는 지붕으로 칠한다. 면이 오브젝트 축과 맞지 않는 메시(임포트한 건물 모델, 비스듬한 벽, 원기둥)는 창 칸과 방 방향이 틀린다. 건물을 축에 맞춰 모델링하거나 UV 와 탄젠트로 면 기저를 만드는 판으로 바꾼다.',
+      '칸 경계에서는 아틀라스 좌표가 끊겨 밉이 가장 작은 단계로 튄다. 이 표본은 창틀이 그 자리를 덮는다. 창틀을 아주 얇게 하거나 멀리서 보면 칸 경계에 한 픽셀 선이 보일 수 있다. 그럴 때는 `SAMPLE_TEXTURE2D_LOD(..., 0)` 으로 밉 0 을 읽거나 이어진 좌표의 미분을 `SAMPLE_TEXTURE2D_GRAD` 에 넘긴다 (이 표본은 창틀로 덮고 쓰지 않았다). 블록 압축(BC, ASTC)은 칸 사이 4 px 여백을 흐릴 수 있어 Compression None 을 권한다.',
+      'Shader Graph 예제의 큐브맵판(Interior Cube Mapping)은 방 하나를 큐브맵 여섯 면으로 담아 방 깊이가 상자 비율에 묶이고, 방마다 다른 그림을 쓰려면 큐브맵을 더 둬야 한다. 이 표본의 2D 아틀라스판은 한 점 투시 그림 한 장이라 방 깊이를 머티리얼 값으로 바꿀 수 있고 아틀라스 칸으로 방 종류를 늘리기 쉽다. 대신 방당 120 px 라 면 하나에 큰 창 하나(상점 진열창 프리셋)처럼 크게 보면 흐리다. 큰 창이 많으면 아틀라스를 키운다.',
+      'XR 에서는 픽셀마다 그 눈의 카메라 위치로 시선을 쏘므로 두 눈이 서로 다른 시차를 보아 방 깊이가 맞는다 (원리상 그렇다는 추론이고 실기기에서는 확인하지 않았다). 모바일에서도 텍스처 한 번 읽기와 산술뿐이라 가볍다. 패스가 `UniversalForwardOnly` 라 2D Renderer 에서는 그려지지 않는다. 3D 프로젝트용이다.',
+      '외벽은 주 광원만 받고, 래퍼가 `distanceAttenuation` 을 곱하지 않아 광원의 Culling Mask 와 Rendering Layers 가 무시된다. 안개도 처리하지 않아 Fog 를 켠 도시에서 먼 건물이 안개에 묻히지 않는다. `#pragma multi_compile_fog` 를 넣고 정점에서 `ComputeFogFactor(positionCS.z)` 를 넘겨 마지막 색에 `MixFog(color, fogFactor)` 를 씌운다.',
+    ],
+    graph: 'Shader Graph 의 Feature Examples 샘플에는 큐브맵판인 Interior Cube Mapping(UV Projection 분류의 `UVInteriorCubemap` 서브그래프)이 있다. 이 표본의 아틀라스판으로 옮기려면 Camera 노드의 Position 을 Transform 노드(World → Object, Position)로 옮겨 Position 노드(Object)에서 빼고 Normalize 해 오브젝트 공간 시선을 만든다. 교차와 그림 좌표는 String 모드 Custom Function 으로 옮긴다. Name 을 `InteriorPicture` 로 하고 입력 포트 Start(Vector 2, 칸 안 좌표 × 2 - 1), Ray(Vector 3, 상자 좌표로 바꾼 시선)와 출력 포트 Q(Vector 2)를 만든 뒤, Body 칸에 `core.hlsl` 의 `dirSign`, `tWall`, `tBack`, `t`, `hit` 다섯 줄을 붙이고 `start`, `ray` 를 포트 이름으로 바꾼 다음 `Q = hit.xy / (1.0 + hit.z);` 를 더한다. 칸 번호 해시와 아틀라스 칸 좌표는 Floor, Fraction, Multiply, Add 노드로 만든다.',
+  },
+  prompt: {
+    goal: '건물 메시의 평평한 벽을 창 칸으로 나누고 창마다 원근이 맞는 방이 보이는 인테리어 매핑 셰이더를 넣는다. 실내 모델 없이 방 그림 아틀라스 한 장으로 창마다 다른 방과 밤의 불빛을 채운다.',
+    adaptIdeas: [
+      '같은 머티리얼을 쓰는 건물들이 모두 같은 방 배치와 같은 불 켜짐으로 보이지 않게 건물마다 다르게 하고 싶다.',
+      '1층은 상점 진열창, 위층은 사무실처럼 층마다 다른 방 종류와 깊이를 쓰고 싶다.',
+      '창 안쪽에 가구 평면을 하나 더 두어 책상이나 사람이 방 앞쪽에 서 있는 것처럼 보이게 하고 싶다.',
+      '임포트한 건물 모델처럼 면이 오브젝트 축과 맞지 않는 메시에도 창이 맞게 나오게 하고 싶다.',
+      '게임 속 시계에 맞춰 저녁에 불이 하나씩 켜지고 새벽에 꺼지게 하고 싶다.',
+      '멀리 있는 건물은 계산을 줄여 평평한 창 그림 한 장으로 바꾸고 싶다.',
+    ],
+  },
+  captures: [
+    { name: 'night', label: '밤 불빛', values: { _Night: 0.9, _LightsOn: 0.6, _GlassReflect: 0.3 } },
+    { name: 'deep-room', label: '깊은 방', values: { _RoomDepth: 2, _WindowsX: 2, _WindowsY: 2, _CurtainAmount: 0 } },
+  ],
+  inspiredBy: [
+    {
+      title: 'Forza Horizon 4 (2018)',
+      credit: 'Playground Games',
+      borrowed: ['방 그림 아틀라스와 방마다 다른 배치', '밤에 방마다 켜지는 불'],
+      learned: 'Game Developer 의 2018-12-10 글에서 Playground Games 기술 아트 디렉터 Gareth Harwood 는 Edinburgh 의 건물 밀도 때문에 실제 실내 모델 대신 시차(parallax) 실내 셰이더를 썼다고 밝힌다. 실내를 같은 축척으로 3D 모델링해 텍스처로 렌더하고 같은 양식의 방을 최대 8개씩 아틀라스로 묶으며, 보통 방과 얕은 진열창 두 깊이를 두고, 창틀·커튼·실내 세 층을 창마다 따로 고르고, 밤에는 방마다 구운 조명 텍스처와 건물별 점등 시각을 쓴다고 적었다. 이 표본의 방 그림 아틀라스와 칸마다 방 고르기, 상점 진열창 프리셋(얕은 방), 커튼 층, 방마다 켜지는 불과 C# 의 건물별 점등 오프셋이 이 글에서 왔다. 조명은 구운 텍스처 대신 셰이더에서 천장 등까지의 거리로 더했다. 게임 화면은 직접 확인하지 않았고 원작 텍스처나 코드는 옮기지 않았다.',
+      link: 'https://www.gamedeveloper.com/design/game-tech-deep-dive-a-window-into-playground-games-latest-shader-development',
+    },
+  ],
+  original: 'van Dongen 의 인테리어 매핑을 2D 아틀라스판으로 풀었다. 한 점 투시로 그려 방 깊이가 약분되는 방 그림 좌표, 그 그림을 같은 식의 역연산으로 칠하는 텍스처 생성기, 탄젠트 없이 법선 주축으로 고르는 면 기저, 천장 등까지의 거리로 더하는 불빛, 커튼 층과 하늘 그라데이션 유리 반사 합성을 이 갤러리에서 새로 만들었다. 방 그림 네 장(사무실, 거실, 상점, 빈 방)도 코드로 그렸다.',
+  references: [
+    { label: 'van Dongen: Interior Mapping (CGI 2008)', url: 'https://www.proun-game.com/Oogst3D/CODING/InteriorMapping/InteriorMapping.pdf' },
+    { label: 'van Dongen: 지오메트리 없이 실제 방 그리기 (Game Developer, 2018)', url: 'https://www.gamedeveloper.com/programming/interior-mapping-rendering-real-rooms-without-geometry' },
+    { label: 'Shader Graph Feature Examples (Interior Cube Mapping)', url: 'https://docs.unity3d.com/Packages/com.unity.shadergraph@17.4/manual/Shader-Graph-Sample-Feature-Examples.html' },
+  ],
+  related: [
+    { id: 'ground-aoe-indicator', why: '같은 `cameraPosOS` 시선 수학을 반대 방향(상자 바깥의 씬 표면)으로 쓴다' },
+    { id: 'triplanar-projection', why: '오브젝트 공간 좌표로 무늬를 붙이는 짝. 정적 배칭과 면 방향 주의가 같다' },
+    { id: 'matcap-lit-sphere', why: '구운 그림 한 장으로 입체를 흉내 내는 다른 방법' },
+  ],
+  flashes: false,
+}
