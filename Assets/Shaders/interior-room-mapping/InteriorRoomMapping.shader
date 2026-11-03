@@ -114,6 +114,10 @@ Shader "ShaderGallery/InteriorRoomMapping"
             // 카메라 위치를 이 물체의 오브젝트 공간으로 옮긴다. 물체가 돌거나 늘어나 있어도 오브젝트 공간 시선이 맞다.
             // XR 에서는 눈마다 카메라 위치가 달라 두 눈이 서로 다른 시차를 본다.
             i.cameraPosOS = TransformWorldToObject(GetCameraPositionWS());
+            // 직교 카메라(아이소메트릭 도시)에서는 시선이 모두 카메라 정면 축과 나란하다.
+            // 카메라 위치에서 쏜 시선은 틀리므로, 이 점에서 정면 축만큼 뒤로 물러난 점을 카메라로 삼는다.
+            if (unity_OrthoParams.w > 0.5)
+                i.cameraPosOS = v.positionOS - TransformWorldToObjectDir(GetViewForwardDir(), false);
             i.lightDirWS = lightDir;
             i.lightColor = lightColor;
             i.lighting = lighting;

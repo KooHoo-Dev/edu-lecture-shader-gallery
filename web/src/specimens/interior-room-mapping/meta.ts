@@ -38,11 +38,11 @@ export const meta: SpecimenMeta = {
     { id: 'office-day', name: '사무실 낮', look: '촘촘한 창, 얇은 창틀, 하늘이 비치는 유리. 불은 거의 꺼져 있다', values: { _WindowsX: 4, _WindowsY: 4, _FrameWidth: 0.18, _Night: 0, _LightsOn: 0.2, _CurtainAmount: 0.1, _GlassReflect: 0.6, _WallColor: '#9aa3ad' } },
     { id: 'night-lights', name: '밤 불빛', look: '어두운 외벽에 켜진 방들이 노랗게 떠오른다', values: { _Night: 0.9, _LightsOn: 0.6, _GlassReflect: 0.3 } },
     { id: 'shop-window', name: '상점 진열창', look: '면마다 큰 창 하나와 얕은 방. 진열창처럼 뒷벽이 가깝다', values: { _WindowsX: 1, _WindowsY: 1, _RoomDepth: 0.35, _FrameWidth: 0.12, _CurtainAmount: 0, _Night: 0.2, _LightsOn: 0.8 } },
-    { id: 'deep-room', name: '깊은 방', look: '방이 칸 폭의 두 배 깊이라 복도처럼 길게 들어간다', values: { _RoomDepth: 2, _WindowsX: 2, _WindowsY: 2, _CurtainAmount: 0 } },
+    { id: 'deep-room', name: '깊은 방', look: '방이 칸 폭의 두 배 깊이라, 상자가 돌아 면이 정면으로 돌아올 때 복도처럼 길게 들어간다', values: { _RoomDepth: 2, _WindowsX: 2, _WindowsY: 2, _CurtainAmount: 0 } },
   ],
   events: [],
   demo: {
-    // 밤과 불 켜진 비율을 같은 12초 주기로 오르내린다. 비율이 천천히 바뀌어 여러 방이 1초 안에 몰려 켜지지 않는다.
+    // 밤과 불 켜진 비율을 같은 12초 주기로 오르내린다. 비율이 천천히 바뀌어 방이 한 번에 한두 방씩 켜진다 (보이는 방 약 18개에 최고 약 2.4방/초).
     loops: [
       { key: '_Night', frames: [[0, 0], [6, 0.85], [12, 0]], ease: 'inOutSine' },
       { key: '_LightsOn', frames: [[0, 0.2], [6, 0.7], [12, 0.2]], ease: 'inOutSine' },
@@ -67,16 +67,16 @@ export const meta: SpecimenMeta = {
       '`InteriorRoomMapping.shader`, `core.hlsl`, `InteriorRooms.png`, `InteriorLightsSchedule.cs` 를 `Assets/Shaders/interior-room-mapping/` 에 둔다.',
       'Project 창에서 `InteriorRooms.png` 를 고르고 Inspector 에서 Texture Type 은 Default, sRGB (Color Texture) 는 켜고, Wrap Mode 는 Clamp, Filter Mode 는 Bilinear, Advanced 의 Generate Mipmap 은 켜고, Compression 은 None 으로 맞춘 뒤 Apply 를 누른다.',
       '셰이더를 우클릭해 Create > Material 로 머티리얼을 만들고, 방 그림 아틀라스 칸에 `InteriorRooms.png` 를 넣는다.',
-      '`GameObject > 3D Object > Cube` 처럼 면이 오브젝트 축에 맞는 상자 메시에 머티리얼을 넣는다. 창 수는 면마다 세므로 Scale 을 늘린 건물은 그 비율대로 가로·세로 창 수를 맞춘다 (예: Scale 4, 10, 4 이면 가로 4, 세로 10).',
+      '`GameObject > 3D Object > Cube` 처럼 면이 오브젝트 축에 맞는 상자 메시에 머티리얼을 넣는다. 창 수는 면마다 세므로 Scale 을 늘린 건물은 그 비율대로 가로·세로 창 수를 맞춘다 (예: Scale 4, 10, 4 이면 가로 4, 세로 10). 가로 창 수 하나를 네 옆면이 같이 쓰므로, X 와 Z 스케일이 다르면 창 수 하나로 두 쌍의 면을 모두 맞출 수 없어 한 쌍의 방이 옆으로 늘어난다.',
       '시간대에 따라 불을 켜려면 건물에 `InteriorLightsSchedule` 을 붙이고 시각(`hour`)과 1초에 흐르는 시간(`hoursPerSecond`)을 정한다. 건물마다 `lightsOffsetHours` 나 `randomOffsetHours` 를 달리 주면 점등 시각이 어긋난다.',
     ],
     verify: 'Cube 에 넣고 Scene 뷰에서 둘레를 돌면 창마다 방 안쪽의 옆벽과 바닥이 시선에 따라 넓어지고 좁아진다. 방 깊이를 2 로 올리면 뒷벽이 작아지며 복도처럼 깊어지고, 밤을 0.9 로 올리면 외벽과 꺼진 방이 어두워지고 켜진 방만 조명 색으로 남는다.',
     pitfalls: [
       'Batching Static 을 켜면 정점이 월드 좌표로 합쳐져 `positionOS` 와 `cameraPosOS` 가 월드 기준이 된다. 칸이 건물 모서리에 맞지 않고 방이 통째로 어긋난다. 도시 건물은 Static 을 켜 두기 쉬우므로 이 머티리얼을 쓰는 건물은 Static 메뉴에서 Batching Static 만 끈다.',
       '면 방향은 오브젝트 공간 법선의 주축(±X, ±Z)으로 고르고 위아래(±Y)는 지붕으로 칠한다. 면이 오브젝트 축과 맞지 않는 메시(임포트한 건물 모델, 비스듬한 벽, 원기둥)는 창 칸과 방 방향이 틀린다. 건물을 축에 맞춰 모델링하거나 UV 와 탄젠트로 면 기저를 만드는 판으로 바꾼다.',
-      '칸 경계에서는 아틀라스 좌표가 끊겨 밉이 가장 작은 단계로 튄다. 이 표본은 창틀이 그 자리를 덮는다. 창틀을 아주 얇게 하거나 멀리서 보면 칸 경계에 한 픽셀 선이 보일 수 있다. 그럴 때는 `SAMPLE_TEXTURE2D_LOD(..., 0)` 으로 밉 0 을 읽거나 이어진 좌표의 미분을 `SAMPLE_TEXTURE2D_GRAD` 에 넘긴다 (이 표본은 창틀로 덮고 쓰지 않았다). 블록 압축(BC, ASTC)은 칸 사이 4 px 여백을 흐릴 수 있어 Compression None 을 권한다.',
-      'Shader Graph 예제의 큐브맵판(Interior Cube Mapping)은 방 하나를 큐브맵 여섯 면으로 담아 방 깊이가 상자 비율에 묶이고, 방마다 다른 그림을 쓰려면 큐브맵을 더 둬야 한다. 이 표본의 2D 아틀라스판은 한 점 투시 그림 한 장이라 방 깊이를 머티리얼 값으로 바꿀 수 있고 아틀라스 칸으로 방 종류를 늘리기 쉽다. 대신 방당 120 px 라 면 하나에 큰 창 하나(상점 진열창 프리셋)처럼 크게 보면 흐리다. 큰 창이 많으면 아틀라스를 키운다.',
-      'XR 에서는 픽셀마다 그 눈의 카메라 위치로 시선을 쏘므로 두 눈이 서로 다른 시차를 보아 방 깊이가 맞는다 (원리상 그렇다는 추론이고 실기기에서는 확인하지 않았다). 모바일에서도 텍스처 한 번 읽기와 산술뿐이라 가볍다. 패스가 `UniversalForwardOnly` 라 2D Renderer 에서는 그려지지 않는다. 3D 프로젝트용이다.',
+      '칸 경계에서는 아틀라스 좌표가 끊겨 밉이 가장 작은 단계로 튄다. 이 표본은 창틀이 그 자리를 덮는다. 창틀을 아주 얇게 하거나 멀리서 보면 칸 경계에 한 픽셀 선이 보일 수 있다. 그럴 때는 `SAMPLE_TEXTURE2D_LOD(..., 0)` 으로 밉 0 을 읽거나 이어진 좌표의 미분을 `SAMPLE_TEXTURE2D_GRAD` 에 넘긴다 (이 표본은 창틀로 덮고 쓰지 않았다). 아틀라스 칸이 128 px 경계에 맞고 여백이 4 px 라 BC 압축의 4×4 블록과 밉이 방 사이에 걸치지 않는다 (Unity 촬영은 압축본인데도 번지지 않았다). ASTC 6×6 처럼 4 의 배수가 아닌 블록은 칸 경계에 걸쳐 이웃 방 색을 섞는다. BC 도 얇은 선과 넓은 단색면이 뭉개지므로 None 을 권한다.',
+      'Shader Graph 예제의 큐브맵판(Interior Cube Mapping)은 방 하나를 큐브맵 여섯 면으로 담아, 방마다 다른 그림을 쓰려면 큐브맵을 더 둬야 한다. 이 표본의 2D 아틀라스판은 한 점 투시 그림 한 장이라 아틀라스 칸으로 방 종류를 늘리기 쉽고, 방 깊이를 머티리얼 값으로 바꿔도 같은 그림이 맞는다. 대신 방당 120 px 라 면 하나에 큰 창 하나(상점 진열창 프리셋)처럼 크게 보면 흐리다. 큰 창이 많으면 아틀라스를 키운다.',
+      '직교 카메라에서는 시선이 모두 카메라 정면 축과 나란해 카메라 위치에서 쏜 시선이 틀린다. 래퍼는 `unity_OrthoParams.w > 0.5` 이면 `cameraPosOS` 를 `positionOS - TransformWorldToObjectDir(GetViewForwardDir(), false)` 로 바꿔 정면 축으로 들여다본다. 인테리어 매핑은 직교 카메라를 쓰는 아이소메트릭 도시 게임에서도 쓰이니 래퍼를 고쳐 쓸 때 이 분기를 지우지 않는다 (웹 무대는 원근 카메라라 이 분기를 확인하지 않았다). XR 에서는 픽셀마다 그 눈의 카메라 위치로 시선을 쏘므로 두 눈이 서로 다른 시차를 보아 방 깊이가 맞는다 (원리상 그렇다는 추론이고 실기기에서는 확인하지 않았다). 모바일에서도 텍스처 한 번 읽기와 산술뿐이라 가볍다. 패스가 `UniversalForwardOnly` 라 2D Renderer 에서는 그려지지 않는다. 3D 프로젝트용이다.',
       '외벽은 주 광원만 받고, 래퍼가 `distanceAttenuation` 을 곱하지 않아 광원의 Culling Mask 와 Rendering Layers 가 무시된다. 안개도 처리하지 않아 Fog 를 켠 도시에서 먼 건물이 안개에 묻히지 않는다. `#pragma multi_compile_fog` 를 넣고 정점에서 `ComputeFogFactor(positionCS.z)` 를 넘겨 마지막 색에 `MixFog(color, fogFactor)` 를 씌운다.',
     ],
     graph: 'Shader Graph 의 Feature Examples 샘플에는 큐브맵판인 Interior Cube Mapping(UV Projection 분류의 `UVInteriorCubemap` 서브그래프)이 있다. 이 표본의 아틀라스판으로 옮기려면 Camera 노드의 Position 을 Transform 노드(World → Object, Position)로 옮겨 Position 노드(Object)에서 빼고 Normalize 해 오브젝트 공간 시선을 만든다. 교차와 그림 좌표는 String 모드 Custom Function 으로 옮긴다. Name 을 `InteriorPicture` 로 하고 입력 포트 Start(Vector 2, 칸 안 좌표 × 2 - 1), Ray(Vector 3, 상자 좌표로 바꾼 시선)와 출력 포트 Q(Vector 2)를 만든 뒤, Body 칸에 `core.hlsl` 의 `dirSign`, `tWall`, `tBack`, `t`, `hit` 다섯 줄을 붙이고 `start`, `ray` 를 포트 이름으로 바꾼 다음 `Q = hit.xy / (1.0 + hit.z);` 를 더한다. 칸 번호 해시와 아틀라스 칸 좌표는 Floor, Fraction, Multiply, Add 노드로 만든다.',
@@ -94,7 +94,7 @@ export const meta: SpecimenMeta = {
   },
   captures: [
     { name: 'night', label: '밤 불빛', values: { _Night: 0.9, _LightsOn: 0.6, _GlassReflect: 0.3 } },
-    { name: 'deep-room', label: '깊은 방', values: { _RoomDepth: 2, _WindowsX: 2, _WindowsY: 2, _CurtainAmount: 0 } },
+    { name: 'shop-window', label: '상점 진열창', values: { _WindowsX: 1, _WindowsY: 1, _RoomDepth: 0.35, _FrameWidth: 0.12, _CurtainAmount: 0, _Night: 0.2, _LightsOn: 0.8 } },
   ],
   inspiredBy: [
     {
