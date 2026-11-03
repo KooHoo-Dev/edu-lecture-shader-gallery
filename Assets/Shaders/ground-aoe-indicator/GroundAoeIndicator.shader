@@ -57,6 +57,10 @@ Shader "ShaderGallery/GroundAoeIndicator"
             struct SgInput
             {
                 float3 positionOS;
+                float3 positionWS;
+                float3 viewWS;
+                float3 cameraRightWS;
+                float3 cameraUpWS;
                 float3 cameraPosOS;
                 float2 screenUV;
                 float depthDelta;
@@ -114,6 +118,11 @@ Shader "ShaderGallery/GroundAoeIndicator"
 
                 SgInput i;
                 i.positionOS = v.positionOS;
+                i.positionWS = v.positionWS;
+                i.viewWS = GetWorldSpaceNormalizeViewDir(v.positionWS);
+                // 카메라의 오른쪽, 위 축(월드). 외적이 카메라 정면 축이 되어 눈 깊이 차를 시선 길이로 바꾸는 데 쓴다.
+                i.cameraRightWS = UNITY_MATRIX_V[0].xyz;
+                i.cameraUpWS = UNITY_MATRIX_V[1].xyz;
                 // 카메라 위치를 이 상자의 오브젝트 공간으로 옮긴다. 상자가 돌거나 늘어나 있어도 시선 비율은 그대로다.
                 i.cameraPosOS = TransformWorldToObject(GetCameraPositionWS());
                 i.screenUV = GetNormalizedScreenSpaceUV(v.positionCS);

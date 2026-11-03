@@ -89,11 +89,17 @@ float4 sgEffect(SgInput i)
 
     // 4. 옆면 감쇠: 되살린 위치의 화면 미분 두 개를 외적하면 그 표면의 법선이다.
     //    위를 향한 면(바닥, 상자 소품 윗면)만 남기고 옆면은 흐리게 한다. 위에서 내려 찍는 투영이라
-    //    옆면에서는 모양이 세로로 늘어나 줄무늬가 된다. 외적의 부호는 화면 y 방향(D3D 는 아래, GL 은 위)과
-    //    좌표계 손잡이에 따라 뒤집히므로, 보이는 면의 법선은 카메라 쪽을 향한다는 점으로 부호를 맞춘다.
+    //    옆면에서는 모양이 세로로 늘어나 줄무늬가 된다.
+    //    기울기는 월드 위치로 잰다. 상자 공간은 상자 크기로 눌려 있어, 납작한 상자(Scale 4, 1, 4)에서는
+    //    상자 공간 기울기가 월드보다 가팔라져 완만한 비탈도 옆면으로 지워진다.
+    //    눈 깊이 차(카메라 정면 축 방향)를 시선과 정면 축의 코사인으로 나누면 시선 위의 길이가 된다.
+    float3 cameraForwardWS = cross(i.cameraRightWS, i.cameraUpWS);
+    float3 sceneWS = i.positionWS - i.viewWS * i.depthDelta / max(abs(dot(i.viewWS, cameraForwardWS)), 1e-4);
+    //    외적의 부호는 화면 y 방향(D3D 는 아래, GL 은 위)과 좌표계 손잡이에 따라 뒤집히므로,
+    //    보이는 면의 법선은 카메라 쪽(viewWS 쪽)을 향한다는 점으로 부호를 맞춘다.
     //    그래서 공 아래쪽처럼 아래를 향한 면은 위를 향한 면으로 잘못 남지 않는다.
-    float3 surfaceNormal = normalize(cross(ddy(sceneOS), ddx(sceneOS)));
-    if (dot(surfaceNormal, i.cameraPosOS - sceneOS) < 0.0)
+    float3 surfaceNormal = normalize(cross(ddy(sceneWS), ddx(sceneWS)));
+    if (dot(surfaceNormal, i.viewWS) < 0.0)
     {
         surfaceNormal = -surfaceNormal;
     }
@@ -103,7 +109,7 @@ float4 sgEffect(SgInput i)
     SG_STEP(4, float3(facing, facing, facing) * heightFade * inBox);
 
 #ifdef SG_OFF
-    // 흔한 실수: 옆면 감쇠를 빼면 위에서 내려 찍은 모양이 소품과 공의 옆면을 타고 세로 줄무늬로 흘러내린다.
+    // 흔한 실수: 옆면 감쇠를 빼면 위에서 내려 찍은 모양이 소품 앞면을 타고 세로 줄무늬로 흘러내리고 공 옆면에도 얼룩이 묻는다.
     facing = 1.0;
 #endif
 
