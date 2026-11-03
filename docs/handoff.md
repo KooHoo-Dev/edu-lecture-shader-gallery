@@ -6,7 +6,7 @@
 
 - 표본 26개(선정 24개 + 기본 물·불)로 1차 마무리를 했다. 배포: https://koohoo-dev.github.io/edu-lecture-shader-gallery/
 - main 에 push 하면 Actions(`.github/workflows/deploy.yml`)가 빌드, `tools/check.mjs`, Pages 배포를 한다. `v*` 태그는 Release 에 단일 HTML 을 붙인다.
-- 마지막 전체 검사: 통과, WebGL2 56/56, 오프라인 실행 26개 표시, Skill 108 파일, gzip 1,064KB (예산 1,536KB 의 69%, 19절 용량 정책 뒤).
+- 마지막 전체 검사: 통과, WebGL2 56/56, 오프라인 실행 26개 표시, Skill 108 파일, gzip 1,065KB (예산 1,536KB 의 69%, 21절 뒤).
 - 문서: 진행 기록과 비용 `docs/plan.md`, 선정 근거 `docs/shader-selection.md`, 표본 규격 `docs/specimen-guide.md`.
 - 결정된 것: 저체력 비네트 색(`screen-vignette`)은 지금 값을 유지한다 (Jay, 2026-11-03).
 
@@ -57,5 +57,5 @@ Unity 를 직접 돌릴 때(촬영, 컴파일)는 워커 검증과 겹치지 않
    - UGUI Canvas 촬영 무대, 여러 층 스프라이트
    - 그림자 소품과 그림자 감쇠 필드
    - 밝은 전체 화면 무대, 메시 기울이기
-   - 촬영 검증 변형(Deferred, Depth Priming Auto, 볼록하지 않은 메시)과 시간을 멈춘 비교 촬영
-5. **Unity 에서 아직 확인하지 않은 것** (14·16절). 외곽선 표본의 Depth Priming 주의, Overlay 캔버스에서 씬 색상이 읽히는지.
+   - 촬영 검증 변형(Deferred, 볼록하지 않은 메시)과 시간을 멈춘 비교 촬영. Depth Priming·MSAA 변형은 21절에서 넣었다
+5. ~~**Unity 에서 아직 확인하지 않은 것** (14·16절).~~ 끝남 (21절). Depth Priming 은 외곽선·실루엣을 지운다(Forced, MSAA 꺼진 Auto). Overlay 캔버스는 씬 색상이 읽히지만 위아래가 뒤집힌다(D3D12 플레이어). 남은 미확인: 다른 그래픽 API 와 에디터 Game 뷰의 Overlay.

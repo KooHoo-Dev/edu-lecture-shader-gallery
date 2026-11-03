@@ -46,7 +46,7 @@
 - **물체 전체가 외곽선 색으로 덮인다**: 외곽선 패스가 `Cull Back`(기본값)이거나 `Cull Off` 이면 키운 껍데기의 앞면이 본체를 가린다. 외곽선 패스에만 `Cull Front` 를 넣고 본체 패스는 그대로 둔다.
 - **외곽선 패스가 아예 그려지지 않는다**: URP 는 같은 `LightMode` 태그의 패스가 둘이면 첫 패스만 그린다. 두 패스를 모두 `UniversalForward` 로 두면 외곽선이 사라진다. 외곽선 패스는 `"LightMode" = "SRPDefaultUnlit"` 으로 둔다.
 - **거리나 스케일에 따라 선 두께가 달라진다**: 두께가 오브젝트 공간 길이라 멀리 가면 가늘어지고 가까이 오면 굵어지며, Transform 스케일을 키운 물체는 선도 함께 굵어진다(비균일 스케일이면 방향마다 다르다). 스케일만 맞추려면 C# 에서 `_OutlineWidth` 를 스케일로 나눠 넣는다. 화면에서 늘 같은 두께를 원하면 래퍼의 `vertOutline` 에서 클립 공간으로 민다. 위치와 법선을 클립 공간으로 바꾼 뒤 `positionCS.xy += normalize(법선CS.xy) * 픽셀두께 * 2 / _ScreenParams.xy * positionCS.w` 처럼 화면 크기로 나누고 `w` 를 곱한다. `sgVertex` 는 오브젝트 공간 위치만 돌려주므로 이 보정은 래퍼에서 한다.
-- **SSAO 를 켜자 외곽선이 사라진다**: Unity 에서 직접 확인하지는 않았지만 그럴 수 있다. 외곽선 패스(`SRPDefaultUnlit`)는 깊이 프리패스(`DepthOnly`)에 없다. Universal Renderer 의 Depth Priming 이 켜진 채 SSAO 같은 기능 때문에 깊이 프리패스가 돌면, 불투명 그리기가 프리패스 깊이와 같은 곳만 그리는 `ZTest Equal` 로 바뀌어 프리패스에 없던 껍데기가 통째로 버려진다. Window > Analysis > Frame Debugger 에서 Outline 패스의 그리기가 있는지, 그 그리기의 ZTest 가 Equal 인지 본다. 그렇다면 Universal Renderer Data 의 Depth Priming Mode 를 Disabled 로 바꿔 외곽선이 돌아오는지 확인한다.
+- **Depth Priming 을 켜자 외곽선이 사라진다**: Universal Renderer Data 의 Rendering > Depth Priming Mode 가 Forced 이거나, Auto 이면서 URP Asset 의 MSAA 가 꺼져 있으면(데스크톱) 외곽선이 통째로 사라진다 (2026-11-03 Unity 6.3 촬영으로 확인). 프라이밍은 불투명 물체의 깊이를 깊이 프리패스(`DepthOnly`)로 먼저 그리고, 불투명 그리기를 그 깊이와 같은 곳만 그리는 `ZTest Equal` 로 바꾼다. 외곽선 패스(`SRPDefaultUnlit`)는 프리패스에 없으니 껍데기는 어디서도 깊이가 맞지 않아 버려진다. Depth Priming Mode 를 Disabled(새 Universal Renderer Data 의 기본값)로 둔다. MSAA 가 켜져 있으면 Auto 와 Forced 모두 프라이밍이 쓰이지 않아 외곽선이 남지만, 나중에 MSAA 를 끄면 사라지므로 Disabled 가 안전하다. SSAO 같은 기능이 프라이밍 없이 돌리는 깊이 프리패스는 상관없다.
 
 ## 변형 예시
 - 카메라에서 멀어져도 외곽선이 화면에서 같은 픽셀 두께로 보이게 클립 공간 보정을 넣고 싶다.

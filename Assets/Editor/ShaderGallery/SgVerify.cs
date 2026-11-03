@@ -205,7 +205,7 @@ namespace ShaderGallery.EditorTools
             foreach (SgCaptureState state in states)
             {
                 string file = Path.Combine(dir, state.name + ".png");
-                item.shots.Add(SgCapture.Shoot(specimen, state, job.width, job.height, file));
+                item.shots.Add(SgCapture.Shoot(job, specimen, state, file));
             }
         }
 

@@ -268,7 +268,7 @@ UGUI Image 에 쓰는 표본용이다. 미리보기와 촬영은 스프라이트
 - 캔버스의 Vertex Color Always In Gamma Color Space 를 켜면 정점 색이 sRGB 그대로 들어온다. `_UIVertexColorAlwaysGammaSpace` 를 `CBUFFER` 밖에 선언하고, Linear 프로젝트(`#ifndef UNITY_COLORSPACE_GAMMA`)에서 값이 1 이면 정점 색을 선형으로 바꾼다.
 - 최근 UI/Default 는 RectMask2D 의 Softness(`_UIMaskSoftnessX`, `_UIMaskSoftnessY`)로 가장자리를 부드럽게 자른다. `step` 두 번으로 자르면 Softness 가 무시된다. 쓸 수 있으면 Softness 식으로 옮긴다.
 - 지금 미리보기와 촬영은 정사각형 스프라이트 하나라 4:1 같은 Image 비율, Mask, RectMask2D, Overlay 캔버스를 화면으로 확인하지 못한다. 이 부분은 글로 정확히 쓰고 Unity 에서 확인하지 못했다고 보고한다.
-- 씬 색상을 읽는 UI(배경 블러)는 Screen Space - Camera 캔버스를 권한다. URP 17.3 은 Overlay UI 도 카메라 렌더 그래프 안에서 그려 Opaque Texture 가 읽힐 수 있지만 보장되지 않고 확인하지 않았다 (읽혀도 투명 물체와 후처리가 빠진 복사본이라 색이 주변과 다르다). UI 전용 Overlay 카메라(카메라 스택)는 Opaque Texture 를 만들지 않는다. Unity 6.3 의 메뉴 이름은 `GameObject > UI (Canvas) > Image` 다.
+- 씬 색상을 읽는 UI(배경 블러)는 Screen Space - Camera 캔버스를 권한다. Overlay 캔버스에서도 Opaque Texture 는 읽히지만 비친 장면의 위아래가 뒤집힌다 (2026-11-03 Windows D3D12 플레이어 빌드로 확인, `tools/verify/overlay-ui.mjs`. 다른 그래픽 API 와 에디터 Game 뷰는 확인하지 않았다). 투명 물체와 후처리가 빠진 복사본이라 색이 주변과 다를 수도 있다. UI 전용 Overlay 카메라(카메라 스택)는 Opaque Texture 를 만들지 않는다. Unity 6.3 의 메뉴 이름은 `GameObject > UI (Canvas) > Image` 다.
 - 깊이 무대에 둔 UI 패널(`mesh: 'quad'`)은 바닥에서 띄워 아래 모서리가 보이게 놓인다. 촬영 도구는 캔버스가 넣는 `unity_GUIZTestMode` 를 LessEqual 로 고정해 찍는다.
 - `tools/check.mjs` 가 위 항목과 `LightMode` 가 없는지를 확인한다.
 
@@ -281,7 +281,7 @@ UGUI Image 에 쓰는 표본용이다. 미리보기와 촬영은 스프라이트
 - Forward 와 Forward+ 의 불투명 그리기 목록은 `SRPDefaultUnlit` 가 첫째라 같은 물체의 실루엣 패스가 `UniversalForwardOnly` 본체보다 먼저 그려진다 (2026-11-02 촬영으로 확인. Forward+, Depth Priming 꺼짐, MSAA 꺼짐 설정에서). 그래서 본체 깊이가 아직 없을 때 실루엣이 그려져, 렌더러 하나짜리 캐릭터에서는 팔이 몸을 가리는 식의 자기 겹침이 생기지 않는다. 벽보다 늦게 그려지도록 본체는 잘라 내기 표본처럼 `"Queue" = "AlphaTest"` 에 둔다. 웹도 벽, 실루엣, 본체 순서로 그린다.
 - 같은 LightMode 태그를 두 패스가 쓰면 URP 는 첫 패스만 그리므로 `stage.outline` 과 함께 쓸 수 없다.
 - `unity.pitfalls` 에 적을 것 (URP 17.3 소스로 확인, 아래 둘째부터는 Unity 촬영으로 확인하지 않았다):
-  - Depth Priming 이 켜지면 불투명 그리기 전체가 `ZTest Equal, ZWrite Off` 로 덮어써져 실루엣 패스의 `ZTest Greater` 가 무시되고 실루엣이 통째로 사라진다. 17.3 의 Auto 모드는 데스크톱에서 MSAA 가 꺼져 있으면 프리패스가 필요 없어도 프라이밍을 켤 수 있다. Depth Priming 이 꺼진 깊이 프리패스(SSAO 등)는 깊이 텍스처에만 그리므로 상관없다.
+  - Depth Priming 이 켜지면 불투명 그리기 전체가 `ZTest Equal, ZWrite Off` 로 덮어써져 실루엣 패스의 `ZTest Greater` 가 무시되고 실루엣이 통째로 사라진다. 17.3 의 Auto 모드는 데스크톱에서 URP Asset 의 MSAA 가 꺼져 있으면 프리패스가 필요 없어도 프라이밍을 켠다. MSAA 가 켜져 있으면 Forced 도 프라이밍을 쓰지 않는다 (2026-11-03 촬영으로 확인, `tools/unity.mjs --depth-priming --msaa`). Depth Priming 이 꺼진 깊이 프리패스(SSAO 등)는 깊이 텍스처에만 그리므로 상관없다.
   - Deferred 의 Forward 전용 목록은 `UniversalForwardOnly, SRPDefaultUnlit` 순이라 본체가 먼저 그려질 수 있다 (추론). 그러면 볼록하지 않은 캐릭터는 팔 위에 뒤쪽 몸통의 실루엣이 칠해진다.
   - 렌더러나 서브메시가 여러 개인 캐릭터는 부위마다 실루엣과 본체가 따로 그려져, 먼저 그린 부위 위에 뒤 부위의 실루엣이 덮인다. 다른 큐의 무기나 모자도 같다. 이때는 Render Objects 방식(레이어 전체 실루엣을 먼저, 본체를 나중에)을 쓴다.
   - 실루엣은 깊이 버퍼만 비교하므로 Depth Texture 설정은 필요 없다.
@@ -298,8 +298,8 @@ UGUI Image 에 쓰는 표본용이다. 미리보기와 촬영은 스프라이트
 - 외곽선 패스는 `Tags { "LightMode" = "SRPDefaultUnlit" }`, `Cull Front`, 정점에서 `sgVertex` 를 부른다. URP 17.3 은 이 태그를 Forward, Deferred(Forward 전용 목록), 2D Renderer 모두에서 그린다 (패키지 소스 확인). 그림자와 깊이 패스는 본체만 둔다.
 - 웹은 같은 메시를 자식으로 하나 더 두고 뒷면만 그린다. 외곽선은 그림자를 드리우지 않는다.
 - `meta.stage.outline: true` 로 적는다. `tools/check.mjs` 가 블록, `#define`, `Cull Front`, 태그를 확인하고 외곽선 프로그램도 WebGL 로 컴파일한다.
-- `unity.pitfalls` 에 적을 것 (리뷰 지적, Unity 에서는 아직 확인하지 않았다):
-  - Universal Renderer 의 Depth Priming 이 켜지면 불투명 그리기 전체가 ZTest Equal 로 바뀌어, 깊이 프리패스(DepthOnly)에 없는 외곽선 패스가 통째로 사라질 수 있다. 17.3 의 Auto 모드는 데스크톱에서 MSAA 가 꺼져 있으면 켜질 수 있다 (소스 판단). 프라이밍이 꺼진 프리패스는 상관없다.
+- `unity.pitfalls` 에 적을 것:
+  - Universal Renderer 의 Depth Priming 이 켜지면 불투명 그리기 전체가 ZTest Equal 로 바뀌어, 깊이 프리패스(DepthOnly)에 없는 외곽선 패스가 통째로 사라진다. Forced, 또는 URP Asset 의 MSAA 가 꺼진 데스크톱의 Auto 에서 켜진다. MSAA 가 켜져 있으면 쓰이지 않는다 (2026-11-03 촬영으로 확인). 프라이밍이 꺼진 프리패스는 상관없다.
   - 깊이 텍스처에 외곽선이 들어가는지는 프리패스냐 불투명 뒤 깊이 복사냐에 따라 다르다. 노멀 텍스처에는 들어가지 않는다.
 
 `positionOS` 를 쓰는 모든 표본은 `unity.pitfalls` 에 정적 배칭을 적는다. Batching Static 물체는 정점이 월드 좌표로 합쳐져 `positionOS` 가 월드 위치가 된다. 웹 `cube` 는 Unity 기본 큐브처럼 면을 나누지 않은 정점 24개다.
@@ -420,6 +420,8 @@ node tools/check.mjs
 ```
 
 - `tools/unity.mjs` 는 에디터가 이 프로젝트를 열고 있으면 그 에디터에 명령 파일로 맡기고, 안 되면 `~/.sg-unity/<리포 이름>` 복사본을 배치 모드로 돌린다. 첫 실행은 수 분 걸린다.
+- 렌더러 설정에 따라 사라질 수 있는 패스는 `--depth-priming=disabled|auto|forced` 와 `--msaa=1|2|4|8` 로 찍어 비교한다. 렌더러·URP 에셋을 메모리에서만 잠시 바꾸고 촬영 뒤 되돌린다. 결과가 `_shots/unity` 에 덮어써지므로 변형마다 폴더를 복사해 둔다.
+- Overlay 캔버스처럼 렌더 텍스처 촬영에 그려지지 않는 화면은 플레이어 빌드로 찍는다. `node tools/workflow/with-unity-lock.mjs "node tools/verify/overlay-ui.mjs"` 가 복사본에서 Windows 플레이어를 만들어 실행하고(창이 몇 초 뜬다) `_shots/overlay-ui/` 에 Overlay·Camera 캔버스와 패널 없는 화면을 남긴다. 다른 UI 표본을 확인하려면 `tools/verify/overlay-ui/SgOverlayBuild.cs` 의 셰이더 이름을 바꾼다.
 - 웹 무대는 Unity 와 숫자를 맞춰 두었지만 그림자는 근사이고 스키닝, 후처리는 없다. 웹과 Unity 스크린샷을 나란히 보고 **효과가 같아 보이는지** 확인한다.
 
 ### 완료 체크리스트

@@ -9,8 +9,9 @@
 //
 // 캔버스 제약:
 //   - Screen Space - Camera 캔버스를 권한다 (Render Camera 에 장면을 그리는 Base 카메라). World Space 캔버스도 된다.
-//   - Screen Space - Overlay 캔버스에서 Opaque Texture 가 읽히는지는 보장되지 않고 확인하지 않았다. URP 17.3 은 Overlay UI 도
-//     카메라 렌더 그래프 안에서 그려 읽힐 수 있지만, 읽혀도 투명 물체와 후처리가 빠진 복사본이라 패널 색이 주변 화면과 다르다.
+//   - Screen Space - Overlay 캔버스에서도 Opaque Texture 는 읽히지만 비친 장면의 위아래가 뒤집힌다
+//     (Windows D3D12 플레이어 빌드로 확인. 다른 그래픽 API 와 에디터 Game 뷰는 확인하지 않았다).
+//     투명 물체와 후처리가 빠진 복사본이라 패널 색이 주변 화면과 다를 수도 있다.
 //   - UI 만 그리는 Overlay 카메라(카메라 스택)는 Opaque Texture 를 만들지 않는다. 그 카메라를 Render Camera 로 쓰면 뒤가 비치지 않는다.
 //   - Opaque Texture 는 불투명 물체만 담는다. 다른 UI, 투명 물체, 파티클은 흐림에 들어가지 않는다.
 //     반대로 패널보다 앞에 있는 불투명 물체는 들어 있어, 그 물체 둘레에 물체 색이 흐리게 번진다.
@@ -18,7 +19,7 @@
 //
 // 패스는 LightMode 태그 없이 하나다.
 //   - Camera, World Space 캔버스와 2D Renderer 는 태그 없는 패스를 SRPDefaultUnlit 으로 보고 그린다.
-//   - Overlay 캔버스도 첫 패스를 쓰지만 위 이유로 뒤가 맞게 비친다고 보장할 수 없다.
+//   - Overlay 캔버스도 첫 패스를 쓰지만 위 이유로 뒤가 뒤집혀 비친다.
 Shader "ShaderGallery/UiBackdropBlur"
 {
     Properties

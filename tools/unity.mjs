@@ -6,6 +6,10 @@
 //   node tools/unity.mjs --mode=batch        # 경로를 직접 고른다 (auto | editor | batch)
 //   node tools/unity.mjs --job=<경로>        # 이미 만든 잡 파일로 실행
 //
+// 촬영 검증 변형 (렌더러 에셋은 메모리에서만 바꾸고 촬영 뒤 되돌린다)
+//   --depth-priming=disabled|auto|forced    # Universal Renderer 의 Depth Priming Mode
+//   --msaa=1|2|4|8                          # URP Asset 의 MSAA. 이 프로젝트는 1(꺼짐)이다. Depth Priming 은 MSAA 가 켜지면 쓰이지 않는다
+//
 // 경로 선택
 //   editor: 에디터가 이 프로젝트를 열고 있고 SgBridge 가 살아 있으면 명령 파일로 맡긴다.
 //   batch : 그 밖의 경우. 에디터가 열려 있으면 같은 폴더로 배치 모드를 실행할 수 없으므로 복사본에서 실행한다.
@@ -164,6 +168,12 @@ async function main() {
   let jobPath = opt('job')
   if (!jobPath) {
     const job = await buildJob(ROOT, ids, { outDir: OUT, capture: !flag('no-capture') })
+    const priming = opt('depth-priming')
+    if (priming !== undefined && !['disabled', 'auto', 'forced'].includes(priming)) throw new Error(`--depth-priming 은 disabled, auto, forced 중 하나: ${priming}`)
+    job.depthPriming = priming ?? ''
+    const msaa = Number(opt('msaa') ?? 0)
+    if (![0, 1, 2, 4, 8].includes(msaa)) throw new Error(`--msaa 는 1, 2, 4, 8 중 하나: ${opt('msaa')}`)
+    job.msaa = msaa
     jobPath = join(OUT, 'job.json')
     writeFileSync(jobPath, JSON.stringify(job, null, 2))
   }

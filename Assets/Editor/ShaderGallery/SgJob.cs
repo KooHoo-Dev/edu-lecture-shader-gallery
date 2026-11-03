@@ -63,6 +63,11 @@ namespace ShaderGallery.EditorTools
         public int width = 1280;
         public int height = 720;
         public bool capture = true;
+        // 촬영 검증 변형. 비우면 렌더러 에셋 그대로 찍는다. "disabled", "auto", "forced"
+        public string depthPriming = "";
+        // 촬영 검증 변형. 0 이면 URP Asset 의 MSAA 그대로, 1·2·4·8 이면 그 값으로 잠시 바꾼다.
+        // URP 는 URP Asset 의 MSAA 가 1 이면 렌더 타깃의 MSAA 와 상관없이 MSAA 없이 그린다. Depth Priming 은 MSAA 가 켜지면 쓰이지 않는다
+        public int msaa;
         public List<SgJobSpecimen> specimens = new List<SgJobSpecimen>();
     }
 

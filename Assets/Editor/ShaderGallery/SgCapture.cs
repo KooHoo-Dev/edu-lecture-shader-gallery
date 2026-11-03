@@ -35,8 +35,10 @@ namespace ShaderGallery.EditorTools
             public readonly List<Renderer> renderers = new List<Renderer>();
         }
 
-        public static SgShot Shoot(SgJobSpecimen specimen, SgCaptureState state, int width, int height, string file)
+        public static SgShot Shoot(SgJob job, SgJobSpecimen specimen, SgCaptureState state, string file)
         {
+            int width = job.width;
+            int height = job.height;
             Shader shader = AssetDatabase.LoadAssetAtPath<Shader>(specimen.shader);
             var material = new Material(shader) { hideFlags = HideFlags.HideAndDontSave };
             // UI 셰이더의 ZTest [unity_GUIZTestMode] 는 캔버스가 넣는 값이다. 캔버스 없이 찍으므로 기본 깊이 비교로 고정한다
@@ -55,12 +57,27 @@ namespace ShaderGallery.EditorTools
             }
 
             Stage stage = Build(specimen, material);
-            var renderTexture = new RenderTexture(width, height, 24, GraphicsFormat.R8G8B8A8_SRGB) { antiAliasing = 4 };
+            // URP Asset 의 MSAA 가 2 이상일 때만 이 값이 쓰인다
+            var renderTexture = new RenderTexture(width, height, 24, GraphicsFormat.R8G8B8A8_SRGB) { antiAliasing = job.msaa > 0 ? job.msaa : 4 };
             Texture2D read = null;
             FullScreenPassRendererFeature feature = null;
             ScriptableRendererData rendererData = null;
+            var pipeline = (UniversalRenderPipelineAsset)GraphicsSettings.currentRenderPipeline;
+            var primingData = (UniversalRendererData)pipeline.rendererDataList[0];
+            DepthPrimingMode primingBefore = primingData.depthPrimingMode;
+            int msaaBefore = pipeline.msaaSampleCount;
             try
             {
+                // 촬영 검증 변형: 에셋을 메모리에서만 잠시 바꾼다. 디스크에는 저장하지 않고 촬영 뒤 되돌린다
+                if (!string.IsNullOrEmpty(job.depthPriming))
+                {
+                    primingData.depthPrimingMode = ParsePriming(job.depthPriming);
+                    primingData.SetDirty();
+                }
+                if (job.msaa > 0)
+                {
+                    pipeline.msaaSampleCount = job.msaa;
+                }
                 if (specimen.stage == "fullscreen")
                 {
                     feature = AddFullScreenFeature(material, specimen.requires, out rendererData);
@@ -89,6 +106,15 @@ namespace ShaderGallery.EditorTools
                     rendererData.rendererFeatures.Remove(feature);
                     rendererData.SetDirty();
                     Object.DestroyImmediate(feature);
+                }
+                if (primingData.depthPrimingMode != primingBefore)
+                {
+                    primingData.depthPrimingMode = primingBefore;
+                    primingData.SetDirty();
+                }
+                if (pipeline.msaaSampleCount != msaaBefore)
+                {
+                    pipeline.msaaSampleCount = msaaBefore;
                 }
                 stage.camera.targetTexture = null;
                 Object.DestroyImmediate(renderTexture);
@@ -126,6 +152,17 @@ namespace ShaderGallery.EditorTools
             rendererData.rendererFeatures.Add(feature);
             rendererData.SetDirty();
             return feature;
+        }
+
+        static DepthPrimingMode ParsePriming(string mode)
+        {
+            return mode switch
+            {
+                "auto" => DepthPrimingMode.Auto,
+                "forced" => DepthPrimingMode.Forced,
+                "disabled" => DepthPrimingMode.Disabled,
+                _ => throw new System.ArgumentException("depthPriming 은 disabled, auto, forced 중 하나다: " + mode),
+            };
         }
 
         // 표본 폴더의 텍스처를 메타 데이터에 적힌 설정으로 불러온다. 설정이 다르면 .meta 를 고친다.

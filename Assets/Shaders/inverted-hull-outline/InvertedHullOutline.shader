@@ -136,7 +136,7 @@ Shader "ShaderGallery/InvertedHullOutline"
         }
 
         // 외곽선 패스. 본체보다 조금 큰 껍데기를 그리되 앞면은 버리고(Cull Front) 뒷면만 남긴다.
-        // 깊이 프리패스(DepthOnly)에는 이 패스가 없다. Depth Priming 이 켜지면 사라질 수 있다 (meta 의 pitfalls 참고).
+        // 깊이 프리패스(DepthOnly)에는 이 패스가 없다. Depth Priming 이 켜지면 통째로 사라진다 (촬영으로 확인. meta 의 pitfalls 참고).
         // 앞면까지 그리면 껍데기가 본체보다 카메라에 가까워 본체를 통째로 덮는다.
         // 같은 LightMode 태그의 패스가 둘이면 URP 는 첫 패스만 그리므로 본체와 다른 태그를 쓴다.
         // URP 17 은 SRPDefaultUnlit 을 Forward, Deferred, 2D Renderer 에서 모두 그린다.

@@ -264,7 +264,7 @@ UI 갤러리의 무대, 값 조절, 프리셋, 재생 바, 발표 모드, 딥링
 
 - 메시 무대 입력에 그림자 감쇠를 빛 색과 따로 넘기는 필드, 그리고 메시 무대에 그림자를 드리울 소품. 지금은 툰의 받는 그림자를 갤러리 화면에서 볼 수 없다.
 - 웹 월드 벡터(`positionWS`, `normalWS`, `viewWS`, `lightDirWS`, 오브젝트 공간 값)를 Unity 좌표(z 반전)로 넘기기. 방향이 의미 있는 월드 공간 표본(바람 방향 등)을 만들기 전에 한다.
-- 외곽선의 Depth Priming 주의는 리뷰어의 판단이고 Unity 에서 확인하지 않았다.
+- ~~외곽선의 Depth Priming 주의는 리뷰어의 판단이고 Unity 에서 확인하지 않았다.~~ 21절
 
 ## 15. 5단계 묶음 2·3 (2026-11-02)
 
@@ -338,12 +338,12 @@ Jay 가 남은 일을 모두 진행하라고 해서(단계마다 커밋, 끝나�
 
 **남은 앱 과제** (15절 목록에 더해)
 
-- 촬영 검증용 변형: Deferred, Depth Priming Auto, 볼록하지 않은 시험 메시. 두 번째 패스 표본의 확인 범위를 넓힌다.
+- 촬영 검증용 변형: Deferred, ~~Depth Priming Auto~~ (21절), 볼록하지 않은 시험 메시. 두 번째 패스 표본의 확인 범위를 넓힌다.
 - 전체 화면 무대를 밝게 하는 옵션(어두운 무대에서 검은 비네트가 약함), 메시 무대 기울이기 옵션(오브젝트 공간 실수를 보여 주기).
 - ~~select 값에 따라 쓰이지 않는 조절 값 숨기기, 웹의 `_ST`(Tiling/Offset) 지원.~~ 20절
 - ~~마지막 단계가 최종 화면과 같은 기존 표본 정리 (`toon-ramp-lit`, `tiling-scroll-parallax`).~~ 20절
 - ~~일시정지나 `t=` 상태에서 이벤트 버튼이 아무 변화가 없는 점 안내.~~ 20절
-- Overlay 캔버스에서 씬 색상이 읽히는지 촬영으로 확정.
+- ~~Overlay 캔버스에서 씬 색상이 읽히는지 촬영으로 확정.~~ 21절
 - 저체력 비네트(`#4d1414`, 포화 빨강 기준 19.3/20)가 화면 약 75% 를 덮는다. 느린 작은 맥동이라 번쩍임으로 세지 않았다. Jay 가 지금 값으로 충분하다고 확정했다 (2026-11-03).
 
 ## 17. 1차 마무리: 기본 물·불과 값 이름 표기 (2026-11-03)
@@ -403,3 +403,11 @@ gzip 이 예산의 86% 라 표본을 늘리기 전에 이미지 용량을 정했
 - **웹 `_ST`:** 텍스처마다 `<이름>_ST` 유니폼을 (1, 1, 0, 0) 으로 넘긴다. core 가 쓰면 래퍼 `CBUFFER` 의 `float4` 와 `[NoScaleOffset]` 없음을 검사하고, 스프라이트 `_MainTex_ST` 는 `[PerRendererData]` 라 막는다. 임시로 `surface-wet-snow` 에 넣어 오류 두 가지와 통과(WebGL 컴파일)를 확인하고 되돌렸다. 기존 표본은 바꾸지 않았다.
 - **일시정지 이벤트 안내:** 멈춘 상태에서 이벤트를 누르면 재생 막대 아래에 "시작 순간에 멈춰 있다" 를 띄운다. 재생하면 사라진다. 번쩍임 제한에 걸려 이벤트가 버려지면 띄우지 않는다 (`ShaderStage.fire` 가 성공 여부를 돌려준다). 처음 문구의 "Space 로 재생" 은 버튼에 포커스가 있으면 그 버튼을 다시 누르게 되어 뺐다 (리뷰 지적).
 - **파티클 표준 문장:** 가이드 4절 메시 무대 `color` 항목. Start Speed 0, Max Particles 1, Shape 끔, Renderer Material. 메뉴 이름은 Unity 에서 확인하지 않았다. Color over Lifetime 의 기본 그라데이션은 불투명이라 양 끝 알파를 0 으로 두라고 적었다 (리뷰 판단, 확인 안 함).
+
+## 21. 후속 5: Unity 미확인 항목 (2026-11-03)
+
+14·16절에 '확인하지 않았다' 로 남은 두 가지를 Unity 에서 찍어 확정했다.
+
+- **Depth Priming:** 촬영 도구에 검증 변형 `--depth-priming=disabled|auto|forced`, `--msaa=1|2|4|8` 을 더했다 (렌더러·URP 에셋을 메모리에서만 바꾸고 촬영 뒤 되돌림). `inverted-hull-outline`, `xray-occluded-silhouette` 를 여섯 조합으로 찍었다. 이 프로젝트의 URP Asset 은 MSAA 가 꺼져 있어 Forced 와 Auto 모두 외곽선과 실루엣이 통째로 사라졌다 (두 조합의 화면이 픽셀까지 같음). MSAA 4x 에서는 Forced, Auto 모두 Disabled 와 같았다. URP 17.3 소스의 조건(Forward 계열, MSAA 1, Auto 는 데스크톱에서 권장)과 맞는다. 처음에는 렌더 타깃의 MSAA 만 바꿨는데 URP 는 URP Asset 의 MSAA 가 1 이면 렌더 타깃 값을 보지 않아 효과가 없었다.
+- **Overlay 캔버스의 씬 색상:** Overlay UI 는 렌더 텍스처 촬영에 그려지지 않아 `tools/verify/overlay-ui.mjs` 로 Windows 플레이어(D3D12)를 만들어 실제 창을 찍었다. 같은 `ui-backdrop-blur` 패널을 Overlay, Camera 캔버스로 찍고 패널 없는 화면과 비교했다. Overlay 에서도 Opaque Texture 는 읽히지만 비친 장면의 위아래가 뒤집혔다 (패널 뒤 파란 구의 무게중심: 실제 y 387, Camera 377, Overlay 345 로 뒤집은 위치 333 쪽). Camera 캔버스는 제자리. 셰이더로 뒤집기를 고치는 대신 지금처럼 Camera 캔버스를 권하고 글을 확인된 사실로 바꿨다. 다른 그래픽 API 와 에디터 Game 뷰는 확인하지 않았다.
+- 글을 고친 곳: `inverted-hull-outline` 함정(제목을 'Depth Priming 을 켜자 외곽선이 사라진다' 로), `xray-occluded-silhouette` 의 Auto 설명, `ui-backdrop-blur` 의 캔버스 설명과 함정, 두 셰이더 주석, 가이드 4절과 8절.
