@@ -35,7 +35,8 @@ float3 matcapCombine(float value)
 float4 sgEffect(SgInput i)
 {
     // 테두리(옥 프리셋용): 프레넬 림. 조명과 상관없이 윤곽에 더한다.
-    // _RimPulse 는 자동 데모나 C# 이 잠깐 올렸다 내리는 값이라 세기에 더한다 (프리셋 값을 덮어쓰지 않게).
+    // _RimPulse 는 웹의 자동 데모가 올렸다 내리는 더하기용 값이라 세기에 더한다 (프리셋 값을 덮어쓰지 않게).
+    // 이 표본에는 C# 이 없다. 게임에서 쓰려면 직접 만든 스크립트가 renderer.material 의 이 값을 움직인다.
     float rim = pow(max(1.0 - saturate(dot(i.normalWS, i.viewWS)), 0.0001), 3.0);
     float3 rimLight = _RimColor.rgb * ((_RimIntensity + _RimPulse) * rim);
 

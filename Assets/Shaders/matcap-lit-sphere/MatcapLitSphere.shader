@@ -12,7 +12,7 @@ Shader "ShaderGallery/MatcapLitSphere"
         _BaseColor ("바탕색", Color) = (0.851, 0.6, 0.471, 1)
         [Enum(Multiply, 0, Add, 1)] _Combine ("합성 방식", Float) = 0
         [ToggleUI] _Perspective ("원근 보정", Float) = 1
-        _RimColor ("테두리 색", Color) = (0.722, 1, 0.847, 1)
+        _RimColor ("테두리 색", Color) = (1, 1, 1, 1)
         _RimIntensity ("테두리 세기", Range(0, 3)) = 0
         _RimPulse ("테두리 더하기", Range(0, 1)) = 0
     }
@@ -47,11 +47,10 @@ Shader "ShaderGallery/MatcapLitSphere"
         #define SG_TEX(name, uv) SAMPLE_TEXTURE2D(name, sampler##name, uv)
 
         // core.hlsl 이 받는 입력. 빛은 쓰지 않으므로 메시 무대 형식에서 조명 필드를 빼고 카메라 축을 넣었다.
-        // normalOS 는 효과 끄기(오브젝트 공간 실수)를 Unity 에서 재현해 볼 때를 위해 넘긴다.
+        // core.hlsl 의 normalOS 는 웹 미리보기의 효과 끄기(SG_OFF) 분기에서만 쓰므로 여기에는 두지 않는다.
         struct SgInput
         {
             float2 uv;
-            float3 normalOS;
             float3 normalWS;
             float3 viewWS;
             float3 cameraRightWS;
@@ -75,7 +74,6 @@ Shader "ShaderGallery/MatcapLitSphere"
             float2 uv : TEXCOORD0;
             float3 positionWS : TEXCOORD1;
             float3 normalWS : TEXCOORD2;
-            float3 normalOS : TEXCOORD3;
             UNITY_VERTEX_INPUT_INSTANCE_ID
             UNITY_VERTEX_OUTPUT_STEREO
         };
@@ -90,7 +88,6 @@ Shader "ShaderGallery/MatcapLitSphere"
             o.positionCS = TransformWorldToHClip(o.positionWS);
             // 매트캡은 월드 법선을 카메라 축에 내려 읽는다. 오브젝트 공간 법선을 그대로 쓰면 물체가 돌 때 빛이 따라 돈다.
             o.normalWS = TransformObjectToWorldNormal(v.normalOS);
-            o.normalOS = v.normalOS;
             o.uv = v.uv;
             return o;
         }
@@ -100,7 +97,6 @@ Shader "ShaderGallery/MatcapLitSphere"
             SgInput i;
             i.uv = v.uv;
             // 보간된 법선은 길이가 1 보다 짧아진다. 다시 정규화해야 매트캡 좌표가 원판 안쪽으로 줄어들지 않는다.
-            i.normalOS = normalize(v.normalOS);
             i.normalWS = normalize(v.normalWS);
             // 원근 보정에 쓰는 픽셀별 시선. 직교 카메라에서는 카메라 정면 방향이 나와 보정이 저절로 꺼진다.
             i.viewWS = GetWorldSpaceNormalizeViewDir(v.positionWS);
