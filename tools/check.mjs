@@ -144,7 +144,9 @@ function checkWrapper(id, name, text, meta) {
     const alphaBlend = meta.stage.ui ? /Blend\s+(SrcAlpha|One)\s+OneMinusSrcAlpha/ : /Blend\s+SrcAlpha\s+OneMinusSrcAlpha/
     if (blend === 'alpha' && !alphaBlend.test(code)) err(`${where}: stage.blend 가 alpha 인데 Blend SrcAlpha OneMinusSrcAlpha 가 없다`)
     if (blend === 'cutout' && !/\bclip\s*\(/.test(code)) err(`${where}: stage.blend 가 cutout 인데 clip 이 없다`)
-    if (blend !== 'cutout' && !/ZWrite\s+Off/.test(code)) err(`${where}: 투명 혼합인데 ZWrite Off 가 없다`)
+    // 알파 1 로 뒤 장면을 덮어 그리는 표본은 stage.zwrite 로 깊이를 쓴다 (가이드 4절 "알파의 뜻")
+    if (blend !== 'cutout' && !meta.stage.zwrite && !/ZWrite\s+Off/.test(code)) err(`${where}: 투명 혼합인데 ZWrite Off 가 없다`)
+    if (meta.stage.zwrite && (blend !== 'alpha' || /ZWrite\s+Off/.test(code) || !/ZWrite\s+On/.test(code))) err(`${where}: stage.zwrite 는 alpha 혼합에서 래퍼의 패스 하나를 ZWrite On 으로 둘 때만 쓴다`)
     if (blend !== 'cutout' && kind !== 'sprite' && !/"Queue"\s*=\s*"Transparent"/.test(code)) err(`${where}: 투명 혼합인데 "Queue" = "Transparent" 가 없다`)
     if (Boolean(meta.stage.doubleSided) !== /Cull\s+Off/.test(code) && kind !== 'sprite') err(`${where}: Cull Off 와 stage.doubleSided 가 맞지 않다`)
   }

@@ -158,6 +158,7 @@ float effectNoise(float2 p)
 ### 3-4. 텍스처와 정점 변형
 
 - 텍스처는 `SG_TEX(_MyTex, uv)` 로만 읽는다. `_MyTex_TexelSize` 도 쓸 수 있다. 래퍼에는 `Properties` 에 `_MyTex ("이름", 2D) = "white" {}`, 그 아래에 `TEXTURE2D(_MyTex); SAMPLER(sampler_MyTex);` 와 `#define SG_TEX(name, uv) SAMPLE_TEXTURE2D(name, sampler##name, uv)`, `CBUFFER` 안에 `float4 _MyTex_TexelSize;` 를 둔다. 텍스처 파일은 표본 폴더에 두고 `meta.stage.textures` 에 적는다. 텍스처는 `meta.params` 에 넣지 않는다. sRGB 를 끈 데이터 텍스처(`linear: true`)의 기본값은 `"gray"` 가 아니라 `"linearGrey"` 다. `"gray"` 는 sRGB 0.5 라 Linear 프로젝트에서 약 0.21 로 읽혀, 0.5 를 0 으로 쓰는 맵은 칸이 비었을 때 한쪽으로 쏠린다 (`tools/check.mjs` 가 잡는다). 임포트 설정은 촬영 도구가 맞춘다. PNG 는 프롬프트에 넣을 수 없어 Skill zip 으로 전달되므로 `unity.setup` 에 임포트 설정(sRGB, Wrap Mode, Filter Mode)을 적는다.
+- 원판·구 매핑 텍스처(매트캡처럼 원 안만 읽는 것)는 원 바깥 텍셀을 셰이더가 읽는 가장 큰 반지름의 값으로 채운다. 원 가장자리 한 텍셀 고리의 값(밝은 수평선 등)으로 채우면 Bilinear 와 밉이 그 값을 끌어와 윤곽에 밝거나 검은 테가 생긴다 (2026-11-03, `matcap-lit-sphere` 리뷰).
 - PNG 는 `tools/textures/<이름>.mjs` 에 무늬를 코드로 쓰고 `node tools/gen-texture.mjs <이름>` 으로 만든다. 모듈 형식은 `tools/gen-texture.mjs` 머리말에 있고, 노이즈 같은 공용 도구는 `tools/lib/texture-kit.mjs` 에 있다. 표본 잡은 자기 모듈 경로를 `writePaths` 에 넣고 직접 쓴다. PNG 는 HTML 에 그대로 들어가므로 128 정도로 작게 둔다 (7절 용량 기준). 만든 PNG 는 Read 로 열어 눈으로 본다.
 - 데이터 텍스처(`linear`)와 포인트 텍스처는 Unity 기본 압축(BC, ASTC)에서 값이 바뀐다. 촬영 도구는 압축하지 않고, '그대로 넣기' 프롬프트도 Compression None 단계를 자동으로 넣는다.
 - 흐르는 무늬의 화면 속도는 오프셋 속도를 반복 횟수로 나눈 값이다. `uv * 2 + t * 1.3` 은 `uv + t * 0.6` 과 화면에서 거의 같은 빠르기로 흐른다. 크기가 다른 층을 다른 빠르기로 흘리려면 오프셋 속도를 반복 횟수만큼 곱해 두고 주석에 화면 속도를 적는다. 움직임을 말하는 단계 본문("재생하면 끓듯이")은 정지 화면으로 확인되지 않으므로 `live.mjs` 의 `burst` 연속 촬영 시트로 확인한다 (8절).
@@ -184,7 +185,7 @@ float effectNoise(float2 p)
 
 - `lighting` = `lightColor * saturate(dot(normalWS, lightDirWS)) + 환경광`. 대부분은 `albedo * i.lighting` 이면 된다. 툰처럼 빛을 직접 다루면 `lightDirWS`, `lightColor` 를 쓴다.
 - `cameraRightWS`, `cameraUpWS` 는 카메라의 오른쪽, 위 축(월드, 정규화)이다. 메시 무대에서는 매트캡처럼 화면 공간 법선을 쓰는 표본만 쓴다 (2026-11-03 추가). Unity 래퍼는 `UNITY_MATRIX_V[0].xyz`, `UNITY_MATRIX_V[1].xyz` 를 넘긴다. XR 에서는 눈마다 조금 다르다.
-- 깊이 무대의 `cameraPosOS` 는 카메라 위치를 이 물체의 오브젝트 공간으로 옮긴 값이다 (2026-11-03 추가). Unity 래퍼는 `TransformWorldToObject(GetCameraPositionWS())`. 같은 시선 위의 점은 오브젝트 공간에서도 같은 비율로 놓이므로, 깊이로 되살린 씬 표면의 오브젝트 공간 위치는 `positionOS + (positionOS - cameraPosOS) * (k - 1)` 이다 (`k` = 씬 눈 깊이 / 이 픽셀의 눈 깊이 = `sgSceneDepth(screenUV) / (sgSceneDepth(screenUV) - depthDelta)`). 상자 메시로 바닥에 투영하는 표본(지면 범위 표시)이 쓴다.
+- 깊이 무대의 `cameraPosOS` 는 카메라 위치를 이 물체의 오브젝트 공간으로 옮긴 값이다 (2026-11-03 추가). Unity 래퍼는 `TransformWorldToObject(GetCameraPositionWS())`. 같은 시선 위의 점은 오브젝트 공간에서도 같은 비율로 놓이므로, 깊이로 되살린 씬 표면의 오브젝트 공간 위치는 `positionOS + (positionOS - cameraPosOS) * (k - 1)` 이다 (`k` = 씬 눈 깊이 / 이 픽셀의 눈 깊이 = `sgSceneDepth(screenUV) / (sgSceneDepth(screenUV) - depthDelta)`). 상자 메시로 바닥에 투영하는 표본(지면 범위 표시)이 쓴다. 상자 공간 위치의 미분(`ddx`, `ddy`)으로 법선을 구하면 상자를 고르지 않게 늘렸을 때 기울기가 바뀐다 (납작한 상자에서는 완만한 경사도 옆면처럼 보인다). 기울기를 재는 법선은 월드 위치로 구한다: `sceneWS = positionWS - viewWS * depthDelta / abs(dot(viewWS, cross(cameraRightWS, cameraUpWS)))` (2026-11-03, `ground-aoe-indicator` 리뷰).
 - 깊이 무대의 `lightDirWS`, `lightColor`, `lighting` 은 메시 무대와 뜻이 같다 (2026-11-03 추가, 받는 그림자는 넣지 않는다). 투명 물체가 보이는 상태의 몸을 음영할 때 쓴다 (클로킹). Unity 래퍼는 `GetMainLight` 3인자 규칙대로 채운다.
 - `viewWS` 는 표면에서 카메라 쪽 방향. `normalWS`, `viewWS`, `normalOS` 는 정규화되어 있다.
 - `positionWS`, `normalOS` 는 삼평면 투영처럼 월드와 오브젝트 공간을 고르는 표본용이다. 기준 샘플 래퍼에는 없으므로, 쓰는 표본은 래퍼의 `SgInput` 과 `Varyings` 에 넣고 정점에서 `normalOS` 를 넘긴다. 메시 무대는 돌기 때문에 월드 공간 무늬는 물체 위를 흐르고 오브젝트 공간 무늬는 물체에 붙는다.
@@ -235,6 +236,8 @@ float effectNoise(float2 p)
 | `alpha` (sprite, depth 기본) | 알파 혼합 | `Blend SrcAlpha OneMinusSrcAlpha`, `ZWrite Off`, `"Queue" = "Transparent"`, `"RenderType" = "Transparent"` | 스프라이트 |
 | `additive` | 더하기 혼합 | `Blend SrcAlpha One`, `ZWrite Off`, 태그는 `alpha` 와 같다 | 역장 |
 | (fullscreen) | 알파 무시 | 해당 없음 | 전환 |
+
+`alpha` 표본 중 뒤 장면(`sgSceneColor`)을 직접 읽어 알파 1 로 덮어 그리는 표본(클로킹)은 `stage.zwrite: true` 로 두고 래퍼의 패스 하나를 `ZWrite On` 으로 한다 (2026-11-03 추가). 몸이 여러 겹이어도 가장 앞면만 남는다. 깊이 전용 패스를 따로 두지 않는다 (`SRPDefaultUnlit` 자리를 차지해 외곽선·실루엣 패스와 태그가 부딪친다). 투명 표본은 그림자 패스(`ShadowCaster`)를 두지 않는다. 그림자가 필요한 캐릭터는 평소 불투명 머티리얼을 쓰고 효과를 켤 때만 바꾸는 방법을 해설에 적는다.
 
 **잘라 내기 메시의 그림자.** `mesh` 무대의 `cutout` 표본은 앱이 광원 쪽에서 `sgEffect` 를 한 번 더 돌려 그 알파로 바닥 그림자를 만든다 (Unity 의 `ShadowCaster` 패스에 해당). 구멍, 시간에 따른 변화, 정점 변형까지 따라오므로 표본이 따로 할 일은 없다. 단계 보기에서도 그림자는 최종 알파를 쓴다. 효과 끄기에서는 잘라 내기를 무시한 온전한 그림자가 나온다. 그림자 패스를 자르지 않는 흔한 실수이므로, 표본의 `SG_OFF` 와 `offNote` 는 이 모습과 어울리게 쓴다. `node tools/check.mjs <id>` 가 첫 자동 데모 트랙(없으면 첫 이벤트 트랙)을 양 끝으로 움직여, 평소에는 그림자가 따라 변하고 효과 끄기에서는 변하지 않는지 잰다. 알파를 자르지 않는 표본(마지막 `return` 의 알파가 `1.0`)은 값 변화 검사를 건너뛴다. `depth`, `fullscreen` 무대의 소품 그림자는 단순 근사이고, 투명 표본은 그림자를 만들지 않는 것이 맞다.
 
@@ -356,7 +359,7 @@ UGUI Image 에 쓰는 표본용이다. 미리보기는 스프라이트 무대에
 | `unity.setup` | Unity 에 넣는 순서 2~7단계. 메뉴 이름을 정확히 |
 | `unity.verify` | 잘 되었는지 확인하는 한 문장. 값을 움직이면 무엇이 보여야 하는지 |
 | `unity.pitfalls` | 2~6개. 설정, 플랫폼, 렌더러 제약. 프롬프트에 들어간다 |
-| `unity.graph` | Shader Graph 로 옮기는 법 (선택). Custom Function 노드는 `void 이름_float(입력..., out 출력)` 형식의 함수만 받는다. `core.hlsl` 을 File 모드로 통째로 지정하면 `SgInput` 과 머티리얼 값 선언이 없어 컴파일되지 않으므로, 필요한 함수만 String 모드로 복사해 감싸는 법을 쓴다 |
+| `unity.graph` | Shader Graph 로 옮기는 법 (선택). Custom Function 노드는 `void 이름_float(입력..., out 출력)` 형식의 함수만 받는다. `core.hlsl` 을 File 모드로 통째로 지정하면 `SgInput` 과 머티리얼 값 선언이 없어 컴파일되지 않으므로, 필요한 함수만 String 모드로 복사해 감싸는 법을 쓴다. String 모드의 Body 칸에는 함수 몸체만 넣는다 (함수 이름과 인자는 노드의 Name 과 포트에서 만들어진다). 결과는 `return` 대신 out 인자에 대입한다 |
 | `prompt.goal` | 프롬프트 첫 문장. 넣고 나면 무엇이 되는지 |
 | `prompt.adaptIdeas` | 2~6개. 수강생이 실제로 원할 만한 변형. 첫 번째가 프롬프트 예시로 들어간다 |
 | `captures` | 기본값 외에 더 찍을 상태. 표본당 3장 이내 (용량). 값이 다른 모습을 보여 주는 것만 |
@@ -390,7 +393,8 @@ UGUI Image 에 쓰는 표본용이다. 미리보기는 스프라이트 무대에
 
 - 게임 원작의 텍스처, 모델, 셰이더 코드를 추출하거나 옮기지 않는다. 튜토리얼, 블로그, 오픈소스 코드도 복사하지 않고 원리만 참고해 출처를 링크한다. 코드는 새로 쓴다.
 - 게임명은 `inspiredBy` 에만 쓴다. ID, 제목, 프리셋, 단계, `references` 라벨, 변수 이름에는 쓰지 않는다. 강연 제목에 게임명이 들어 있으면 라벨은 저자와 주제로 바꿔 쓴다 (예: "Vlachos: 물 흐름 (SIGGRAPH 2010)", URL 은 그대로). `tools/check.mjs` 가 모든 표본의 `inspiredBy` 에서 게임명을 모아 다른 메타 글 전체와 코드의 이름(주석 제외)을 검사한다. 어느 표본의 `inspiredBy` 에도 없는 게임명은 잡지 못한다.
-- **화면 전체를 덮는 정지 줄무늬**(스캔라인, 격자): 밝고 어두운 줄이 많이 반복되는 정지 무늬도 광과민 반응을 일으킬 수 있다 (MDN 접근성 문서, 줄 쌍 5개 이상). 기본값에서 어두운 줄을 검정으로 만들지 않고 줄 대비를 중간 이하(어두운 줄이 밝은 줄의 60% 이상 밝기)로 둔다. 줄을 흘리거나 프레임마다 바꾸지 않는다(흘러가는 줄은 한 점을 지나는 빈도가 금방 3Hz 를 넘는다). `unity.pitfalls` 에 게임 옵션으로 끌 수 있게 하라고 적는다 (2026-11-03 추가).
+- **화면 전체를 덮는 정지 줄무늬**(스캔라인, 격자): 밝고 어두운 줄이 많이 반복되는 정지 무늬도 광과민 반응을 일으킬 수 있다 (MDN 접근성 문서, 줄 쌍 5개 이상). 기본값에서 어두운 줄을 검정으로 만들지 않고 줄 대비를 중간 이하(어두운 줄이 밝은 줄의 60% 이상 밝기)로 둔다. 줄을 흘리거나 프레임마다 바꾸지 않는다(흘러가는 줄은 한 점을 지나는 빈도가 금방 3Hz 를 넘는다). `unity.pitfalls` 에 게임 옵션으로 끌 수 있게 하라고 적는다 (2026-11-03 추가). 대비는 줄 하나가 아니라 겹치는 무늬를 모두 곱한 밝기(스캔라인 × 형광체 마스크의 가로 틈)로 재고, 선형 밝기의 행 평균으로 확인한다. 줄 간격은 정수 픽셀로 맞추되 화면을 휘게 하면 3 픽셀 이상으로 둔다 (2 픽셀 간격이 휘면 줄이 사라졌다 나타나는 맥놀이 띠가 생긴다).
+- **진행값으로 훑는 경계 띠**(디졸브, 은신): 띠의 순서 값이 넓은 면에서 평평하면(예: 정면의 `1 - N·V`) 진행값이 그 값을 지나는 순간 띠가 면 전체를 한 번에 덮어 번쩍인다. 순서 값이 화면에서 고르게 바뀌게 만든다 (2026-11-03, `cloak-refraction-shimmer` 리뷰).
 - 텍스처와 노이즈는 직접 생성한다. PNG 가 필요하면 코드로 만들고 긴 변 512 이하로 둔다.
 - **용량 기준** (2026-11-03). 단일 HTML 의 gzip 예산(1.5MB)을 표본들이 나눠 쓴다. 이미지는 base64 로 들어가 1.33배가 되고 gzip 으로도 거의 줄지 않아, 이미지 바이트가 곧 예산을 쓴다.
   - 표본 하나가 늘리는 gzip 은 45KB 이하. `node tools/size.mjs <id>` 로 잰다.

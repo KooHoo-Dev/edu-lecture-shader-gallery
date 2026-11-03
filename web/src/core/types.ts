@@ -180,6 +180,11 @@ export interface SpecimenStage {
    * 오브젝트 공간 실수(법선, 높이)가 화면에 드러난다. 90 이면 물체의 위(+Y)가 월드 -X 를 가리킨다. 회전은 Unity 의 Euler(0, yaw, tilt) 과 같다
    */
   tilt?: number
+  /**
+   * 투명 혼합(alpha) 표본이 깊이를 쓴다 (래퍼의 ZWrite On). 뒤 장면을 직접 읽어 알파 1 로 덮어 그리는 표본(클로킹)용이다.
+   * 팔이 몸통 앞을 지나는 것처럼 몸이 여러 겹이어도 가장 앞면만 남는다. 패스는 하나로 둔다
+   */
+  zwrite?: boolean
   /** fullscreen 무대: 하늘색 배경과 밝은 바닥. 가장자리를 어둡게 덮는 효과(비네트)가 어두운 무대에 묻히지 않게 한다 */
   bright?: boolean
   /** 표본 폴더에 둔 텍스처. sprite 무대에서 _MainTex 를 적지 않으면 앱이 스테이지 스프라이트를 넣는다 */

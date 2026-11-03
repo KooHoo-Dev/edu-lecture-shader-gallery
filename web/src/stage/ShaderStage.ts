@@ -568,7 +568,7 @@ class ShaderStage {
       material.blendDst = THREE.OneMinusSrcAlphaFactor
     } else if (blend !== 'cutout' && pass === 'body') {
       material.transparent = true
-      material.depthWrite = false
+      material.depthWrite = Boolean(meta.stage.zwrite)
       material.blending = blend === 'additive' ? THREE.CustomBlending : THREE.NormalBlending
       if (blend === 'additive') {
         material.blendSrc = THREE.SrcAlphaFactor
@@ -829,7 +829,7 @@ class ShaderStage {
       // 단계 보기에서는 뒤 배경과 섞이지 않게 값을 그대로 보여 준다.
       // 섞지 않으면 양면 메시의 뒷면이 그리는 순서에 따라 앞면을 덮으므로, 그동안만 깊이를 써서 앞면을 남긴다
       material.blending = stepping ? THREE.NoBlending : blend === 'additive' ? THREE.CustomBlending : THREE.NormalBlending
-      material.depthWrite = stepping
+      material.depthWrite = stepping || Boolean(this.specimen.meta.stage.zwrite)
     }
     this.layers.forEach(({ layer, mesh }, k) => {
       const layerMaterial = this.layerMaterial(k, this.settings.off)
