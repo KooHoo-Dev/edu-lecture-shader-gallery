@@ -127,6 +127,8 @@ class ShaderStage {
   private last = 0
   private time = 0
   private demoTime = 0
+  /** seek 가 시간을 붙들고 있다 */
+  private held = false
   private dirty = true
   private fireClock = new Map<string, number>()
   private active: { tracks: Track[]; start: number }[] = []
@@ -186,6 +188,7 @@ class ShaderStage {
     this.errorLog = null
     this.time = settings.startTime ?? 0
     this.demoTime = 0
+    this.held = false
     this.active = []
     this.liveKeys.clear()
     this.fireClock.clear()
@@ -249,6 +252,24 @@ class ShaderStage {
 
   get lastError() {
     return this.errorLog
+  }
+
+  get currentTime() {
+    return this.time
+  }
+
+  /**
+   * 자동 검사용 (live.mjs 의 burst): 무대 시간을 직접 정하고 그동안 스스로 흐르지 않게 붙든다. null 이면 놓는다.
+   * 자동 데모와 재생 중인 이벤트는 같은 만큼 진행하고, 물체 회전은 그대로 둔다 (셰이더의 움직임만 비교하려고)
+   */
+  seek(time: number | null) {
+    this.held = time !== null
+    if (time === null) return
+    const dt = time - this.time
+    this.time = time
+    if (this.settings.auto) this.demoTime = Math.max(0, this.demoTime + dt)
+    this.fireDemoEvents()
+    this.dirty = true
   }
 
   /* ───────── 장면 구성 ───────── */
@@ -576,7 +597,7 @@ class ShaderStage {
 
   private tick = (now: number) => {
     this.raf = requestAnimationFrame(this.tick)
-    const running = this.settings.playing && this.visible && !document.hidden
+    const running = !this.held && this.settings.playing && this.visible && !document.hidden
     if (running) {
       const dt = Math.min(0.1, (now - this.last) / 1000) * this.settings.speed
       this.time += dt

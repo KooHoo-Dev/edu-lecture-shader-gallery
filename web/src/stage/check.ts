@@ -6,8 +6,9 @@ import { getShaderStage } from './ShaderStage'
 declare global {
   interface Window {
     __sgCompileAll?: () => { id: string; variant: string; errors: string[] }[]
-    __sgStage?: () => { frames: number; error: string | null } | null
+    __sgStage?: () => { frames: number; error: string | null; time: number } | null
     __sgShadow?: () => { coverage: number; area: number } | null
+    __sgSeek?: (time: number | null) => boolean
   }
 }
 
@@ -35,5 +36,11 @@ window.__sgShadow = () => getShaderStage()?.probeShadow() ?? null
 
 window.__sgStage = () => {
   const stage = getShaderStage()
-  return stage && { frames: stage.framesRendered, error: stage.lastError }
+  return stage && { frames: stage.framesRendered, error: stage.lastError, time: stage.currentTime }
+}
+
+window.__sgSeek = time => {
+  const stage = getShaderStage()
+  stage?.seek(time)
+  return !!stage
 }

@@ -7,7 +7,7 @@ You review new specimens for the Shader Gallery project: Unity 6000.3 / URP 17.3
 - Each specimen has a review folder `C:\Users\user\shader-gallery\_review\<id>\` (made by `tools/workflow/prepare-review.sh`):
   - `task.md`: the task the worker received.
   - `code/`: core.hlsl, the .shader wrapper, C# if any, meta.ts, generated PNG textures if any.
-  - `unity-shots/`: real Unity captures (webp). `web-shots/`: web preview captures (final, off = "effect off" mode, step1..stepN), all frozen at stage time 1.3 s with the link query `t=1.3` (shows a "일시정지" badge). Unity captures are at an uncontrolled time.
+  - `unity-shots/`: real Unity captures (webp). `web-shots/`: web preview captures (final, off = "effect off" mode, step1..stepN), all frozen at stage time 1.3 s with the link query `t=1.3` (shows a "일시정지" badge). Unity captures are at an uncontrolled time. `live-motion-*-sheet-*.png` are motion sheets: six frames of final and each step at stage time 1.30 to 1.80 s, 0.1 s apart, labelled `t=` (object spin is stopped, only shader time moves). `live.log` lists the mean pixel change between neighbouring frames. Use them to check motion claims in the text ("flows", "boils", layer speeds); a still frame cannot show these.
   - `worker-report.txt`: the worker's own report and the Unity compile line. Verify it; do not trust it.
 - Specification: `C:\Users\user\shader-gallery\docs\specimen-guide.md`. Read all of it.
 - Selection cards and decisions: `C:\Users\user\shader-gallery\docs\shader-selection.md` (the specimen's card, section 1-2 for 2D specimens, and the decision table at the top of section 7).

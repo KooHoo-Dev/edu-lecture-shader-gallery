@@ -17,6 +17,11 @@
 //   js:<식>                   페이지에서 실행하고 결과 출력
 //   shot:<이름>               _shots/<id>/live-<이름>-<시각>.png 저장 (Read 도구로 확인)
 //   stage:<이름>              무대 부분만 잘라 저장
+//   burst:<이름>,<장수>,<간격ms>  연속 촬영 (기본 6장, 100ms). 무대 시간을 간격만큼 직접 옮겨 가며 무대를 찍는다.
+//                             실제 시간과 상관없이 매번 같은 순간이 찍힌다. 자동 데모와 누른 이벤트는 함께 진행하고 물체 회전은 멈춘다.
+//                             장마다 live-<이름>-t<시간>-<시각>.png, 모은 시트 live-<이름>-sheet-<시각>.png, 이웃한 장의 변화량을 남긴다
+//
+//   움직임 확인 예: node tools/live.mjs fire-noise-flame --query="auto=0&t=1.3" wait:1000 burst:flame,6,100
 
 import { spawn, spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
@@ -135,6 +140,82 @@ try {
   const failed = await evaluate(`document.querySelector('.stage-error')?.textContent ?? ''`)
   if (failed) console.log(`무대 오류 표시됨: ${failed}`)
 
+  const stageRect = () => evaluate(`(() => { const r = document.querySelector('.stage')?.getBoundingClientRect(); return r && { x: r.x, y: r.y, width: r.width, height: r.height } })()`)
+  const frames = () => evaluate('window.__sgStage?.()?.frames ?? -1')
+
+  const burst = async spec => {
+    const [name = 'burst', countText, stepText] = spec.split(',')
+    const count = Math.max(2, Math.min(16, Number(countText) || 6))
+    const stepMs = Number(stepText) || 100
+    const start = await evaluate('window.__sgStage?.()?.time')
+    const rect = await stageRect()
+    if (typeof start !== 'number' || !rect) {
+      console.log('burst: 무대를 찾지 못했습니다')
+      return
+    }
+    const shots = []
+    for (let k = 0; k < count; k++) {
+      const t = start + (k * stepMs) / 1000
+      const before = await frames()
+      await evaluate(`window.__sgSeek(${t})`)
+      // 옮긴 시간의 프레임이 그려지고 화면에 올라올 때까지 기다린다
+      for (let i = 0; i < 250 && (await frames()) === before; i++) await sleep(20)
+      await evaluate('new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))')
+      const r = await send('Page.captureScreenshot', { format: 'png', clip: { ...rect, scale: 1 } })
+      writeFileSync(join(outDir, `live-${name}-t${t.toFixed(2)}-${stamp}.png`), Buffer.from(r.data, 'base64'))
+      shots.push({ t, data: r.data })
+    }
+    await evaluate('window.__sgSeek(null)')
+
+    // 시트와 변화량은 페이지의 캔버스로 만든다 (이미지 라이브러리 없이)
+    const result = await evaluate(`(async () => {
+      const shots = ${JSON.stringify(shots)}
+      const imgs = await Promise.all(shots.map(s => new Promise((ok, fail) => { const im = new Image(); im.onload = () => ok(im); im.onerror = fail; im.src = 'data:image/png;base64,' + s.data })))
+      const w = imgs[0].naturalWidth, h = imgs[0].naturalHeight
+      const pixels = imgs.map(im => { const c = new OffscreenCanvas(w, h); const g = c.getContext('2d'); g.drawImage(im, 0, 0); return g.getImageData(0, 0, w, h).data })
+      const diffs = []
+      for (let k = 1; k < pixels.length; k++) {
+        const a = pixels[k - 1], b = pixels[k]
+        let sum = 0, changed = 0
+        for (let p = 0; p < a.length; p += 4) {
+          const d = (Math.abs(a[p] - b[p]) + Math.abs(a[p + 1] - b[p + 1]) + Math.abs(a[p + 2] - b[p + 2])) / 3
+          sum += d
+          if (d > 8) changed++
+        }
+        diffs.push({ mean: sum / (w * h), changed: changed / (w * h) })
+      }
+      const cols = Math.min(4, imgs.length), rows = Math.ceil(imgs.length / cols), gap = 4
+      const cw = Math.min(w, 480), ch = Math.round((h * cw) / w)
+      const sheet = new OffscreenCanvas(cols * cw + (cols - 1) * gap, rows * ch + (rows - 1) * gap)
+      const g = sheet.getContext('2d')
+      g.fillStyle = '#000'
+      g.fillRect(0, 0, sheet.width, sheet.height)
+      g.font = 'bold 16px sans-serif'
+      imgs.forEach((im, k) => {
+        const x = (k % cols) * (cw + gap), y = Math.floor(k / cols) * (ch + gap)
+        g.drawImage(im, x, y, cw, ch)
+        const label = 't=' + shots[k].t.toFixed(2)
+        g.fillStyle = 'rgba(0, 0, 0, 0.7)'
+        g.fillRect(x, y, g.measureText(label).width + 12, 24)
+        g.fillStyle = '#fff'
+        g.fillText(label, x + 6, y + 17)
+      })
+      const blob = await sheet.convertToBlob({ type: 'image/png' })
+      const url = await new Promise(ok => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.readAsDataURL(blob) })
+      return { diffs, sheet: url.slice(url.indexOf(',') + 1) }
+    })()`)
+    if (!result) {
+      console.log('burst: 시트를 만들지 못했습니다')
+      return
+    }
+    console.log(`burst ${name}: t=${start.toFixed(2)}~${shots.at(-1).t.toFixed(2)} 초, ${count}장, ${stepMs}ms 간격`)
+    result.diffs.forEach((d, k) => console.log(`  ${shots[k].t.toFixed(2)}→${shots[k + 1].t.toFixed(2)}  평균 차이 ${d.mean.toFixed(2)}  바뀐 픽셀 ${(d.changed * 100).toFixed(1)}%`))
+    if (result.diffs.every(d => d.mean < 0.05)) console.log('  움직임 없음: 모든 장이 같다')
+    const file = join(outDir, `live-${name}-sheet-${stamp}.png`)
+    writeFileSync(file, Buffer.from(result.sheet, 'base64'))
+    console.log(`sheet: ${file}`)
+  }
+
   const KEYS = { Enter: ['Enter', 13, '\r'], Escape: ['Escape', 27], Backspace: ['Backspace', 8], Tab: ['Tab', 9], ArrowUp: ['ArrowUp', 38], ArrowDown: ['ArrowDown', 40], ArrowLeft: ['ArrowLeft', 37], ArrowRight: ['ArrowRight', 39], ' ': ['Space', 32, ' '] }
   for (const a of actions) {
     const [kind, ...rest] = a.split(':')
@@ -151,9 +232,10 @@ try {
       await send('Input.dispatchKeyEvent', { type: 'keyDown', key: v, code, windowsVirtualKeyCode: keyCode, text })
       await send('Input.dispatchKeyEvent', { type: 'keyUp', key: v, code, windowsVirtualKeyCode: keyCode })
     } else if (kind === 'js') console.log('js:', JSON.stringify(await evaluate(v)))
+    else if (kind === 'burst') await burst(v)
     else if (kind === 'shot' || kind === 'stage') {
       // stage:<이름> 은 무대만 잘라 찍는다
-      const rect = kind === 'stage' ? await evaluate(`(() => { const r = document.querySelector('.stage')?.getBoundingClientRect(); return r && { x: r.x, y: r.y, width: r.width, height: r.height } })()`) : null
+      const rect = kind === 'stage' ? await stageRect() : null
       const r = await send('Page.captureScreenshot', rect ? { format: 'png', clip: { ...rect, scale: 1 } } : { format: 'png' })
       const file = join(outDir, `live-${v}-${stamp}.png`)
       writeFileSync(file, Buffer.from(r.data, 'base64'))

@@ -18,15 +18,19 @@ cp "$WT/web/src/specimens/$ID/meta.ts" "$OUT/code/"
 cp "$WT/web/src/shots/$ID/"*.webp "$OUT/unity-shots/"
 (
   cd "$WT"
-  node tools/live.mjs "$ID" --query="auto=0&t=1.3" wait:1200 stage:final
+  # burst: t=1.3 부터 0.1 초 간격 6장을 한 장의 시트로 (움직임 주장을 리뷰어가 볼 수 있게).
+  # 잡 브랜치의 live.mjs 와 앱으로 찍으므로 burst 가 들어간 main(2026-11-03) 뒤에 만든 브랜치에서만 시트가 나온다
+  # (그 전 브랜치는 live.log 에 "모르는 동작" 만 남고 나머지 촬영은 그대로 된다)
+  node tools/live.mjs "$ID" --query="auto=0&t=1.3" wait:1200 stage:final burst:motion-final,6,100
   node tools/live.mjs "$ID" --no-build --query="auto=0&off=1&t=1.3" wait:900 stage:off
   n=1
   while [ "$n" -le "$STEPS" ]; do
-    node tools/live.mjs "$ID" --no-build --query="auto=0&step=$n&t=1.3" wait:900 "stage:step$n"
+    node tools/live.mjs "$ID" --no-build --query="auto=0&step=$n&t=1.3" wait:900 "stage:step$n" "burst:motion-step$n,6,100"
     n=$((n + 1))
   done
 ) > "$OUT/live.log" 2>&1
-cp "$WT/_shots/$ID/"*.png "$OUT/web-shots/"
+# 연속 촬영은 시트만 옮긴다 (장마다의 live-*-t<시간>-*.png 는 빼고)
+find "$WT/_shots/$ID" -name '*.png' ! -name 'live-*-t[0-9]*' -exec cp {} "$OUT/web-shots/" \;
 node -e "require('fs').rmSync(process.argv[1], { recursive: true, force: true })" "$WT"
 git -C "$REPO" worktree prune
 

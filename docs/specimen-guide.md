@@ -160,7 +160,7 @@ float effectNoise(float2 p)
 - 텍스처는 `SG_TEX(_MyTex, uv)` 로만 읽는다. `_MyTex_TexelSize` 도 쓸 수 있다. 래퍼에는 `Properties` 에 `_MyTex ("이름", 2D) = "white" {}`, 그 아래에 `TEXTURE2D(_MyTex); SAMPLER(sampler_MyTex);` 와 `#define SG_TEX(name, uv) SAMPLE_TEXTURE2D(name, sampler##name, uv)`, `CBUFFER` 안에 `float4 _MyTex_TexelSize;` 를 둔다. 텍스처 파일은 표본 폴더에 두고 `meta.stage.textures` 에 적는다. 텍스처는 `meta.params` 에 넣지 않는다. sRGB 를 끈 데이터 텍스처(`linear: true`)의 기본값은 `"gray"` 가 아니라 `"linearGrey"` 다. `"gray"` 는 sRGB 0.5 라 Linear 프로젝트에서 약 0.21 로 읽혀, 0.5 를 0 으로 쓰는 맵은 칸이 비었을 때 한쪽으로 쏠린다 (`tools/check.mjs` 가 잡는다). 임포트 설정은 촬영 도구가 맞춘다. PNG 는 프롬프트에 넣을 수 없어 Skill zip 으로 전달되므로 `unity.setup` 에 임포트 설정(sRGB, Wrap Mode, Filter Mode)을 적는다.
 - PNG 는 `tools/textures/<이름>.mjs` 에 무늬를 코드로 쓰고 `node tools/gen-texture.mjs <이름>` 으로 만든다. 모듈 형식은 `tools/gen-texture.mjs` 머리말에 있고, 노이즈 같은 공용 도구는 `tools/lib/texture-kit.mjs` 에 있다. 표본 잡은 자기 모듈 경로를 `writePaths` 에 넣고 직접 쓴다. PNG 는 HTML 에 그대로 들어가므로 128 정도로 작게 둔다. 만든 PNG 는 Read 로 열어 눈으로 본다.
 - 데이터 텍스처(`linear`)와 포인트 텍스처는 Unity 기본 압축(BC, ASTC)에서 값이 바뀐다. 촬영 도구는 압축하지 않고, '그대로 넣기' 프롬프트도 Compression None 단계를 자동으로 넣는다.
-- 흐르는 무늬의 화면 속도는 오프셋 속도를 반복 횟수로 나눈 값이다. `uv * 2 + t * 1.3` 은 `uv + t * 0.6` 과 화면에서 거의 같은 빠르기로 흐른다. 크기가 다른 층을 다른 빠르기로 흘리려면 오프셋 속도를 반복 횟수만큼 곱해 두고 주석에 화면 속도를 적는다. 움직임을 말하는 단계 본문("재생하면 끓듯이")은 정지 화면으로 확인되지 않으므로 `t=` 를 0.5 초 간격으로 두 번 찍어 비교한다.
+- 흐르는 무늬의 화면 속도는 오프셋 속도를 반복 횟수로 나눈 값이다. `uv * 2 + t * 1.3` 은 `uv + t * 0.6` 과 화면에서 거의 같은 빠르기로 흐른다. 크기가 다른 층을 다른 빠르기로 흘리려면 오프셋 속도를 반복 횟수만큼 곱해 두고 주석에 화면 속도를 적는다. 움직임을 말하는 단계 본문("재생하면 끓듯이")은 정지 화면으로 확인되지 않으므로 `live.mjs` 의 `burst` 연속 촬영 시트로 확인한다 (8절).
 - 웹은 머티리얼의 Tiling, Offset(`_ST`)을 넘기지 않는다. 수강생이 다른 텍스처를 넣어 쓸 표본은 반복 횟수를 `#define` 이 아니라 range 값으로 노출한다. 구 UV 에 맞춘 비율은 큐브나 Plane 에서 늘어난다.
 - 스프라이트의 `_MainTex` 크기는 `_MainTex_TexelSize` 를 믿을 수 없다 (렌더러 단위로 넘어와 머티리얼 버퍼와 어긋난다. 실제로 촬영에서 틀린 값이 나왔다). `i.texelSize` 를 쓴다.
 - 정점을 움직이는 표본은 `core.hlsl` 에 다음 함수를 두고 `meta.stage.vertex = true` 로 한다. 메시와 깊이 무대에서 쓸 수 있다. 움직인 뒤의 오브젝트 공간 위치를 돌려준다.
@@ -397,7 +397,11 @@ node tools/live.mjs <id> --query="auto=0&step=1" wait:800 stage:step1
 node tools/live.mjs <id> --query="auto=0&off=1" wait:800 stage:off
 node tools/live.mjs <id> --query="auto=0&preset=<프리셋>" wait:800 stage:preset
 node tools/live.mjs <id> --query="auto=0" wait:800 click:<이벤트 글자> wait:100 stage:event
+node tools/live.mjs <id> --query="auto=0&step=2&t=1.3" wait:800 burst:step2,6,100
+node tools/live.mjs <id> --query="auto=0&t=1" wait:800 click:<이벤트 글자> burst:event,8,50
 ```
+
+**연속 촬영 (`burst:<이름>,<장수>,<간격ms>`).** 무대 시간을 간격만큼 직접 옮겨 가며 무대를 여러 장 찍는다. 실제 시간으로 흘리지 않으므로 헤드리스 브라우저가 느려도 매번 같은 순간이 찍힌다. 결과는 `t=` 라벨이 붙은 시트 한 장(Read 로 연다), 장마다의 PNG, 이웃한 장 사이의 변화량(평균 차이, 바뀐 픽셀 비율)이다. 모든 장이 같으면 "움직임 없음" 을 알린다. 자동 데모와 이미 누른 이벤트는 같은 시간축으로 진행하고, 메시 무대의 물체 회전은 멈춘다 (셰이더의 움직임만 비교하려고). 흐르는 무늬, 끓는 불꽃처럼 움직임을 말하는 글은 이 시트로 확인한다. 무늬가 단순히 한쪽으로 옮겨지는지 모양이 바뀌는지, 층의 빠르기가 서로 다른지를 본다. `t=` 로 멈춘 채 이벤트를 누르고 연속 촬영하면 이벤트의 시작부터 끝까지가 매번 같게 찍힌다.
 
 Unity 촬영은 1280×720, 웹 촬영은 약 1000 픽셀 폭이라 픽셀 단위 효과(윤곽선 두께 등)는 두 화면에서 굵기가 달라 보인다. `live.mjs` 는 한 번에 `--query` 하나만 받는다. 쿼리에 `t=<초>` 를 더하면 무대 시간이 그 순간에 멈춘 채 열린다. 시간에 따라 모습이 바뀌는 효과는 단계와 효과 끄기를 `t=` 로 같은 순간에 찍어 비교한다 (예: `--query="auto=0&step=2&t=1.2"`). `live.mjs` 는 이 표본만 넣어 빌드하고 `_shots/<id>/` 에 PNG 를 남긴다. 파일을 열어 눈으로 본다. 표본을 합친 뒤의 전체 검사는 다음과 같다. 표본 하나를 만드는 작업에서는 돌리지 않아도 된다.
 
