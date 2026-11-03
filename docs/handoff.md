@@ -1,0 +1,65 @@
+# 인수인계 (2026-11-03)
+
+새 세션은 이 문서, `docs/plan.md` 14~17절, `docs/specimen-guide.md` 순서로 읽는다. 이전 세션의 기록은 `docs/plan.md` 에 모두 있다.
+
+## 지금 상태
+
+- 표본 26개(선정 24개 + 기본 물·불)로 1차 마무리를 했다. 배포: https://koohoo-dev.github.io/edu-lecture-shader-gallery/
+- main 에 push 하면 Actions(`.github/workflows/deploy.yml`)가 빌드, `tools/check.mjs`, Pages 배포를 한다. `v*` 태그는 Release 에 단일 HTML 을 붙인다.
+- 마지막 전체 검사: 통과, WebGL2 56/56, 오프라인 실행 26개 표시, Skill 108 파일, gzip 1,316KB (예산 1,536KB 의 86%).
+- 문서: 진행 기록과 비용 `docs/plan.md`, 선정 근거 `docs/shader-selection.md`, 표본 규격 `docs/specimen-guide.md`.
+- 결정된 것: 저체력 비네트 색(`screen-vignette`)은 지금 값을 유지한다 (Jay, 2026-11-03).
+
+## 규칙
+
+- Jay 와는 한국어로 이야기한다. 권고는 하나로 한다. 되돌릴 수 있는 결정은 정하고 알린다. 질문은 끝에 모은다.
+- 이 리포는 커밋과 push 가 자유다. `C:\Users\user\JayTools`(JayDispatch 포함)는 Jay 가 말할 때만 커밋한다.
+- main 작업 트리의 아래 변경은 열린 Unity 에디터가 만든 것이다. 커밋하지 않는다. `git add` 는 파일을 골라서 한다.
+  - `Assets/Editor/HubForceResolve.cs(.meta)` 삭제
+  - `Assets/Settings/PC_RPAsset.asset`, `ProjectSettings/ShaderGraphSettings.asset`, `ProjectSettings/URPProjectSettings.asset`
+- API 키는 Jay 만 넣는다. 대화나 화면으로 키를 받지 않는다. `ANTHROPIC_API_KEY` 를 전역 환경변수로 두지 않는다. 키는 `%USERPROFILE%\.jay-dispatch\keys\` 에 있고 워커 자식 프로세스에만 들어간다.
+- 이 PC 에는 `gh` 가 없고 내장 브라우저는 GitHub 에 로그인되어 있지 않다. 리포 설정은 Jay 가 바꾼다. 배포 상태는 인증 없이 `curl -s "https://api.github.com/repos/KooHoo-Dev/edu-lecture-shader-gallery/actions/runs?per_page=1"` 로 본다.
+
+## 비용
+
+- 앱과 도구는 구독 세션이 직접 고친다. JayDispatch 워커 잡(Opus 5.5, effort high, 프로필 `org`)은 표본 단위 작업에 쓴다. 새 표본 하나에 구현과 수정을 합쳐 약 $4~8 이 든다.
+- 회사 플랜 크레딧은 $380 중 약 $102 를 썼다. 11월 19일(UTC)에 만료되고 이월되지 않는다. `dispatch status` 로 추정 사용액을 본다.
+- 개인 Ultra 크레딧은 아직 연결되지 않았다. 별도 세션이 Anthropic 지원팀 답을 기다린다. 회사 크레딧이 끝나면 워커는 구독 프로필로 넘어간다.
+
+## 표본 작업 흐름 (새 표본이나 표본 수정이 필요할 때)
+
+1. 선정 카드(`docs/shader-selection.md`)와 `web/src/core/registry.ts` 의 자리표시 항목을 먼저 넣는다. `tools/workflow/specs-example.mjs` 형식으로 명세를 쓰고 `node tools/workflow/make-jobs.mjs <명세.mjs>` 로 `jobs/<id>.md` 를 만든다.
+2. `dispatch run --parallel 2 --repo C:/Users/user/shader-gallery` 를 실행한다. 명령이 없으면 `node C:/Users/user/JayTools/JayDispatch/bin/dispatch.mjs` 를 쓴다. 결과는 `dispatch/<id>` 브랜치에 남는다. 실패하면 `dispatch retry <id>` 를 쓰고, 검증만 다시 하려면 `--verify-only` 를 붙인다.
+3. `sh tools/workflow/prepare-review.sh <id> <단계 수>` 로 `_review/<id>/` 를 만든다. 코드, Unity 촬영, 웹 화면, 워커 보고가 모인다.
+4. 표본마다 general-purpose 서브에이전트에게 독립 리뷰를 맡긴다. `tools/workflow/review-brief.md` 를 그대로 따르게 하고, 리뷰 폴더, 선정 카드 번호, 기준 샘플을 알려 준다. 지적은 코드와 화면으로 직접 확인한 뒤 받아들인다.
+5. 구현 브랜치를 main 에 병합한다. 메시지는 "표본 병합: <id> (구현, 리뷰 전)".
+6. `tools/workflow/fix-specs-example.mjs` 형식으로 리뷰 지적을 적는다. `node tools/workflow/make-fix-jobs.mjs <수정 명세.mjs>` 다음 `dispatch run` 으로 수정 잡을 돌리고 `dispatch/<id>-fix` 를 병합한다. 메시지는 "표본 수정 병합: <id> 리뷰 반영".
+7. 마무리 명령은 `npm --prefix web run build`, `node tools/build-skill.mjs`, `node tools/check.mjs`(전체) 순서다. 그다음 커밋하고 push 하면 Pages 가 다시 배포한다.
+
+Unity 를 직접 돌릴 때(촬영, 컴파일)는 워커 검증과 겹치지 않게 잠금을 잡는다: `node tools/workflow/with-unity-lock.mjs "node tools/unity.mjs <id>" "node tools/shots.mjs <id>"`.
+
+## 함정 (지난 세션에서 겪은 것)
+
+- `tools/live.mjs` 는 `--query` 를 하나만 받는다. 둘을 주면 뒤엣것을 무시한다.
+- 여러 파일을 스크립트 하나로 고친 뒤에는 grep 으로 결과를 확인한다. 중간 실패를 모른 채 "적용했다" 고 커밋한 적이 있다.
+- 정규식이나 Windows 경로가 든 수정은 Edit 도구로 한다. heredoc 안 node 스크립트에서는 `\\b` 가 깨지고, GNU sed 치환문에서는 `\U` 같은 경로 조각이 대소문자 변환으로 바뀐다.
+- 앱(무대, 촬영 도구)을 고친 뒤에는 기존 표본 촬영과 밝기를 다시 본다. 임시 표본으로 웹과 Unity 를 같이 찍어 비교하는 방법이 잘 통했다 (15~17절).
+- 단계 본문의 움직임 주장("재생하면 끓듯이")은 정지 화면으로는 검증되지 않는다. 불 표본의 결함이 리뷰까지 간 이유다.
+- 독립 리뷰가 구독 세션의 앱 회귀와 가이드 오류를 여러 번 잡았다. 앱이나 가이드를 크게 바꾼 뒤에도 리뷰를 받는다.
+
+## 후속 과제 (권장 순서)
+
+1. **`live.mjs` 연속 촬영** (17절). 같은 화면을 짧은 간격으로 여러 장 찍는다. 움직임 검증의 빈틈을 메우고, 이후 작업 모두의 확인 도구가 된다.
+2. **용량 정책** (16절). gzip 이 예산의 86% 다. 표본을 더 늘리기 전에 PNG 텍스처와 촬영(webp)의 용량 기준을 정한다. `tools/size.mjs` 로 표본별 증분을 잰다.
+3. **표본 다듬기** (16·17절).
+   - 마지막 단계가 최종 화면과 같은 `toon-ramp-lit`, `tiling-scroll-parallax` 를 정리한다.
+   - select 값에 따라 쓰이지 않는 조절 값을 숨긴다.
+   - 웹에서 `_ST`(Tiling/Offset) 를 지원한다.
+   - 일시정지나 `t=` 상태에서 이벤트 버튼이 아무것도 바꾸지 않는다는 것을 안내한다.
+   - 파티클 하나를 띄우는 표준 설정 문장을 만든다.
+4. **무대·촬영 확장** (14~16절). 필요한 표본이 생길 때 한다.
+   - UGUI Canvas 촬영 무대, 여러 층 스프라이트
+   - 그림자 소품과 그림자 감쇠 필드
+   - 밝은 전체 화면 무대, 메시 기울이기
+   - 촬영 검증 변형(Deferred, Depth Priming Auto, 볼록하지 않은 메시)과 시간을 멈춘 비교 촬영
+5. **Unity 에서 아직 확인하지 않은 것** (14·16절). 외곽선 표본의 Depth Priming 주의, Overlay 캔버스에서 씬 색상이 읽히는지.
