@@ -131,7 +131,7 @@ float4 sgEffect(SgInput i)
     float beat = 0.5 + 0.5 * sin(t);
     SG_STEP(3, float3(beat, beat, beat));
 
-    // 4. 조명: 잎 색(뿌리에서 끝으로 섞기)에 양면 조명을 곱한다.
+    // 4. 양면 조명. 단계 보기는 잎 색을 빼고 조명만 보여 주고, 최종은 잎 색(뿌리에서 끝으로 섞기)에 이 조명을 곱한다.
     //    잎은 Cull Off 로 뒷면도 그리지만 법선은 앞면 하나뿐이다. 앱이 앞면·뒷면을 알려 주지 않으므로,
     //    직사광을 abs(dot(N, L)) 로 구해 빛을 받는 쪽이 앞면이든 뒷면이든 똑같이 밝힌다.
     //    i.lighting 은 lightColor * saturate(dot(N, L)) + 환경광이다. 여기에 반대쪽 몫 lightColor * saturate(-dot(N, L)) 을 더하면
@@ -139,8 +139,8 @@ float4 sgEffect(SgInput i)
     //    정점을 밀어도 법선은 다시 계산하지 않는다. 얇은 잎은 조금 기울어도 음영 차이가 작다.
     float3 albedo = lerp(_RootColor.rgb, _TipColor.rgb, saturate(i.uv.y));
     float3 lighting = i.lighting + i.lightColor * saturate(-dot(i.normalWS, i.lightDirWS));
+    SG_STEP(4, lighting);
     float3 color = albedo * lighting;
-    SG_STEP(4, color);
 
     // 불투명 표본이라 알파는 항상 1 이다.
     return float4(color, 1.0);

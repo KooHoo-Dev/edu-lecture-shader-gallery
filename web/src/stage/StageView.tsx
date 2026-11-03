@@ -5,7 +5,7 @@ import { getShaderStage } from './ShaderStage'
 
 export interface StageViewHandle {
   /** 이벤트를 한 번 재생 */
-  fire: (id: string) => void
+  fire: (id: string) => boolean
   /** 현재 화면을 PNG 로 */
   capture: () => Promise<Blob | null>
 }
@@ -37,7 +37,7 @@ export const StageView = forwardRef<StageViewHandle, Props>(function StageView({
   useImperativeHandle(
     ref,
     () => ({
-      fire: id => stage?.fire(id),
+      fire: id => stage?.fire(id) ?? false,
       capture: () => stage?.capture() ?? Promise.resolve(null),
     }),
     [stage],

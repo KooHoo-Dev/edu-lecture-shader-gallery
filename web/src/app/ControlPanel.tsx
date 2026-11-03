@@ -61,7 +61,7 @@ export function ControlPanel({
           {activePreset && <p className="preset-look">{presets.find(p => p.id === activePreset)?.look}</p>}
         </div>
       )}
-      {defs.map(d => (
+      {defs.filter(d => !d.showWhen || d.showWhen.values.includes(String(values[d.showWhen.key]))).map(d => (
         <Control key={d.key} def={d} value={values[d.key]} onChange={v => onChange(d.key, v)} />
       ))}
       <button className="btn btn-ghost btn-block" onClick={onReset}>

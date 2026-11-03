@@ -161,7 +161,7 @@ float effectNoise(float2 p)
 - PNG 는 `tools/textures/<이름>.mjs` 에 무늬를 코드로 쓰고 `node tools/gen-texture.mjs <이름>` 으로 만든다. 모듈 형식은 `tools/gen-texture.mjs` 머리말에 있고, 노이즈 같은 공용 도구는 `tools/lib/texture-kit.mjs` 에 있다. 표본 잡은 자기 모듈 경로를 `writePaths` 에 넣고 직접 쓴다. PNG 는 HTML 에 그대로 들어가므로 128 정도로 작게 둔다 (7절 용량 기준). 만든 PNG 는 Read 로 열어 눈으로 본다.
 - 데이터 텍스처(`linear`)와 포인트 텍스처는 Unity 기본 압축(BC, ASTC)에서 값이 바뀐다. 촬영 도구는 압축하지 않고, '그대로 넣기' 프롬프트도 Compression None 단계를 자동으로 넣는다.
 - 흐르는 무늬의 화면 속도는 오프셋 속도를 반복 횟수로 나눈 값이다. `uv * 2 + t * 1.3` 은 `uv + t * 0.6` 과 화면에서 거의 같은 빠르기로 흐른다. 크기가 다른 층을 다른 빠르기로 흘리려면 오프셋 속도를 반복 횟수만큼 곱해 두고 주석에 화면 속도를 적는다. 움직임을 말하는 단계 본문("재생하면 끓듯이")은 정지 화면으로 확인되지 않으므로 `live.mjs` 의 `burst` 연속 촬영 시트로 확인한다 (8절).
-- 웹은 머티리얼의 Tiling, Offset(`_ST`)을 넘기지 않는다. 수강생이 다른 텍스처를 넣어 쓸 표본은 반복 횟수를 `#define` 이 아니라 range 값으로 노출한다. 구 UV 에 맞춘 비율은 큐브나 Plane 에서 늘어난다.
+- 머티리얼의 Tiling, Offset 은 `stage.textures` 의 텍스처마다 `<이름>_ST` 로 쓸 수 있다 (xy 반복, zw 오프셋): `SG_TEX(_MyTex, i.uv * _MyTex_ST.xy + _MyTex_ST.zw)`. 래퍼는 `CBUFFER` 에 `float4 _MyTex_ST;` 를 두고 그 텍스처 속성에 `[NoScaleOffset]` 을 붙이지 않는다 (`tools/check.mjs` 가 확인). 그러면 수강생이 Inspector 의 Tiling, Offset 칸으로 바꿀 수 있다. 스프라이트·UI 의 `_MainTex` 는 `[PerRendererData]` 라 칸이 없으므로 `_MainTex_ST` 는 쓰지 않는다 (검사가 막는다). 웹은 Unity 새 머티리얼과 같은 (1, 1, 0, 0) 을 넘기고 조절 패널에는 칸이 없다. 그래서 무대에서 반복 횟수를 바꿔 보여야 하는 표본은 range 값을 따로 둔다 (`surface-wet-snow` 의 `_TilingU`, `_TilingV`). 반복 횟수는 `#define` 으로 고정하지 않는다. 구 UV 에 맞춘 비율은 큐브나 Plane 에서 늘어난다.
 - 스프라이트의 `_MainTex` 크기는 `_MainTex_TexelSize` 를 믿을 수 없다 (렌더러 단위로 넘어와 머티리얼 버퍼와 어긋난다. 실제로 촬영에서 틀린 값이 나왔다). `i.texelSize` 를 쓴다.
 - 정점을 움직이는 표본은 `core.hlsl` 에 다음 함수를 두고 `meta.stage.vertex = true` 로 한다. 메시와 깊이 무대에서 쓸 수 있다. 움직인 뒤의 오브젝트 공간 위치를 돌려준다.
 
@@ -188,6 +188,10 @@ float effectNoise(float2 p)
 - `depthDelta` = 씬 표면의 눈 깊이 - 이 픽셀의 눈 깊이 (미터). 눈 깊이는 카메라 정면 축 방향의 거리다 (시선 길이에 화면 중심에서 벗어난 각의 cos 을 곱한 값). 물체가 닿는 곳에서 0 에 가까워진다. 수직 깊이가 아니라 보는 각도에 따라 같은 물가에서도 값이 달라진다.
 - 깊이 무대의 `color` 는 정점 색이다. 웹 무대는 항상 흰색(1)이고, 깊이 무대에 쓰는 UI 표본(`stage.ui`, 예: 배경 블러)의 Unity 래퍼는 Image 의 정점 색을 넣는다. 일반 깊이 표본은 쓰지 않는다.
 - 메시 무대의 `color` 도 정점 색이다 (2026-11-03 추가). 웹은 항상 흰색이다. Particle System 의 Renderer 머티리얼로 쓰일 표본(불꽃, 연기)은 래퍼의 `Attributes` 에 `float4 color : COLOR` 를 두고 `i.color` 로 넘겨, core 에서 색과 알파에 곱한다. 그래야 Start Color 와 Color over Lifetime 이 먹고 파티클이 서서히 나타나고 사라진다. 쓰지 않는 표본은 `i.color = 1` 로 채우거나 필드를 두지 않아도 된다 (웹의 필드는 쓰지 않으면 무시된다).
+  - **파티클 하나 띄우기 (표준 문장).** 새 Particle System 은 파티클을 계속 뿜어 Cone 모양으로 퍼지므로, 그대로 넣으면 같은 무늬 수십 장이 겹쳐 하얗게 뜬다. 파티클 표본의 `unity.setup` 에는 먼저 하나만 띄워 셰이더를 확인하는 단계를 다음 문장으로 넣는다 (메뉴 이름은 Unity 6.3 기준, 촬영으로는 확인하지 않았다):
+    > `GameObject > Effects > Particle System` 으로 만든다. Main 모듈에서 Start Speed 를 0, Max Particles 를 1 로 두고, Shape 모듈의 체크를 끈다. Renderer 모듈의 Material 에 이 머티리얼을 넣는다. 파티클 하나가 제자리에 Start Size 크기로 카메라를 보고 서며, Start Lifetime(기본 5초)이 끝날 때마다 새로 나타난다. Color over Lifetime 을 켜고 그라데이션 양 끝의 알파를 0 으로 두면 그 주기로 나타났다 사라진다. 서 있는 물체(불꽃)는 Renderer 모듈의 Render Mode 를 Vertical Billboard 로 한다.
+
+    여러 개를 띄우는 변형(Max Particles, Rate over Time, 퍼짐)은 `adaptIdeas` 나 `unity.pitfalls` 에 적는다. 래퍼가 정점 색과 UV 만 읽으면 Renderer 의 기본 Vertex Streams(Position, Normal, Color, UV)로 충분하다. 파티클마다 다른 값(무늬 어긋남 등)을 쓰려면 Custom Vertex Streams 가 필요하다.
 - `stage.backlit: true` 면 해가 카메라 맞은편 낮은 곳(높이 15도, `Quaternion.Euler(15, 180, 0)`)에 있다 (mesh, depth 무대). 기본 해는 카메라 뒤 위쪽이라 평평한 면의 반사광이 카메라로 오지 않는다. 수면처럼 해 반짝임이 핵심인 표본만 쓴다. 바닥은 해를 비스듬히 받아 어두워지고, 소품 그림자는 카메라 쪽으로 길게 늘어진다.
 - `fullscreen` 의 `uv` 는 왼쪽 아래가 (0, 0) 이고 위쪽이 1 이다. 화면비 보정은 `float2(aspect, 1.0)` 을 곱한다. `texelSize` 는 화면 한 픽셀의 uv 크기다 (Unity 래퍼는 `_ScreenSize.zw`).
 - XR 에서 전체 화면 uv 의 (0.5, 0.5) 는 눈의 정면이 아니다. HMD 투영은 눈마다 비대칭이라 화면 중심을 쓰는 효과(비네트, 충격파 중심)는 두 눈에서 어긋날 수 있다. URP 내장 Vignette 는 투영 행렬로 이를 보정한다. XR 설명은 '실기기 미확인' 으로 쓰고 XRI 나 Volume 같은 보정된 대안을 먼저 권한다.
@@ -331,7 +335,7 @@ UGUI Image 에 쓰는 표본용이다. 미리보기와 촬영은 스프라이트
 | `shaderFile` | `.shader` 파일 이름 |
 | `stage` | 4절. `kind` 필수 |
 | `requires` | URP Asset 에서 켜야 하는 것 (`depth`, `opaque`). 프롬프트의 설정 단계에 자동으로 들어간다 |
-| `params` | 효과를 만드는 값. `key` 는 셰이더 속성 이름. 모든 값이 화면에 **눈에 띄는** 차이를 만들어야 한다. `hint` 로 무엇이 바뀌는지 적는다 |
+| `params` | 효과를 만드는 값. `key` 는 셰이더 속성 이름. 모든 값이 화면에 **눈에 띄는** 차이를 만들어야 한다. `hint` 로 무엇이 바뀌는지 적는다. select 값에 따라 셰이더가 쓰지 않는 값은 `showWhen: { key: '<select 키>', values: ['0'] }` 으로 그 선택에서만 보이게 한다 (Unity Inspector 에는 늘 보이므로 `hint` 에도 어느 선택에서 쓰는지 적는다) |
 | `presets` | 2~5개. 쓰임새 이름 (게임명 금지). `values` 에는 기본값과 다른 것만 |
 | `events` | 버튼으로 한 번 재생. C# 스크립트가 실제로 하는 일과 같게. `tracks` 의 `frames` 는 `[초, 값]` 목록. 트랙 값은 절대값이라 프리셋이나 슬라이더가 바꾸는 값을 움직이면 시작과 끝에서 튄다. 이벤트는 0 에서 올라갔다 0 으로 돌아오는 더하기용 전용 값(`_HitFlash`, `_Gust` 등)을 움직이고 셰이더가 기본 값에 더한다. C# 도 같은 값을 움직인다 |
 | `demo` | 사람이 없어도 핵심 상황이 돌게. `loops` 는 반복 트랙, `fire` 는 일정 간격 이벤트 |

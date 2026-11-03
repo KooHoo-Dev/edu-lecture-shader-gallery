@@ -30,7 +30,7 @@ export const meta: SpecimenMeta = {
       ],
       default: '0',
     },
-    { key: '_Cells', label: '격자 칸 수', type: 'range', min: 2, max: 24, step: 1, default: 9, hint: '마름모 격자에서만 쓴다' },
+    { key: '_Cells', showWhen: { key: '_Pattern', values: ['0'] }, label: '격자 칸 수', type: 'range', min: 2, max: 24, step: 1, default: 9, hint: '마름모 격자에서만 쓴다' },
     { key: '_Softness', label: '경계 부드러움', type: 'range', min: 0, max: 0.3, step: 0.005, default: 0.03 },
     { key: '_CoverColor', label: '덮개 색', type: 'color', default: '#08080f' },
     { key: '_RimColor', label: '경계 빛 색', type: 'color', default: '#ff8c33' },

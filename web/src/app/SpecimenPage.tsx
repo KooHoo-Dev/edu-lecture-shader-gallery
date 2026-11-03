@@ -51,7 +51,16 @@ function SpecimenView({ specimen, presetId, opts, presenter }: { specimen: Speci
   const stage = useRef<StageViewHandle>(null)
   const panel = useRef<ControlPanelHandle>(null)
 
-  const fire = useCallback((id: string) => stage.current?.fire(id), [])
+  // 일시정지 중에 누른 이벤트는 시작 순간에 멈춰 있다. 아무 일도 안 일어난 것처럼 보이므로 재생할 때까지 안내한다
+  const playingRef = useRef(playing)
+  const [pausedEvent, setPausedEvent] = useState(false)
+  useEffect(() => {
+    playingRef.current = playing
+    if (playing) setPausedEvent(false)
+  }, [playing])
+  const fire = useCallback((id: string) => {
+    if (stage.current?.fire(id) && !playingRef.current) setPausedEvent(true)
+  }, [])
 
   // ?event=<id> : 페이지가 열리고 잠시 뒤 이벤트를 한 번 발생 (수업 자료 링크·자동 검사용)
   useEffect(() => {
@@ -180,6 +189,11 @@ function SpecimenView({ specimen, presetId, opts, presenter }: { specimen: Speci
             onStep={stepBy}
             stepLabel={`${activeStep?.label ?? '최종'} ${stepPosition}`}
           />
+          {pausedEvent && !playing && (
+            <p className="pause-note" role="status">
+              일시정지 중이라 이벤트가 시작 순간에 멈춰 있다. ▶ 로 재생하면 이어서 움직인다.
+            </p>
+          )}
           {off && (
             <p className="off-note" role="status">
               <b>효과 끄기:</b> <Rich text={m.offNote} />

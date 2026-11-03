@@ -184,12 +184,30 @@ function checkMeta(id, meta, core, wrapper) {
   if (!meta.params.length) err(`${where}: params 가 없다`)
   for (const def of meta.params) if (!/^_[A-Z]\w*$/.test(def.key)) err(`${where}: 속성 이름 ${def.key} 는 _PascalCase 여야 한다`)
   const keys = new Set(meta.params.map(p => p.key))
+  // showWhen: select 값에 따라 쓰이지 않는 조절 값을 숨긴다
+  for (const def of meta.params.filter(p => p.showWhen)) {
+    const sel = meta.params.find(p => p.key === def.showWhen.key)
+    if (sel?.type !== 'select') err(`${where}: ${def.key}.showWhen.key(${def.showWhen.key})는 같은 표본의 select 값이어야 한다`)
+    else if (!def.showWhen.values.length) err(`${where}: ${def.key}.showWhen.values 가 비어 있어 조절 값이 영영 숨는다`)
+    else for (const v of def.showWhen.values) if (!sel.options.some(o => o.value === v)) err(`${where}: ${def.key}.showWhen.values 의 '${v}' 는 ${sel.key} 의 선택지가 아니다`)
+  }
 
   // 코어에서 쓰는 머티리얼 값은 메타에 있어야 웹 유니폼이 만들어진다
   const textures = new Set([...Object.keys(meta.stage.textures ?? {}), ...(meta.stage.kind === 'sprite' ? ['_MainTex'] : [])])
-  for (const m of core.matchAll(/\b_[A-Z]\w*/g)) {
-    const name = m[0]
+  for (const name of new Set([...core.matchAll(/\b_[A-Z]\w*/g)].map(m => m[0]))) {
     if (name.endsWith('_TexelSize') && textures.has(name.replace('_TexelSize', ''))) continue
+    if (name === '_MainTex_ST' && meta.stage.kind === 'sprite') {
+      // 스프라이트·UI 래퍼의 _MainTex 는 [PerRendererData] 라 Inspector 에 Tiling 칸이 없고 렌더러가 텍스처를 넣는다
+      err(`${id}/core.hlsl: 스프라이트 무대의 _MainTex_ST 는 Inspector 에서 바꿀 수 없다. 반복 횟수는 range 값으로 둔다`)
+      continue
+    }
+    if (name.endsWith('_ST') && textures.has(name.slice(0, -3))) {
+      // Tiling, Offset 은 Unity 가 CBUFFER 의 float4 로 넘기고, Inspector 에 칸이 보여야 수강생이 바꿀 수 있다
+      const cbuffer = /CBUFFER_START\(UnityPerMaterial\)([\s\S]*?)CBUFFER_END/.exec(wrapper)?.[1] ?? ''
+      if (!new RegExp(`float4\\s+${name}\\s*;`).test(cbuffer)) err(`${id}/${meta.shaderFile}: core 가 ${name} 를 쓰면 CBUFFER 에 float4 ${name}; 를 둔다`)
+      if (new RegExp(`\\[NoScaleOffset\\][^\\n]*\\b${name.slice(0, -3)}\\b`).test(wrapper)) err(`${id}/${meta.shaderFile}: core 가 ${name} 를 쓰는데 ${name.slice(0, -3)} 에 [NoScaleOffset] 이 있다`)
+      continue
+    }
     if (!keys.has(name) && !textures.has(name)) err(`${id}/core.hlsl: ${name} 가 meta.params 나 stage.textures 에 없다`)
   }
 
@@ -263,6 +281,12 @@ function checkMeta(id, meta, core, wrapper) {
   for (const n of metaSteps) if (!coreSteps.includes(n)) err(`${where}: 단계 ${n} 에 해당하는 SG_STEP 이 core.hlsl 에 없다`)
   for (const n of coreSteps) if (!metaSteps.includes(n)) err(`${where}: SG_STEP(${n}) 설명이 meta.steps 에 없다`)
   if (meta.steps.length < 2 || meta.steps.length > 5) err(`${where}: steps 는 2~5개 (${meta.steps.length}개)`)
+  // 마지막 단계가 최종 화면과 같으면 넣지 않는다 (앱이 최종 화면을 따로 보여 준다). 바로 그 값을 돌려주는 흔한 모양만 잡는다.
+  // 패스가 둘인 표본은 마지막 단계의 SG_STEP 이 모두 그 모양일 때만 같다고 본다. 알파가 1.0 인 불투명 출력만 본다
+  // (투명 출력은 단계 보기가 혼합 없이 보여 주므로 최종 화면과 다르다)
+  const lastN = Math.max(...coreSteps)
+  const lastCalls = [...core.matchAll(new RegExp(`\\bSG_STEP\\(\\s*${lastN}\\s*,\\s*([^;]+?)\\s*\\);(\\s*return\\s+float4\\(\\s*([^,]+?)\\s*,\\s*1\\.0\\s*\\))?`, 'g'))]
+  if (lastCalls.length && lastCalls.every(m => m[3] === m[1])) warn(`${where}: 마지막 단계(${lastN})가 최종 화면과 같은 ${lastCalls[0][1]} 이다. 그 단계는 빼고 설명을 앞 단계로 옮긴다`)
 
   // 트랙은 range 값만 움직인다
   const ranges = new Set(meta.params.filter(p => p.type === 'range').map(p => p.key))

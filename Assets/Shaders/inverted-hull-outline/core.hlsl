@@ -66,9 +66,8 @@ float4 sgEffect(SgInput i)
     //    본체도 외곽선 색으로 칠해 그 모습을 흉내 낸다. 외곽선 색 덩어리만 남는다.
     SG_STEP(2, _OutlineColor.rgb);
 
-    // 3. 최종: 본체가 앞을 가리고, 껍데기는 뒷면만 남아 윤곽 바깥으로 삐져나온 띠만 외곽선이 된다.
+    // 최종: 본체가 앞을 가리고, 껍데기는 뒷면만 남아 윤곽 바깥으로 삐져나온 띠만 외곽선이 된다.
     float3 color = hullPassColor(lit);
-    SG_STEP(3, color);
 
     // 불투명 표본이라 알파는 항상 1 이다.
     return float4(color, 1.0);

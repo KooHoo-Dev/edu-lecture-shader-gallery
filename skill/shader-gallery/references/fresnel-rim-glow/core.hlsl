@@ -40,6 +40,5 @@ float4 sgEffect(SgInput i)
 
     // 최종: 조명을 받은 표면에 림을 더한다. 조명과 곱하지 않으므로 그늘 쪽 윤곽에서도 림이 남는다.
     float3 color = lit + rimColor * (strength * rim);
-    SG_STEP(4, color);
     return float4(color, 1.0);
 }

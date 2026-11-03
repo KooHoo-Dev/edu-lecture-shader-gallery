@@ -340,9 +340,9 @@ Jay 가 남은 일을 모두 진행하라고 해서(단계마다 커밋, 끝나�
 
 - 촬영 검증용 변형: Deferred, Depth Priming Auto, 볼록하지 않은 시험 메시. 두 번째 패스 표본의 확인 범위를 넓힌다.
 - 전체 화면 무대를 밝게 하는 옵션(어두운 무대에서 검은 비네트가 약함), 메시 무대 기울이기 옵션(오브젝트 공간 실수를 보여 주기).
-- select 값에 따라 쓰이지 않는 조절 값 숨기기, 웹의 `_ST`(Tiling/Offset) 지원.
-- 마지막 단계가 최종 화면과 같은 기존 표본 정리 (`toon-ramp-lit`, `tiling-scroll-parallax`).
-- 일시정지나 `t=` 상태에서 이벤트 버튼이 아무 변화가 없는 점 안내.
+- ~~select 값에 따라 쓰이지 않는 조절 값 숨기기, 웹의 `_ST`(Tiling/Offset) 지원.~~ 20절
+- ~~마지막 단계가 최종 화면과 같은 기존 표본 정리 (`toon-ramp-lit`, `tiling-scroll-parallax`).~~ 20절
+- ~~일시정지나 `t=` 상태에서 이벤트 버튼이 아무 변화가 없는 점 안내.~~ 20절
 - Overlay 캔버스에서 씬 색상이 읽히는지 촬영으로 확정.
 - 저체력 비네트(`#4d1414`, 포화 빨강 기준 19.3/20)가 화면 약 75% 를 덮는다. 느린 작은 맥동이라 번쩍임으로 세지 않았다. Jay 가 지금 값으로 충분하다고 확정했다 (2026-11-03).
 
@@ -373,7 +373,7 @@ Jay 가 배포된 페이지를 훑어보고 1차 마무리로 두 가지를 요�
 **남은 과제**
 
 - `live.mjs` 로 같은 화면을 짧은 간격으로 여러 장 찍는 기능. 단계 본문의 움직임 주장("재생하면 끓듯이")을 정지 화면으로는 검증하지 못해 불의 결함이 리뷰까지 갔다.
-- 파티클 하나를 띄우는 표준 설정 문장 (불꽃, 연기 표본용). 지금은 확인한 만큼만 pitfalls 에 둔다.
+- ~~파티클 하나를 띄우는 표준 설정 문장 (불꽃, 연기 표본용).~~ 20절
 
 ## 18. 후속 1: 연속 촬영 (2026-11-03)
 
@@ -392,3 +392,14 @@ gzip 이 예산의 86% 라 표본을 늘리기 전에 이미지 용량을 정했
 - **촬영:** WebP 품질 0.85 → 0.75 (`tools/shots.mjs`). 원본 56장으로 재 보니 74% 크기였다. 실제 크기에서는 구별이 어렵고 4배 확대에서 물의 잔결이 조금 뭉개진다. 원본 PNG(`_shots/unity`)가 지금 촬영과 같은 표본 17개는 원본에서 다시 변환했다 (원본을 0.85 로 변환한 결과가 지금 webp 와 바이트까지 같은지로 확인). 원본이 없거나 오래된 9개(`depth-normal-edge-outline`, `flow-map-liquid`, `hologram-scanline-glitch`, `screen-shockwave-distortion`, `screen-vignette`, `scroll-distort-energy`, `surface-wet-snow`, `fire-noise-flame`, `wind-sway-foliage`)는 Unity 로 다시 찍었다 (오류·경고 0, 새 PNG 로 촬영).
 - **결과:** gzip 1,316KB → 1,064KB (예산 86% → 69%), 원본 2,883KB → 2,542KB. 전체 검사 통과.
 - **새 표본 기준** (가이드 7절): 표본당 gzip 증분 45KB 이하(`tools/size.mjs` 가 표시), PNG 한 장 24KB 경고·32KB 오류(전에는 32·48), 표본당 PNG 합 32KB 경고, 촬영 한 장 16KB 경고, `captures` 3장 이내. `flow-map-liquid` 의 촬영 3장(17~19KB)은 화면을 덮는 잔무늬 탓이라 경고로 둔다.
+
+## 20. 후속 3: 표본 다듬기 (2026-11-03)
+
+16·17절에 남았던 다듬기 다섯 가지를 했다. 앱과 가이드를 고쳤으므로 독립 리뷰를 한 번 받았다.
+
+- **마지막 단계 정리:** 최종 화면과 같은 마지막 단계를 지우고 설명을 앞 단계로 옮겼다. 처음 꼽은 `toon-ramp-lit`, `tiling-scroll-parallax` 에 더해, 새로 넣은 검사가 `fresnel-rim-glow`, `inverted-hull-outline` 을 찾았다. `wind-sway-foliage` 의 4단계는 지우지 않고 잎 색을 뺀 조명만 보여 주게 바꿨다 (양면 조명이라는 내용이 앞 단계와 달라서). Unity 컴파일 5개 통과. `palette-swap-lut` 3단계는 투명 출력이라 최종과 화면이 조금 다르고 '팔레트 색' 이라는 개념 단계라 그대로 두었다.
+- **검사:** 마지막 `SG_STEP(n, x)` 바로 뒤에 `return float4(x, 1.0)` 이 오면 경고한다. 패스가 둘이면 모든 마지막 단계가 그 모양일 때만 (`xray-occluded-silhouette` 의 실루엣 패스는 3단계가 알파라 제외된다).
+- **`showWhen`:** select 값에 따라 셰이더가 쓰지 않는 조절 값을 패널에서 숨긴다. `screen-transition-wipe._Cells`, `ui-sdf-shape._Radius`·`_Aspect`, `surface-wet-snow._WetDarkness`·`_SnowColor`. 대응은 리뷰가 core 와 대조했다. 검사가 키, 선택지, 빈 목록을 확인한다.
+- **웹 `_ST`:** 텍스처마다 `<이름>_ST` 유니폼을 (1, 1, 0, 0) 으로 넘긴다. core 가 쓰면 래퍼 `CBUFFER` 의 `float4` 와 `[NoScaleOffset]` 없음을 검사하고, 스프라이트 `_MainTex_ST` 는 `[PerRendererData]` 라 막는다. 임시로 `surface-wet-snow` 에 넣어 오류 두 가지와 통과(WebGL 컴파일)를 확인하고 되돌렸다. 기존 표본은 바꾸지 않았다.
+- **일시정지 이벤트 안내:** 멈춘 상태에서 이벤트를 누르면 재생 막대 아래에 "시작 순간에 멈춰 있다" 를 띄운다. 재생하면 사라진다. 번쩍임 제한에 걸려 이벤트가 버려지면 띄우지 않는다 (`ShaderStage.fire` 가 성공 여부를 돌려준다). 처음 문구의 "Space 로 재생" 은 버튼에 포커스가 있으면 그 버튼을 다시 누르게 되어 뺐다 (리뷰 지적).
+- **파티클 표준 문장:** 가이드 4절 메시 무대 `color` 항목. Start Speed 0, Max Particles 1, Shape 끔, Renderer Material. 메뉴 이름은 Unity 에서 확인하지 않았다. Color over Lifetime 의 기본 그라데이션은 불투명이라 양 끝 알파를 0 으로 두라고 적었다 (리뷰 판단, 확인 안 함).

@@ -29,6 +29,8 @@ interface ParamBase {
   label: string
   /** 이 값이 화면에서 무엇을 바꾸는지 */
   hint?: string
+  /** 같은 표본의 select 값(key)이 values 중 하나일 때만 조절 패널에 보인다. 셰이더가 다른 선택에서는 이 값을 쓰지 않을 때 */
+  showWhen?: { key: string; values: string[] }
 }
 export type ParamDef =
   | (ParamBase & { type: 'range'; min: number; max: number; step: number; default: number; unit?: string })

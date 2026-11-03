@@ -682,6 +682,12 @@ a.card:hover {
   border-left: 3px solid var(--bad);
   padding: 4px 10px;
 }
+.pause-note {
+  font-size: 0.9rem;
+  color: var(--text-2);
+  border-left: 3px solid var(--warm);
+  padding: 4px 10px;
+}
 .playbar {
   display: flex;
   flex-wrap: wrap;

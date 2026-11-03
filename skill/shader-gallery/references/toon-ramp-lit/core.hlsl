@@ -66,6 +66,5 @@ float4 sgEffect(SgInput i)
 
     // 최종: 기본 색에 곱한다. 환경광(lighting)은 쓰지 않는다. 그늘의 밝기는 그늘 색이 정한다.
     float3 color = _BaseColor.rgb * tint;
-    SG_STEP(4, color);
     return float4(color, 1.0);
 }

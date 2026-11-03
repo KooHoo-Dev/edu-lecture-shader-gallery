@@ -235,13 +235,15 @@ class ShaderStage {
     this.last = performance.now()
   }
 
-  fire(eventId: string) {
+  /** 이벤트를 시작한다. 없는 이벤트이거나 번쩍임 제한에 걸리면 false */
+  fire(eventId: string): boolean {
     const meta = this.specimen?.meta
     const event = meta?.events.find(e => e.id === eventId)
-    if (!event) return
-    if (meta?.flashes && !requestFlash()) return
+    if (!event) return false
+    if (meta?.flashes && !requestFlash()) return false
     this.active.push({ tracks: event.tracks, start: this.time })
     this.dirty = true
+    return true
   }
 
   /** 현재 화면을 PNG 로 */
@@ -469,6 +471,8 @@ class ShaderStage {
     for (const def of meta.params) uniforms[def.key] = { value: paramToUniform(def, def.default) }
     for (const name of textureNames(meta)) {
       uniforms[`${name}_TexelSize`] = { value: new THREE.Vector4(1 / 256, 1 / 256, 256, 256) }
+      // 머티리얼의 Tiling, Offset. 웹은 Unity 새 머티리얼의 기본값(반복 1, 오프셋 0)으로 둔다
+      uniforms[`${name}_ST`] = { value: new THREE.Vector4(1, 1, 0, 0) }
       uniforms[name] = { value: this.loadTexture(name) }
     }
     const material = new THREE.RawShaderMaterial({

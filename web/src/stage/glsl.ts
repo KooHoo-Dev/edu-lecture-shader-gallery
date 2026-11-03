@@ -176,7 +176,7 @@ export function stripComments(source: string): string {
 
 function uniformDeclarations(meta: SpecimenMeta): string {
   const lines = meta.params.map(p => `uniform ${p.type === 'color' ? 'vec4' : 'float'} ${p.key};`)
-  for (const name of textureNames(meta)) lines.push(`uniform sampler2D ${name};`, `uniform vec4 ${name}_TexelSize;`)
+  for (const name of textureNames(meta)) lines.push(`uniform sampler2D ${name};`, `uniform vec4 ${name}_TexelSize;`, `uniform vec4 ${name}_ST;`)
   return lines.join('\n')
 }
 

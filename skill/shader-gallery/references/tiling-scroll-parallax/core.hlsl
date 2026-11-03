@@ -42,6 +42,5 @@ float4 sgEffect(SgInput i)
 
     // 최종: 먼 층은 공기 색에 묻혀 흐려 보이게 섞는다. 계수와 함께 쓰면 거리감이 커진다.
     float3 rgb = lerp(tex.rgb, _HazeColor.rgb, _Haze);
-    SG_STEP(3, rgb * tex.a);
     return float4(rgb, tex.a);
 }

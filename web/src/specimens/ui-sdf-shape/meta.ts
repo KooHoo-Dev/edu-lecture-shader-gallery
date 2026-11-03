@@ -30,11 +30,11 @@ export const meta: SpecimenMeta = {
       default: '0',
     },
     { key: '_Fill', label: '채움 양', type: 'range', min: 0, max: 1, step: 0.01, default: 0.7, hint: '가로로 긴 사각형은 왼쪽부터, 세로로 긴 사각형과 원은 아래부터, 링은 12시부터 시계 방향으로 찬다. C# 이 체력이나 쿨타임으로 움직인다' },
-    { key: '_Radius', label: '모서리 반경', type: 'range', min: 0, max: 1, step: 0.01, default: 0.6, hint: '사각형의 모서리와 링 끝의 둥글기. 1 이면 반원. 원에는 영향이 없다' },
+    { key: '_Radius', showWhen: { key: '_Shape', values: ['0', '2'] }, label: '모서리 반경', type: 'range', min: 0, max: 1, step: 0.01, default: 0.6, hint: '사각형의 모서리와 링 끝의 둥글기. 1 이면 반원. 원에는 영향이 없다' },
     { key: '_OutlineWidth', label: '윤곽 두께', type: 'range', min: 0, max: 0.08, step: 0.005, default: 0.025, hint: '이미지 짧은 변에 대한 비율. 0 이면 윤곽이 없다' },
     { key: '_FillColor', label: '채움 색', type: 'color', default: '#4fd1c5', hint: '아직 안 채운 자리는 이 색이 옅게 비친다' },
     { key: '_OutlineColor', label: '윤곽 색', type: 'color', default: '#f4f1de' },
-    { key: '_Aspect', label: '도형 가로세로 비', type: 'range', min: 0, max: 5, step: 0.1, default: 2.5, hint: '사각형과 원의 가로 대 세로. 1 보다 작으면 세로 게이지가 되어 아래부터 찬다. 원을 늘리면 캡슐이 된다. 0 이면 비율을 버리고 Image 를 꽉 채운다 (Image 크기가 곧 막대 크기일 때). 링에는 영향이 없다' },
+    { key: '_Aspect', showWhen: { key: '_Shape', values: ['0', '1'] }, label: '도형 가로세로 비', type: 'range', min: 0, max: 5, step: 0.1, default: 2.5, hint: '사각형과 원의 가로 대 세로. 1 보다 작으면 세로 게이지가 되어 아래부터 찬다. 원을 늘리면 캡슐이 된다. 0 이면 비율을 버리고 Image 를 꽉 채운다 (Image 크기가 곧 막대 크기일 때). 링에는 영향이 없다' },
   ],
   presets: [
     { id: 'cooldown', name: '쿨타임 링', look: '스킬 아이콘 둘레에서 12시부터 시계 방향으로 차오르는 링', values: { _Shape: '2' } },
