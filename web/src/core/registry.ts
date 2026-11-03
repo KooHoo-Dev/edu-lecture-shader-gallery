@@ -80,6 +80,11 @@ const PLANNED_ALL: PlannedSpecimen[] = [
   { id: 'ui-backdrop-blur', title: '배경 블러 유리', group: 'F', order: 3, kind: 'depth', oneLiner: '패널 뒤 화면을 흐리게 비춘다' },
   { id: 'depth-normal-edge-outline', title: '깊이·법선 윤곽선 후처리', group: 'G', order: 2, kind: 'fullscreen', oneLiner: '깊이와 법선 차이로 전체 화면에 윤곽선을 그린다' },
   { id: 'screen-vignette', title: '화면 비네트', group: 'G', order: 3, kind: 'fullscreen', oneLiner: '화면 가장자리를 어둡게 하거나 붉게 한다' },
+  // 묶음 7 (2026-11-03): 뺀 후보 풀에서 추가 (shader-selection 27~30번)
+  { id: 'matcap-lit-sphere', title: '매트캡', group: 'A', order: 5, kind: 'mesh', oneLiner: '빛을 그린 공 텍스처 한 장으로 조명 없이 재질을 낸다' },
+  { id: 'cloak-refraction-shimmer', title: '클로킹 투명화', group: 'B', order: 4, kind: 'depth', oneLiner: '뒤 장면을 휘어 비추고 윤곽만 남겨 몸을 감춘다' },
+  { id: 'ground-aoe-indicator', title: '지면 범위 표시', group: 'D', order: 6, kind: 'depth', oneLiner: '바닥과 소품 위에 스킬 범위를 투영해 그린다' },
+  { id: 'screen-crt-scanline', title: 'CRT 화면 필터', group: 'G', order: 4, kind: 'fullscreen', oneLiner: '스캔라인과 형광체 무늬로 옛 모니터 화면을 만든다' },
 ]
 
 export const PLANNED: PlannedSpecimen[] = PLANNED_ALL.filter(p => !SPECIMENS.some(s => s.meta.id === p.id))

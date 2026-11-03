@@ -114,6 +114,16 @@
 - **수업 연계**: 3D 외부 에셋 FORGE3D의 `HeatDepthFixed`, XR 01 Lake Shader(물 표면).
 - **core.hlsl**: △~○ (씬 컬러 샘플은 래퍼, 오프셋 계산이 core). **XR △**. 우선순위는 `screen-shockwave-distortion`과 같은 기법이라 같은 묶음으로 만든다.
 
+#### 27. matcap-lit-sphere — 매트캡 (★1, 추가, 근거 중)
+- **설명**: 빛을 받은 공을 그린 텍스처 한 장(매트캡)을 준비하고, 픽셀의 법선을 화면 기준(카메라의 오른쪽·위 축)으로 바꿔 그 xy 를 `0.5 + 0.5 * n.xy` 로 텍스처 좌표 삼아 색을 읽는다. 라이트 계산이 없고 텍스처 한 번 읽기로 점토, 금속, 툰 같은 재질과 조명을 통째로 흉내 낸다. 조명이 텍스처에 구워져 있어 빛은 늘 카메라를 따라온다.
+- **왜 자주 쓰나**: 원전은 Sloan 등(Graphics Interface 2001)의 lit sphere 로, 화가가 공에 그린 음영 연구를 "법선으로 칠하기"로 3D 모델에 옮긴다. 텍스처 중심은 눈을 향한 법선, 가장자리는 윤곽선에 대응하며, 당시 SGI 환경 매핑 하드웨어로 실시간 표시했다고 적었다. 같은 논문이 시선 쪽으로 나가는 빛만 담으므로 애니메이션에서 무늬가 눈을 따라 "헤엄친다"는 한계도 밝힌다. 오늘날에는 Unity 가 Shader Graph Feature Examples(UV Projection 분류의 "Mat Cap (Sphere Mapping)", 가장 싼 반사지만 늘 카메라를 향해 정확하지 않다고 설명), Unity Toon Shader 패키지의 MatCap 설정(곱하기·더하기 합성, 밉맵 블러, 카메라 롤 안정화, 전용 법선맵, 마스크), HDRP Scene 뷰의 MatCap 모드를 공식으로 낸다. VRM 의 표준 툰 셰이더 규격 MToon 1.0 이 `matcapTexture` 를 규격 항목으로 두고 조명 결과에 더한다. Blender(뷰포트 Lighting 의 MatCap)와 ZBrush(Maxon: "조명이 구워진 재질")에서는 모델링 미리보기의 기본 도구다. 비용 측면에서는 Banzai Games 기술 아티스트의 글이 모바일 대전 게임의 금속 반사를 "싸고 처리하기 쉬운" 매트캡으로 만들었다고 밝힌다. 출처: https://graphicsinterface.org/proceedings/gi2001/gi2001-17 (○, 2026-11-03 열람, 본문 PDF https://users.cs.northwestern.edu/~bgooch/PDFs/LitSphere.pdf ○) · https://docs.unity3d.com/Packages/com.unity.shadergraph@17.4/manual/Shader-Graph-Sample-Feature-Examples.html (○) · https://docs.unity3d.com/Packages/com.unity.toonshader@0.13/manual/MatCap.html (○) · https://github.com/vrm-c/vrm-specification/blob/master/specification/VRMC_materials_mtoon-1.0/README.md (○) · https://docs.blender.org/manual/en/4.4/editors/3dview/display/shading.html (○) · https://www.gamedeveloper.com/design/rendering-process-in-shadow-fight-3 (○)
+- **대표 게임 예**: Shadow Fight 3(Game Developer 의 2019-02-15 글로 확인. 글쓴이 Roman Tersky 는 Nekki 의 개발 파트너 Banzai Games 의 리드 기술 아티스트이고, 갑옷·무기의 금속 부위를 RGB 마스크의 G 채널로 골라 매트캡을 입히며 장소마다 512×512 매트캡을 따로 만든다고 적었다. 화면 미확인). 출시 2017(전 세계 2017-11-16, iOS·Android), 개발 Banzai.Games, 배급 Nekki(Wikipedia 시리즈 문서 https://en.wikipedia.org/wiki/Shadow_Fight ○. 일부 기사는 Nekki 를 개발사로도 적는다).
+- **무대**: 메시. 카메라 오른쪽·위 축(`cameraRightWS`, `cameraUpWS`)이 필요하다(아래 설계 제안 1).
+- **URP 핵심 기법**: 월드 법선을 카메라 축에 내적해 화면 법선 xy 를 얻기(래퍼는 `UNITY_MATRIX_V[0].xyz`, `[1].xyz`), `0.5 + 0.5 * xy` 로 UV, 가장자리 텍셀을 피하는 축소(MToon 은 0.495), 원근 보정(픽셀별 시선 방향으로 기저를 다시 세워 화면 가장자리와 평평한 면의 어긋남을 줄임), 매트캡 텍스처는 Clamp·압축 없음, 바탕색과 곱하기 또는 더하기 합성, 라이트·그림자 키워드 없음(Unlit 패스).
+- **수업 연계**: 3D 14 Animation 의 `Jay/URP/SimpleUnlitToon` 이 Unlit 이라 음영이 없는데, 매트캡은 Unlit 을 유지한 채 입체감을 주는 가장 싼 방법이다. 3D 01 Rendering(머티리얼과 라이트: "빛을 계산하지 않고 그림으로 흉내 내기"의 대조). XR 06 VR Avatar 와 모바일 XR(라이트 없는 저비용 셰이딩). `fresnel-rim-glow`(같은 시선·법선 내적), `toon-ramp-lit`(빛을 따르는 툰과의 비교)과 묶어 본다. 수업 프로젝트 세 곳에서 매트캡, MToon, lilToon, VRM 파일은 찾지 못했다(파일 이름·셰이더·머티리얼 검색).
+- **core.hlsl**: ○ (카메라 축은 래퍼가 넘기고 UV 계산과 합성이 core). **XR ○** (래퍼의 `UNITY_MATRIX_V` 는 눈마다 다르다. 원근 보정을 켜면 눈마다 시선 방향이 달라 반사가 두 눈에서 조금 다르게 보인다. 실기기 미확인).
+- **비고 (2026-11-03 결정)**: 표본 화면에 금속 마스크가 없어 대표작이 빌린 축(마스크로 금속 부위만, 장소마다 다른 매트캡)이 보이지 않는다. 그래서 표본의 `inspiredBy` 는 비워 두고 위 근거는 이 카드에만 둔다.
+
 ### 상태 피드백 (3개)
 
 #### 5. dissolve-edge-glow — 디졸브 (★2, 1순위, 샘플 S, 근거 강)
@@ -142,6 +152,15 @@
 - **URP 핵심 기법**: `ZTest Greater`, `ZWrite Off`, Render Objects 렌더러 기능과 레이어 마스크, 스텐실 대안. 셰이더만으로는 안 되고 렌더러 기능 설정이 함께 필요하다.
 - **수업 연계**: XR 10 MR Portal의 `PortalMask`(스텐실), XR 11 MR Room의 `Occlusion`(깊이만 쓰기). 같은 도구(Stencil, ZTest)를 쓰는 짝이다. 3D 17 FPS Game.
 - **core.hlsl**: △ (ZTest와 렌더러 기능이 본질, core는 색 계산). **XR ○** (깊이 텍스처 복사가 필요 없는 깊이 버퍼 테스트라고 판단, 추정).
+
+#### 28. cloak-refraction-shimmer — 클로킹 투명화 (★3, 추가, 근거 강~중)
+- **설명**: 캐릭터 몸 대신 뒤 장면(Opaque Texture)을 법선 방향으로 조금 밀어 그려 거의 보이지 않게 하고, 프레넬 테두리로 윤곽만 남긴다. 진행값 하나(0 보임 ~ 1 은신)가 노이즈와 높이로 만든 경계 띠를 몸 위로 훑으며 위장을 켜고 끈다. 피격 때 잠깐 드러나는 연출을 이벤트로 더한다.
+- **왜 자주 쓰나**: 여러 엔진이 이 효과를 기본 셰이더 기능으로 넣었다. Valve 가 공개한 Source SDK 2013 의 `VertexLitGeneric` 에는 "cloak render in a second pass" 파라미터(`$cloakpassenabled`, `$cloakfactor`, `$cloakcolortint`, `$refractamount`)가 있고, 그 픽셀 셰이더(`cloak_blended_pass_ps2x.fxc`)가 프레임 버퍼 복사본을 화면 공간 법선만큼 밀어 읽고(포아송 블러 포함), `1 - N·V` 프레넬로 은신 마스크를 만들며, 은신이 끝날수록 미는 양·블러·색조를 0 으로 줄인다. CryEngine 3 셰이더 목록에 "see-through / aberration" 용 `CloakLayer` 셰이더가 있고, Microsoft XNA 의 Distortion 샘플이 화면 공간 왜곡의 예로 투명 망토를 든다. Unity 쪽은 URP Asset 문서가 Opaque Texture 를 "투명 메시를 그리기 직전 장면의 스냅샷"이라 설명하고, URP 용 Shader Graph 실험 저장소가 `_CameraOpaqueTexture` 로 투명 망토를 흉내 내며 그림자 처리를 따로 적는다. 출처: https://raw.githubusercontent.com/ValveSoftware/source-sdk-2013/master/src/materialsystem/stdshaders/cloak_blended_pass_ps2x.fxc (○, 2026-11-03 열람, 소스) · https://raw.githubusercontent.com/ValveSoftware/source-sdk-2013/master/src/materialsystem/stdshaders/vertexlitgeneric_dx9.cpp (○, 소스) · https://www.cryengine.com/docs/static/engines/cryengine-3/categories/1114113/pages/1048660 (○, 목록 한 줄만) · https://github.com/SimonDarksideJ/XNAGameStudio/wiki/Distortion (○, 커뮤니티 보관본 소개 문장만, 샘플 소스 미열람) · https://docs.unity.com/en-us/engine/6000.3/manual/render-pipelines/universal-render-pipeline/urp-reference/universalrp-asset (○) · https://docs.unity3d.com/Packages/com.unity.shadergraph@17.3/manual/Scene-Color-Node.html (○) · https://github.com/gamedevserj/Shader-Graph-Experiments (○, Unity 2019.3 / Shader Graph 7.3.1 시절)
+- **대표 게임 예**: Team Fortress 2(출시 2007, 제작 Valve, Steam 상점 페이지로 확인: https://store.steampowered.com/app/440/Team_Fortress_2/ ○). Valve 가 공개한 같은 저장소의 TF2 클라이언트 코드 `src/game/client/tf/c_tf_player.cpp` 에 "Used for spy invisibility material" 주석이 달린 `CSpyInvisProxy`(`spy_invis` 머티리얼 프록시)가 있고, 기반 클래스(`tf_proxyentity.cpp`)가 `$cloakfactor` 를 찾아 은신 비율을 넣는다. 같은 프록시가 `$cloakColorTint` 를 팀 색으로 바꾼다(○, 2026-11-03 소스 열람). Valve Developer Community 위키의 `VertexLitGeneric` 문서도 이 파라미터가 TF2 스파이 클로크 효과를 지원한다고 적는다(https://developer.valvesoftware.com/wiki/VertexLitGeneric △, 봇 차단으로 열지 못함). 화면은 직접 확인하지 못했다.
+- **무대**: 깊이 사용(씬 컬러 겸용). `mesh: 'capsule'`(캐릭터 대신)이 상자, 공 앞에 선다.
+- **URP 핵심 기법**: `SampleSceneColor`(Opaque Texture), 법선을 카메라 오른쪽·위 축에 내린 화면 좌표 오프셋, 밀린 좌표의 깊이 비교로 앞 물체 끌림 방지(`screen-refraction-glass` 와 같은 가드), 프레넬 테두리, 노이즈 + 높이 진행값 경계 띠, 흐르는 스캔라인(선택), Transparent 큐에서 알파 1 로 그리기, 그림자는 C# 이 `shadowCastingMode` 로 끔. URP 에셋 Opaque Texture + Depth Texture.
+- **수업 연계**: 3D 17 FPS Game(보스전의 은신 적, 피격 시 드러남), 3D 08 Skinned Mesh·14 Animation(여러 렌더러로 된 캐릭터에 머티리얼 일괄 적용). 3D 07 External Assets 의 FORGE3D `HeatDepthFixed`, `Holographic` 이 같은 원리(씬 컬러 왜곡, 스캔라인)를 에셋으로 이미 쓴다. 갤러리 안에서는 `screen-refraction-glass`(굴절), `fresnel-rim-glow`(테두리), `dissolve-edge-glow`(경계 띠 훑기), `hologram-scanline-glitch`(스캔라인)를 합친 응용편이다.
+- **core.hlsl**: ○ (씬 컬러·깊이 샘플은 래퍼, 오프셋·마스크·테두리 계산이 core). **XR △** (Opaque Texture 는 눈마다 배열이고 untethered 기기에서 끄라는 권고가 있다. 실기기 미확인).
 
 ### 자연 (5개)
 
@@ -237,6 +256,16 @@
 - **수업 연계**: 3D 07 External Assets의 FORGE3D `Additive`, `AlphaBlended` 그래프, 2D의 MagicArsenal 이펙트가 같은 원리를 쓴다.
 - **core.hlsl**: ◎. **XR ○**.
 
+#### 29. ground-aoe-indicator — 지면 범위 표시 (★3, 추가, 근거 중~강)
+- **설명**: 바닥과 소품을 감싸는 상자 메시를 그리고, 픽셀마다 씬 깊이로 그 자리에 실제로 있는 표면의 위치를 되살린다. 그 위치를 상자 공간으로 옮겨 상자 밖은 버리고, 위에서 내려다본 좌표(xz)로 원, 고리, 부채꼴을 그린다. 바닥이 울퉁불퉁하거나 소품이 끼어 있어도 표시가 표면을 따라 붙는다. 스킬 사거리, 공격 예고, 대상 선택 고리에 쓴다. URP Decal Projector 를 쓰지 않고 HLSL 로 직접 쓰는 박스 투영이다.
+- **왜 자주 쓰나**: 상자를 그려 깊이에서 위치를 되살리고 상자 공간으로 투영해 밖을 버리는 "화면 공간(지연) 데칼"은 업계 표준으로 불릴 만큼 흔하다. Wronski 는 이 방식을 "industry standard" 라 부르며 상자 공간 투영과 가장자리 밉 문제를 다룬다. Unity 블로그(Aras, 2015)가 상자 하나가 그 안의 모든 지오메트리에 영향을 주는 지연 데칼 예제를 보이고, Unreal 문서도 데칼을 "영향 영역을 둘러싼 상자"로 그리며 비용이 화면에서 상자 크기에 비례한다고 쓴다. URP 17 에도 같은 계열의 Decal Renderer Feature 가 들어 있다. Unity 문서의 깊이에서 월드 위치 복원 예제(`ComputeWorldSpacePosition`)가 손으로 쓰는 판의 기초다. 지면 범위 표시라는 쓰임에 대한 근거는 Riot 기술 글(포탑 사거리 표시를 데칼 단계에서 그림, 아래 대표 게임 참고)과 커뮤니티 글(Unreal 포럼의 MOBA 사거리 데칼, Godot 의 텔레그래프 데칼 셰이더)이다. 출처: https://bartwronski.com/2015/03/12/fixing-screen-space-deferred-decals/ (○, 2026-11-03 열람) · https://unity.com/blog/engine-platform/extending-unity-5-rendering-pipeline-command-buffers (○, 2026-11-03 열람) · https://dev.epicgames.com/documentation/en-us/unreal-engine/decal-actors-in-unreal-engine (○, 2026-11-03 열람) · https://docs.unity.com/en-us/engine/6000.3/manual/materials-and-shaders/shaders/writing-custom-shaders-urp/writing-shaders-urp/reconstruct-world-position (○, 2026-11-03 열람) · https://www.riotgames.com/en/news/trip-down-lol-graphics-pipeline (○, 2026-11-03 열람) · https://godotshaders.com/shader/constructive-telegraph-decals/ (△, 열기 실패 429, 검색 요약만)
+- **대표 게임 예**: 범용 기법, 대표작 미확인. 깊이 투영 방식의 지면 표시를 특정 게임과 묶은 개발 발표나 공식 글을 찾지 못했다. 참고로 Riot 의 기술 글(Tony Albrecht, 2017-01-12)은 League of Legends 의 포탑 사거리 표시를 "지형 위에 겹쳐 놓는 단순한 평면 텍스처 지오메트리"인 데칼로 설명한다. 사거리 표시라는 쓰임은 맞지만 깊이 투영이 아니라 **평면 메시 방식**이라 이 표본의 대표작으로는 적지 않는다. Wronski 글이 언급하는 Saints Row: The Third, Warhammer 40,000: Space Marine 의 데칼 발표도 일반 데칼(총탄 자국 등)이지 지면 표시가 아니다.
+- **무대**: 깊이 사용 (`mesh: 'cube'`). 상자가 바닥 가운데를 덮고 오른쪽 상자 소품의 모서리와 왼쪽 공의 옆면이 상자 안에 들어온다(배치 계산, 촬영 미확인).
+- **URP 핵심 기법**: `SampleSceneDepth` 로 씬 깊이를 읽고, 이 픽셀과 씬 표면이 같은 시선 위에 있다는 점으로 씬 위치를 되살린다(Unity 예제는 `ComputeWorldSpacePosition(UV, depth, UNITY_MATRIX_I_VP)`). 상자 공간으로 옮겨 `abs(p) > 0.5` 면 버리기, xz 로 원·고리·부채꼴 SDF, `ddx`/`ddy` 로 되살린 위치의 법선을 구해 옆면 감쇠, `ZWrite Off` 알파 혼합, URP 에셋 Depth Texture.
+- **수업 연계**: 수업 프로젝트에 같은 효과는 없다(확인한 범위). 3D 17 FPS Game 보스전의 공격 예고, 3D 15 Navigation 의 이동 목표 표시, 3D 05 Terrain 의 울퉁불퉁한 지형 위 투영이 쓰임새다. 2D 15 Mini Defence 의 사거리 표시는 같은 발상이지만 2D Renderer 라 깊이 무대 패스가 그려지지 않으므로 직접 연결하지 않는다. `force-field-intersection`(깊이 차이)의 다음 단계로, 깊이를 "차이"가 아니라 "위치"로 되살리는 첫 표본이다.
+- **core.hlsl**: ○ (위치 복원, 상자 공간, 모양, 감쇠 계산이 core. 깊이는 래퍼. 단, 상자 공간으로 옮기려면 무대에 새 입력이 필요하다. 설계 제안 2절). **XR △** (Depth Texture 필요, 모바일 XR 에셋은 꺼짐, 실기기 미확인).
+- **비고 (2026-11-03 결정)**: 상자 공간으로 옮기는 입력은 무대에 `cameraPosOS` 를 더해 해결했다 (가이드 4절).
+
 ### 2D (3개)
 
 #### 16. sprite-outline-hit-flash — 스프라이트 외곽선 + 피격 번쩍임 (★2, 1순위, 샘플 S, 근거 강)
@@ -326,6 +355,16 @@ UI 표본은 UGUI에서 쓰는 것을 기본으로 한다. 정점 색과 UV를 �
 - **수업 연계**: XR의 XRI `TunnelingVignette` 샘플과 터널링 설정, 2D·3D 체력 HUD(UI 갤러리 체력 바 계열과 연결).
 - **core.hlsl**: ◎. **XR △** (눈별 대칭과 시야각 기준 정의 필요). URP Volume에 내장 Vignette가 있어 기능이 겹치는 점은 7절 6번(일반 지식, 미검증).
 
+#### 30. screen-crt-scanline — CRT 화면 필터 (★2, 추가, 근거 중)
+- **설명**: 화면을 가상 해상도의 가로 줄(스캔라인)로 나누고, 줄 중심에서 화면 색을 읽어 빔 모양으로 밝기를 깎는다. 그 위에 RGB 형광체 마스크(세로 줄 또는 슬롯), 볼록한 화면 휨(배럴 왜곡)과 가장자리 검은 테, 비네트, 가로 색 번짐을 얹는다. 어두워진 만큼 밝기를 되돌린다. 하프톤은 넣지 않는다(설계 제안 1번).
+- **왜 자주 쓰나**: libretro 문서가 CRT 셰이더를 "CRT 디스플레이의 특성을 현대 하드웨어로 재현"하는 것으로 정의하고, 대부분이 스캔라인과 형광체 마스크를 쓰며 일부가 가짜 곡률을 더한다고 정리한다. 같은 문서가 crt-geom, Timothy Lottes 작업 기반의 crt-lottes, crt-royale 등 수십 종을 나열하고 "정수 배율에서 더 좋아 보인다", 약한 기기에는 zfast-crt 를 먼저 쓰라고 안내한다. crt-royale 문서는 세로 줄(aperture grille), 슬롯, 섀도 마스크 세 가지를 다루고, 마스크와 스캔라인으로 잃는 밝기를 블룸으로 되돌리는 것과 그 비용을 설명한다. libretro 포럼 스레드(2018)는 곡률이 스캔라인을 휘게 해 화면 픽셀 격자와 어긋나 모아레가 생기고 정수 배율로도 잘 안 사라지며 약간의 흐림이 필요하다는 점을 반복한다. Unity 공식 Production Ready 후처리 샘플에는 CRT 가 없고 Half Tone 과 VHS 가 따로 있다. 출처: https://docs.libretro.com/shader/crt/ (○, 2026-11-03 열람) · https://docs.libretro.com/shader/crt_royale/ (○, 2026-11-03 열람) · https://forums.libretro.com/t/shader-curvature-and-moire/16174 (○, 2026-11-03 열람) · https://docs.unity3d.com/Packages/com.unity.shadergraph@17.4/manual/Shader-Graph-Sample-Production-Ready-Post.html (○, 2026-11-03 열람)
+- **대표 게임 예**: Teenage Mutant Ninja Turtles: Shredder's Revenge(2022-12-23 업데이트 보도 자료로 확인. 옵션 메뉴에 CRT 필터 일반·곡면과 VCR 필터를 더했다는 Tribute Games·Dotemu 명의 글). 출시 2022(PC·Switch·PS4·Xbox One 2022-06-16), 개발 Tribute Games, 배급 Dotemu (Wikipedia 로 확인). 출처: https://indigo-pearl.prezly.com/teenage-mutant-ninja-turtles-shredders-revenge-update-now-available (○, 2026-11-03 열람) · https://en.wikipedia.org/wiki/Teenage_Mutant_Ninja_Turtles:_Shredder%27s_Revenge (○, 2026-11-03 열람). 보도 자료는 옵션 이름만 밝히고 구현은 설명하지 않는다. 하프톤 화면 셰이더의 대표작은 미확인.
+- **무대**: 전체 화면 (`stage.bright` 권장: 어두운 무대에서는 스캔라인과 마스크가 묻힌다).
+- **URP 핵심 기법**: Full Screen Pass(`_BlitTexture`, Requirements 없음), `texelSize` 로 화면 높이를 구해 스캔라인 간격을 정수 픽셀로 맞추기, 줄 중심 샘플, 빔 프로필(`smoothstep` 또는 가우시안), `fwidth` 로 줄이 너무 촘촘하거나 휠 때 대비 낮추기, 픽셀 열 번호로 RGB 마스크, 화면비 보정 배럴 왜곡과 바깥 검은 테, 가로 3탭 색 번짐, 밝기 보정, 비네트. 깜빡임·흘러가는 스캔라인은 쓰지 않는다.
+- **수업 연계**: 2D 99 Rockman 과 14 Action Platformer, 외부 에셋 Space Shooter Redux(레트로 픽셀 게임에 덮는 화면 필터). 2D Renderer 에서 Full Screen Pass 가 동작함은 plan 11절에서 확인됐다. 픽셀 퍼펙트 카메라(URP 2D 내장)의 기준 해상도와 가상 줄 수를 맞추는 이야기로 이어진다. `screen-vignette`(같은 가장자리 수식), `screen-shockwave-distortion`(UV 휨과 Clamp 샘플러), `hologram-scanline-glitch`(메시 위 월드 y 스캔라인과 비교).
+- **core.hlsl**: ◎ (`uv`, `aspect`, `texelSize`, `time`, `sgSource` 만 쓴다). **XR ✕** (머리에 고정된 화면 공간 줄무늬와 휨, 화면 중심이 눈 정면이 아님. 추정). XR 에서는 같은 core 를 가상 모니터 메시의 렌더 텍스처에 쓰는 방식을 권한다.
+- **비고 (2026-11-03 결정)**: 하프톤은 핵심 코드와 단계가 겹치지 않아 이 표본에 넣지 않고 5절 후보로 돌렸다. 정지 줄무늬 안전 규칙은 가이드 7절.
+
 ## 3. 우선순위 요약
 
 - **1순위 (12개)**: 샘플 4개(`dissolve-edge-glow`, `sprite-outline-hit-flash`, `force-field-intersection`, `screen-transition-wipe`)와 `toon-ramp-lit`, `fresnel-rim-glow`, `triplanar-projection`, `xray-occluded-silhouette`, `water-depth-foam`, `wind-sway-foliage`, `ui-sdf-shape`, `screen-vignette`. 근거가 강하고 수업 연계가 크며 규격 검증(메시, 깊이, 스프라이트, 전체 화면, UI)을 모두 덮는다.
@@ -353,9 +392,9 @@ UI 표본은 UGUI에서 쓰는 것을 기본으로 한다. 정점 색과 UV를 �
 
 | 후보 | 사유 |
 |---|---|
-| 지면 표시(AoE 범위 데칼) | URP Decal 렌더러 기능이 Shader Graph를 전제하고, 설계 근거는 MMO 위키와 포럼의 플레이어 관찰뿐이다. HLSL 박스 투영으로 살릴 수 있지만 ★3에 깊이 의존이다(7절 8번). |
+| ~~지면 표시(AoE 범위 데칼)~~ | 2026-11-03 추가 (29번 `ground-aoe-indicator`). 무대에 `cameraPosOS` 를 더해 HLSL 박스 투영으로 만든다. |
 | 속도선(방사형) | 근거가 오픈 소스 하나와 상용 팩 정도이고 Unity 6·URP 17 호환이 미확인이다. 후보 풀에 둔다. |
-| CRT·VHS·하프톤 | Production Ready 후처리에 있지만 레트로 룩에 한정된다. 필요하면 후속 배치. |
+| CRT·VHS·하프톤 | CRT 는 2026-11-03 추가 (30번 `screen-crt-scanline`). 하프톤(`screen-halftone-dots` 가칭, 근거 중~강: Unity Production Ready 후처리와 UGUI 샘플)은 후보로 둔다. VHS 는 깜빡임 부담으로 계속 뺀다. |
 | 볼류메트릭 구름·안개·물, 하늘 | 컴퓨트·레이마칭이 필요하고 ★3 이상이며 모바일 비용이 크다. 수업 연계도 약하다. |
 | 코스틱 | XR 수업의 `Caustics.shader`에 이미 있다. `water-depth-foam`에서 링크한다. |
 | 스텐실 포털, 깊이 가림 | XR 수업의 `PortalMask`, `Occlusion`에 이미 있다. `xray-occluded-silhouette`에서 링크한다. |
@@ -363,12 +402,12 @@ UI 표본은 UGUI에서 쓰는 것을 기본으로 한다. 정점 색과 UV를 �
 | 블룸, 피사계 심도, 색수차, LUT 색보정, SSAO | URP Volume과 렌더러 기능에 내장돼 있다(일반 지식). SSAO는 모바일 XR에서 비싸다고 Unity 문서가 경고한다(△). |
 | 퍼 셰이더(다중 셸) | 다중 패스 비용이 크고 수업 연계가 약하다. 에셋 팩 구성에는 등장하지만 이번 조사에서 원리 근거를 따로 찾지 않았다. |
 | 불·연기·플립북 | 파티클 시스템과 VFX Graph가 본체다. Feature Examples의 Flipbook이 있지만 별도 표본 가치가 낮다. |
-| 매트캡, 패럴랙스(오클루전), 인테리어 매핑 | Feature Examples에 있으나 사용 빈도 근거를 찾지 못했다. |
+| 매트캡, 패럴랙스(오클루전), 인테리어 매핑 | 매트캡은 2026-11-03 추가 (27번 `matcap-lit-sphere`). 나머지는 Feature Examples에 있으나 사용 빈도 근거를 찾지 못했다. |
 | 2D 픽셀화·픽셀 스냅 | Pixel Perfect Camera가 URP 2D에 내장돼 있다(△). |
 | 2D 노멀맵 라이팅 스프라이트 | 내장 Sprite-Lit이 있다. 1-2절 규격(패스 태그)으로 반영했다. |
 | 스프라이트 정점 왜곡(물 반사, 깃발) | 상용 에셋뿐이고 Camera Sorting Layer Texture 의존. 후보 풀. |
 | Gerstner·FFT 바다 | 범위가 너무 크다. `water-depth-foam`에서 Gerstner 몇 개만 쓴다. |
-| 투명화(클로킹), 얼음·냉동 | 이번 조사에서 근거를 찾지 못했거나 검색하지 않았다(얼음은 Production Ready의 볼류메트릭 얼음 한 건). |
+| 투명화(클로킹), 얼음·냉동 | 클로킹은 2026-11-03 추가 (28번 `cloak-refraction-shimmer`, Source SDK 공개 코드로 근거 확인). 얼음은 근거를 찾지 못했다. |
 | 스프라이트 샤인 단독 | `ui-sheen-sweep`의 2D 프리셋으로 흡수했다. |
 
 ## 6. 근거가 약하거나 확인하지 못한 항목

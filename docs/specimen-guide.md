@@ -177,12 +177,15 @@ float effectNoise(float2 p)
 
 | 무대 (`stage.kind`) | 무대 내용 | `SgInput` 필드 | 쓰는 함수 | 기준 샘플 |
 |---|---|---|---|---|
-| `mesh` | 바닥과 물체 하나 (`stage.mesh`). Y 30도에서 시작해 천천히 돈다 (`quad`, `plane`, `grass`, `grid` 는 돌지 않는다) | `uv color positionOS positionWS normalOS normalWS viewWS lightDirWS lightColor lighting shadow time` | | 디졸브 |
+| `mesh` | 바닥과 물체 하나 (`stage.mesh`). Y 30도에서 시작해 천천히 돈다 (`quad`, `plane`, `grass`, `grid` 는 돌지 않는다) | `uv color positionOS positionWS normalOS normalWS viewWS cameraRightWS cameraUpWS lightDirWS lightColor lighting shadow time` | | 디졸브 |
 | `sprite` | 정사영 카메라, 드론 스프라이트(또는 `stage.textures._MainTex`), 2유닛 높이 | `uv color texelSize time` | `SG_TEX(_MainTex, uv)` | 스프라이트 |
-| `depth` | 바닥, 상자, 공, 그 위를 덮는 물체 (`stage.mesh`). `plane` 이면 소품을 가르는 수면 높이에 놓인다 | `uv color positionOS positionWS normalOS normalWS viewWS cameraRightWS cameraUpWS screenUV depthDelta time` | `sgSceneColor(uv)`, `sgSceneDepth(uv)` | 역장 |
+| `depth` | 바닥, 상자, 공, 그 위를 덮는 물체 (`stage.mesh`). `plane` 이면 소품을 가르는 수면 높이에 놓인다 | `uv color positionOS positionWS normalOS normalWS viewWS cameraRightWS cameraUpWS cameraPosOS lightDirWS lightColor lighting screenUV depthDelta time` | `sgSceneColor(uv)`, `sgSceneDepth(uv)` | 역장 |
 | `fullscreen` | 바닥, 상자, 공을 그린 화면 전체 | `uv aspect texelSize time` | `sgSource(uv)`, `sgSceneDepth(uv)`, `sgSceneNormal(uv)` | 전환 |
 
 - `lighting` = `lightColor * saturate(dot(normalWS, lightDirWS)) + 환경광`. 대부분은 `albedo * i.lighting` 이면 된다. 툰처럼 빛을 직접 다루면 `lightDirWS`, `lightColor` 를 쓴다.
+- `cameraRightWS`, `cameraUpWS` 는 카메라의 오른쪽, 위 축(월드, 정규화)이다. 메시 무대에서는 매트캡처럼 화면 공간 법선을 쓰는 표본만 쓴다 (2026-11-03 추가). Unity 래퍼는 `UNITY_MATRIX_V[0].xyz`, `UNITY_MATRIX_V[1].xyz` 를 넘긴다. XR 에서는 눈마다 조금 다르다.
+- 깊이 무대의 `cameraPosOS` 는 카메라 위치를 이 물체의 오브젝트 공간으로 옮긴 값이다 (2026-11-03 추가). Unity 래퍼는 `TransformWorldToObject(GetCameraPositionWS())`. 같은 시선 위의 점은 오브젝트 공간에서도 같은 비율로 놓이므로, 깊이로 되살린 씬 표면의 오브젝트 공간 위치는 `positionOS + (positionOS - cameraPosOS) * (k - 1)` 이다 (`k` = 씬 눈 깊이 / 이 픽셀의 눈 깊이 = `sgSceneDepth(screenUV) / (sgSceneDepth(screenUV) - depthDelta)`). 상자 메시로 바닥에 투영하는 표본(지면 범위 표시)이 쓴다.
+- 깊이 무대의 `lightDirWS`, `lightColor`, `lighting` 은 메시 무대와 뜻이 같다 (2026-11-03 추가, 받는 그림자는 넣지 않는다). 투명 물체가 보이는 상태의 몸을 음영할 때 쓴다 (클로킹). Unity 래퍼는 `GetMainLight` 3인자 규칙대로 채운다.
 - `viewWS` 는 표면에서 카메라 쪽 방향. `normalWS`, `viewWS`, `normalOS` 는 정규화되어 있다.
 - `positionWS`, `normalOS` 는 삼평면 투영처럼 월드와 오브젝트 공간을 고르는 표본용이다. 기준 샘플 래퍼에는 없으므로, 쓰는 표본은 래퍼의 `SgInput` 과 `Varyings` 에 넣고 정점에서 `normalOS` 를 넘긴다. 메시 무대는 돌기 때문에 월드 공간 무늬는 물체 위를 흐르고 오브젝트 공간 무늬는 물체에 붙는다.
 - `depthDelta` = 씬 표면의 눈 깊이 - 이 픽셀의 눈 깊이 (미터). 눈 깊이는 카메라 정면 축 방향의 거리다 (시선 길이에 화면 중심에서 벗어난 각의 cos 을 곱한 값). 물체가 닿는 곳에서 0 에 가까워진다. 수직 깊이가 아니라 보는 각도에 따라 같은 물가에서도 값이 달라진다.
@@ -387,6 +390,7 @@ UGUI Image 에 쓰는 표본용이다. 미리보기는 스프라이트 무대에
 
 - 게임 원작의 텍스처, 모델, 셰이더 코드를 추출하거나 옮기지 않는다. 튜토리얼, 블로그, 오픈소스 코드도 복사하지 않고 원리만 참고해 출처를 링크한다. 코드는 새로 쓴다.
 - 게임명은 `inspiredBy` 에만 쓴다. ID, 제목, 프리셋, 단계, `references` 라벨, 변수 이름에는 쓰지 않는다. 강연 제목에 게임명이 들어 있으면 라벨은 저자와 주제로 바꿔 쓴다 (예: "Vlachos: 물 흐름 (SIGGRAPH 2010)", URL 은 그대로). `tools/check.mjs` 가 모든 표본의 `inspiredBy` 에서 게임명을 모아 다른 메타 글 전체와 코드의 이름(주석 제외)을 검사한다. 어느 표본의 `inspiredBy` 에도 없는 게임명은 잡지 못한다.
+- **화면 전체를 덮는 정지 줄무늬**(스캔라인, 격자): 밝고 어두운 줄이 많이 반복되는 정지 무늬도 광과민 반응을 일으킬 수 있다 (MDN 접근성 문서, 줄 쌍 5개 이상). 기본값에서 어두운 줄을 검정으로 만들지 않고 줄 대비를 중간 이하(어두운 줄이 밝은 줄의 60% 이상 밝기)로 둔다. 줄을 흘리거나 프레임마다 바꾸지 않는다(흘러가는 줄은 한 점을 지나는 빈도가 금방 3Hz 를 넘는다). `unity.pitfalls` 에 게임 옵션으로 끌 수 있게 하라고 적는다 (2026-11-03 추가).
 - 텍스처와 노이즈는 직접 생성한다. PNG 가 필요하면 코드로 만들고 긴 변 512 이하로 둔다.
 - **용량 기준** (2026-11-03). 단일 HTML 의 gzip 예산(1.5MB)을 표본들이 나눠 쓴다. 이미지는 base64 로 들어가 1.33배가 되고 gzip 으로도 거의 줄지 않아, 이미지 바이트가 곧 예산을 쓴다.
   - 표본 하나가 늘리는 gzip 은 45KB 이하. `node tools/size.mjs <id>` 로 잰다.

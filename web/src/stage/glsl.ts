@@ -24,7 +24,7 @@ uniform int _SgStep;
 `
 
 const INPUT: Record<StageKind, string> = {
-  mesh: `struct SgInput { float2 uv; float4 color; float3 positionOS; float3 positionWS; float3 normalOS; float3 normalWS; float3 viewWS; float3 lightDirWS; float3 lightColor; float3 lighting; float shadow; float time; };`,
+  mesh: `struct SgInput { float2 uv; float4 color; float3 positionOS; float3 positionWS; float3 normalOS; float3 normalWS; float3 viewWS; float3 cameraRightWS; float3 cameraUpWS; float3 lightDirWS; float3 lightColor; float3 lighting; float shadow; float time; };`,
   sprite: `struct SgInput { float2 uv; float4 color; float2 texelSize; float time; };`,
   depth: `uniform sampler2D _SgSceneDepth;
 uniform sampler2D _SgSceneColor;
@@ -35,7 +35,7 @@ float sgLinearEye(float raw) {
   return 2.0 * uNearFar.x * uNearFar.y / (uNearFar.y + uNearFar.x - z * (uNearFar.y - uNearFar.x));
 }
 float sgSceneDepth(float2 uv) { return sgLinearEye(texture(_SgSceneDepth, uv).r); }
-struct SgInput { float2 uv; float4 color; float3 positionOS; float3 positionWS; float3 normalOS; float3 normalWS; float3 viewWS; float3 cameraRightWS; float3 cameraUpWS; float2 screenUV; float depthDelta; float time; };`,
+struct SgInput { float2 uv; float4 color; float3 positionOS; float3 positionWS; float3 normalOS; float3 normalWS; float3 viewWS; float3 cameraRightWS; float3 cameraUpWS; float3 cameraPosOS; float3 lightDirWS; float3 lightColor; float3 lighting; float2 screenUV; float depthDelta; float time; };`,
   fullscreen: `uniform sampler2D _SgSource;
 uniform sampler2D _SgSceneDepth;
 uniform sampler2D _SgSceneNormal;
@@ -68,6 +68,7 @@ in vec3 vPositionWS;
 in vec3 vNormalOS;
 in vec3 vNormalWS;
 uniform vec3 cameraPosition;
+uniform mat4 viewMatrix;
 uniform vec3 uLightDir;
 uniform vec3 uLightColor;
 uniform vec3 uAmbient;
@@ -83,6 +84,9 @@ void main() {
   i.normalOS = normalize(SG_FLIP(vNormalOS));
   i.normalWS = normalize(SG_FLIP(vNormalWS));
   i.viewWS = normalize(SG_FLIP(cameraPosition - vPositionWS));
+  // 카메라의 오른쪽, 위 축 (월드). 깊이 무대와 같다 (Unity 래퍼는 UNITY_MATRIX_V[0].xyz, [1].xyz). 매트캡처럼 화면 공간 법선을 쓰는 표본용
+  i.cameraRightWS = SG_FLIP(vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]));
+  i.cameraUpWS = SG_FLIP(vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]));
   i.lightDirWS = SG_FLIP(uLightDir);
   // 받는 그림자 (stage.shadowProp 의 공). Unity 래퍼의 light.shadowAttenuation 에 해당하고, 빛 색에도 곱해 넘긴다
   i.shadow = uCaster.w > 0.0 ? sphereShadow(vPositionWS, uLightDir, uCaster) : 1.0;
@@ -116,6 +120,10 @@ in float vEyeDepth;
 uniform vec3 cameraPosition;
 uniform mat4 viewMatrix;
 uniform vec2 uViewport;
+uniform vec3 uCameraPosOS;
+uniform vec3 uLightDir;
+uniform vec3 uLightColor;
+uniform vec3 uAmbient;
 uniform float uTime;
 out vec4 sgOut;
 void main() {
@@ -132,6 +140,13 @@ void main() {
   // 카메라의 오른쪽, 위 축 (월드). 보기 행렬의 첫 두 행이다 (Unity 래퍼는 UNITY_MATRIX_V[0], [1])
   i.cameraRightWS = SG_FLIP(vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]));
   i.cameraUpWS = SG_FLIP(vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]));
+  // 카메라 위치를 이 물체의 오브젝트 공간으로 옮긴 값 (Unity 래퍼는 TransformWorldToObject(GetCameraPositionWS())).
+  // 깊이로 되살린 씬 표면을 상자 공간으로 옮기는 표본(지면 범위 표시)이 쓴다
+  i.cameraPosOS = SG_FLIP(uCameraPosOS);
+  // 주 광원. 메시 무대와 같은 뜻이다 (그림자 감쇠 없음)
+  i.lightDirWS = SG_FLIP(uLightDir);
+  i.lightColor = uLightColor;
+  i.lighting = uLightColor * saturate(dot(i.normalWS, i.lightDirWS)) + uAmbient;
   i.time = uTime;
   vec4 c = sgEffect(i);
   ${writeColor(cutout)}
