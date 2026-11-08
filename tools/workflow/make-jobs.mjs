@@ -30,7 +30,8 @@ verify:
 allowedTools: [${allowed.join(', ')}]
 writePaths:
 ${writePaths.map(p => `  - ${p}`).join('\n')}
-allowProfiles: [org]
+# 회사 크레딧(org)을 먼저 쓰고, 소진되면 Jay 계정 구독(sub)으로 넘어간다 (2026-11-08)
+allowProfiles: [org, sub]
 verifyLock: unity
 verifyTimeoutMinutes: 30
 timeoutMinutes: 60
